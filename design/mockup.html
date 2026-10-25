@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>beads-lite-ui redesign mockup</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Reference mockup. Static fake data (synthetic). URL: ?screen=board|decisions|detail|states&theme=light|dark&dir=ltr|rtl */
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:var(--fw-regular) var(--fs-m)/var(--lh-body) var(--font-ui)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.app{display:grid;grid-template-columns:var(--rail-w) 1fr;min-height:100vh}
+.rail{background:var(--surface);border-inline-end:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-3) 0}
+.rail a{width:40px;height:40px;border-radius:var(--radius-m);display:grid;place-items:center;color:var(--text-2);text-decoration:none;position:relative;font-size:18px}
+.rail a[aria-current]{background:var(--accent-soft);color:var(--accent)}
+.rail .badge{position:absolute;top:2px;inset-inline-end:0;background:var(--s-owner);color:#fff;font-size:11px;font-weight:600;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 4px;line-height:1}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+.ws{display:flex;align-items:center;gap:var(--sp-2);height:36px;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-m);background:var(--surface);color:var(--text);font:inherit;font-weight:var(--fw-strong);font-size:var(--fs-s);cursor:pointer}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--accent);flex:none}
+.search{flex:1;max-width:520px;display:flex;align-items:center;gap:var(--sp-2);height:36px;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--radius-m);background:var(--surface-2);color:var(--text-3);font-size:var(--fs-s)}
+.search kbd{margin-inline-start:auto;font:var(--fs-xs) var(--font-mono);border:1px solid var(--border);border-radius:4px;padding:0 5px;background:var(--surface)}
+.spacer{flex:1}
+.btn{height:36px;padding:0 var(--sp-4);border-radius:var(--radius-m);border:1px solid var(--border);background:var(--surface);color:var(--text);font:var(--fw-strong) var(--fs-s) var(--font-ui);cursor:pointer;display:inline-flex;align-items:center;gap:var(--sp-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chips{display:flex;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4) 0;flex-wrap:wrap;align-items:center}
+.chip{height:28px;padding:0 var(--sp-3);border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:var(--fs-s);color:var(--text-2);display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:var(--fw-strong)}
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:var(--col-w);gap:var(--sp-3);padding:var(--sp-3) var(--sp-4) var(--sp-4);overflow-x:auto;flex:1;align-items:start}
+.col{background:var(--surface-2);border-radius:var(--radius-l);padding:var(--sp-2);min-height:200px}
+.col.attn{outline:2px solid var(--s-owner);outline-offset:-2px;background:var(--s-owner-bg)}
+.col h3{margin:0;padding:var(--sp-2) var(--sp-2) var(--sp-3);font-size:var(--fs-s);font-weight:var(--fw-strong);display:flex;align-items:center;gap:var(--sp-2);position:sticky;top:0}
+.col h3 .n{margin-inline-start:auto;color:var(--text-3);font-weight:var(--fw-regular);font-variant-numeric:tabular-nums}
+.glyph{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:var(--sp-3);margin-bottom:var(--sp-2);box-shadow:var(--shadow-1);color:inherit;text-decoration:none}
+.card:hover{border-color:var(--accent)}
+.card .t{font-weight:var(--fw-strong);font-size:var(--fs-m);line-height:var(--lh-tight);margin:0 0 2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card .t2{font-size:var(--fs-xs);color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:start}
+.meta{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-2);font-size:var(--fs-xs);color:var(--text-3)}
+.id{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font:var(--fs-xs) var(--font-mono);direction:ltr;unicode-bidi:isolate}
+.pri{font-weight:700;font-size:var(--fs-xs)}
+.av{width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;display:grid;place-items:center;margin-inline-start:auto}
+.tag{white-space:nowrap;border-radius:4px;padding:0 6px;font-size:var(--fs-xs);font-weight:var(--fw-strong)}
+.rail-closed{writing-mode:vertical-rl;background:var(--surface-2);border-radius:var(--radius-l);padding:var(--sp-3);color:var(--text-2);font-size:var(--fs-s);font-weight:var(--fw-strong);width:48px;min-height:200px;display:flex;align-items:center;gap:var(--sp-2)}
+.qcard{background:var(--surface);border:1px solid var(--border);border-inline-start:4px solid var(--s-owner);border-radius:var(--radius-m);padding:var(--sp-4);margin:0 var(--sp-4) var(--sp-3);max-width:760px}
+.qcard h2{margin:0 0 var(--sp-2);font-size:var(--fs-l);line-height:var(--lh-tight)}
+.qcard .eff{color:var(--text-2);margin:var(--sp-2) 0}
+.qcard .blk{font-size:var(--fs-s);color:var(--s-owner);font-weight:var(--fw-strong)}
+.opts{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-3)}
+.opts .btn{min-height:40px}
+.opts .btn small{font-weight:400;color:inherit;opacity:.85}
+.card .meta{flex-wrap:wrap}.card .meta .id{flex-basis:100%;order:-1}
+.sbtn{display:none}
+.show{background:var(--surface-2);border-radius:var(--radius-s);padding:var(--sp-3);font-size:var(--fs-s);margin:var(--sp-2) 0}
+.desk{font-size:var(--fs-s);background:var(--s-blocked-bg);color:var(--s-blocked);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-s);font-weight:var(--fw-strong);margin-top:var(--sp-3)}
+.detail{display:grid;grid-template-columns:1fr 300px;gap:var(--sp-5);padding:var(--sp-5) var(--sp-5);max-width:1200px}
+.detail h1{margin:0 0 4px;font-size:var(--fs-xl);line-height:var(--lh-tight)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-m);padding:var(--sp-4)}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:var(--sp-2) var(--sp-3);font-size:var(--fs-s);margin:0}
+.kv dt{color:var(--text-3)} .kv dd{margin:0}
+.cm{border-top:1px solid var(--border);padding:var(--sp-3) 0;font-size:var(--fs-s)}
+.cm b{font-size:var(--fs-xs);color:var(--text-3);display:block;font-weight:var(--fw-regular)}
+.pop{position:absolute;top:56px;inset-inline-start:calc(var(--rail-w) + 16px);width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-l);box-shadow:var(--shadow-pop);padding:var(--sp-2);z-index:9}
+.pop .row{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-s);font-size:var(--fs-s)}
+.pop .row[aria-selected=true]{background:var(--accent-soft)}
+.pop .row .c{margin-inline-start:auto;color:var(--text-3)}
+.pop .row .sub{font-size:var(--fs-xs);color:var(--text-3)}
+.sk{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:sh 1.2s linear infinite;border-radius:var(--radius-m);height:68px;margin-bottom:var(--sp-2)}
+@keyframes sh{to{background-position:-200% 0}}
+.state{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--sp-4);padding:var(--sp-4)}
+.state .panel h4{margin:0 0 var(--sp-2);font-size:var(--fs-s);color:var(--text-3);font-weight:var(--fw-strong);text-transform:uppercase;letter-spacing:.04em}
+.banner{background:var(--s-blocked-bg);color:var(--s-blocked);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-m);font-size:var(--fs-s);font-weight:var(--fw-strong);display:flex;gap:var(--sp-3);align-items:center}
+.empty{text-align:center;color:var(--text-2);padding:var(--sp-5) var(--sp-3)}
+.tabbar{display:none}
+@media (max-width:720px){
+  .app{grid-template-columns:1fr;padding-bottom:64px}
+  .rail{display:none}
+  .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;inset-inline:0;background:var(--surface);border-top:1px solid var(--border);height:60px;z-index:8}
+  .tabbar a{display:grid;place-items:center;font-size:var(--fs-xs);color:var(--text-2);text-decoration:none;position:relative}
+  .tabbar a[aria-current]{color:var(--accent);font-weight:var(--fw-strong)}
+  .tabbar .badge{position:absolute;top:6px;inset-inline-start:calc(50% + 8px);background:var(--s-owner);color:#fff;font-size:11px;font-weight:600;min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center}
+  .search{display:none}.sbtn{display:inline-flex;margin-inline-start:auto}
+  .board{grid-auto-columns:86vw;scroll-snap-type:x mandatory}
+  .col{scroll-snap-align:start}
+  .detail{grid-template-columns:1fr;padding:var(--sp-4)}
+  .btn,.opts .btn{min-height:var(--tap)}
+  .top .btn.primary span{display:none}
+  .pop{inset-inline-start:var(--sp-3);width:calc(100% - 24px)}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const q=new URLSearchParams(location.search);
+const scr=q.get('screen')||'board', theme=q.get('theme')||'light', dir=q.get('dir')||'ltr';
+document.documentElement.dataset.theme=theme; document.documentElement.dir=dir; document.documentElement.lang=dir==='rtl'?'ar':'en';
+const S={owner:['!','--s-owner'],progress:['▶','--s-progress'],test:['✓','--s-test'],merge:['⇄','--s-merge'],ready:['○','--s-ready'],blocked:['■','--s-blocked'],closed:['✔','--s-closed']};
+const g=k=>`<span class="glyph" style="background:var(${S[k][1]})" aria-hidden="true">${S[k][0]}</span>`;
+const card=(id,ar,en,p,who,age,extra='')=>`<a class="card" href="#/issues?issue=${id}"><div class="t" dir="auto">${ar}</div>${en?`<div class="t2">${en}</div>`:''}<div class="meta"><span class="pri" style="color:var(--p${p})">P${p}</span><span class="id">${id}</span>${extra}<span>${age}</span><span class="av" title="${who}">${who.slice(0,2).toUpperCase()}</span></div></a>`;
+const cols=[
+ ['owner','Owner decision','بانتظار قرارك',[
+   card('rayeh-o47','وقف الخريطة بعد دقيقتين؟','Map idle timeout 2 min',2,'ux','2h','<span class="tag" style="background:var(--s-owner-bg);color:var(--s-owner)">tap</span>'),
+   card('company-7530','صياغة شروط الصوت','Voice licence wording',1,'legal','1d','<span class="tag" style="background:var(--s-blocked-bg);color:var(--s-blocked)">PC only</span>')],true],
+ ['progress','In progress','قيد التنفيذ',[
+   card('company-1bo5','تصميم المتتبع السريع','Fast tracker design',1,'cto','3h'),
+   card('fatura-juh.349','إصلاح الربط على ويندوز','Windows junction fix',2,'swe','20m')]],
+ ['test','Waiting for test','بانتظار الاختبار',[card('rayeh-u9yb','شاشة الدفع النقدي','Cash pay screen',2,'qa','5h')]],
+ ['merge','Waiting for merge','بانتظار الدمج',[card('whisper-flow-12','اختصار الإملاء','Dictation hotkey',3,'swe','1d')]],
+ ['ready','Ready','جاهز',[card('abduu-tasks-q79.105','صور Stitch للجوال','Stitch mobile shots',2,'ux','2d'),card('company-md0h.4','قص سياق الوكلاء','Trim agent context',3,'sre','3d')]],
+ ['blocked','Blocked','معطّل',[card('rayeh-279.3','قواعد Firestore','Firestore rules',1,'sec','4d','<span class="tag" style="background:var(--s-blocked-bg);color:var(--s-blocked)">blocked</span>')]]
+];
+const lbl=(c)=>dir==='rtl'?c[2]:c[1];
+const colHtml=c=>`<section class="col ${c[4]?'attn':''}" aria-label="${c[1]}"><h3>${g(c[0])}${lbl(c)}<span class="n">${c[3].length}</span></h3>${c[3].join('')}</section>`;
+const topbar=(t)=>`<header class="top"><button class="btn ws"><span class="dot"></span>company <span aria-hidden="true">▾</span></button><div class="search" role="search">⌕ ${dir==='rtl'?'ابحث بالعنوان أو الرقم':'Search title or id'}<kbd>/</kbd></div><span class="spacer"></span><button class="btn sbtn" aria-label="Search">⌕</button><button class="btn primary">+ <span>${dir==='rtl'?'مهمة جديدة':'New'}</span></button></header>`;
+const navs=(a)=>{const items=[['board','▦',dir==='rtl'?'اللوحة':'Board'],['decisions','!',dir==='rtl'?'قراراتي':'Decisions'],['list','≡',dir==='rtl'?'القائمة':'List'],['theme','◐',dir==='rtl'?'المظهر':'Theme']];
+ const mk=(cls)=>items.map(i=>`<a href="?screen=${i[0]==='theme'?a:i[0]}&theme=${theme}&dir=${dir}" ${i[0]===a?'aria-current="page"':''} aria-label="${i[2]}">${cls==='tab'?i[2]:i[1]}${i[0]==='decisions'?'<span class="badge">2</span>':''}</a>`).join('');
+ return {rail:`<nav class="rail" aria-label="Primary">${mk('rail')}</nav>`,tab:`<nav class="tabbar" aria-label="Primary">${mk('tab')}</nav>`}};
+const chips=()=>`<div class="chips"><span class="chip" aria-pressed="true">${dir==='rtl'?'الكل':'All'}</span><span class="chip">${dir==='rtl'?'مسندة لي':'Mine'}</span><span class="chip">P0-P1</span><span class="chip">${dir==='rtl'?'نوع ▾':'Type ▾'}</span><span class="chip">${dir==='rtl'?'وسم ▾':'Label ▾'}</span></div>`;
+const shell=(a,body,extra='')=>{const n=navs(a);return `<div class="app">${n.rail}<div class="main">${topbar()}${body}</div></div>${n.tab}${extra}`};
+const popover=`<div class="pop" role="listbox" aria-label="Workspace"><div class="row" aria-selected="true"><span class="dot"></span><div>company<div class="sub">1,619 beads</div></div><span class="c">2 ⚑</span></div><div class="row"><span class="dot" style="background:var(--s-merge)"></span><div>rayeh<div class="sub">1,034 beads</div></div><span class="c">1 ⚑</span></div><div class="row"><span class="dot" style="background:var(--s-test)"></span><div>fatura<div class="sub">536 beads</div></div><span class="c"></span></div><div class="row"><span class="dot" style="background:var(--s-progress)"></span><div>abduu-tasks<div class="sub">304 beads</div></div></div><div class="row"><span class="dot" style="background:var(--s-ready)"></span><div>whisper-flow<div class="sub">90 beads</div></div></div></div>`;
+const T=(en,ar)=>dir==='rtl'?ar:en;
+let html='';
+if(scr==='board'){
+  html=shell('board',chips()+`<div class="board">${cols.map(colHtml).join('')}<aside class="rail-closed" aria-label="Closed">${g('closed')} ${T('Closed · 1,204 · show recent','مغلقة · 1,204 · عرض الأحدث')}</aside></div>`, q.get('ws')?popover:'');
+}else if(scr==='decisions'){
+  const opts=(rec)=>`<div class="opts"><button class="btn primary">1 ${T('Yes','نعم')} <small>${T('recommended','مُوصى')}</small></button><button class="btn">2 ${T('No, keep 5','لا، خليها 5')}</button><button class="btn" style="border-style:dashed">? ${T('Explain more','اشرح أكتر')}</button></div>`;
+  html=shell('decisions',`<div style="padding:var(--sp-4) var(--sp-4) var(--sp-2)"><h1 style="margin:0;font-size:var(--fs-xl)">${T('Waiting on you','بانتظار قرارك')} <span style="color:var(--s-owner)">2</span></h1><div style="color:var(--text-3);font-size:var(--fs-s)">${T('Oldest first. Answering returns the bead to its owner role.','الأقدم أولاً. الرد يعيد المهمة لصاحبها.')}</div></div>
+  <article class="qcard"><div class="meta" style="margin:0 0 var(--sp-2)"><span class="pri" style="color:var(--p1)">P1</span><span class="id">rayeh-o47</span><span>${T('asked 2h ago','قبل ساعتين')}</span></div>
+   <h2 dir="auto">وقف الخريطة بعد دقيقتين بدل 5 لو الراكب ما لمسش الشاشة؟</h2>
+   <div class="eff" dir="auto"><b>${T('What changes for you','يتغير عندك')}:</b> راكب بيتفرج بس يضغط مرة عشان تكمل</div>
+   <div class="show" dir="auto"><b>${T('Today','الموجود دلوقتي')}:</b> بتقف بعد 5 دقايق</div>
+   <div class="blk">${T('Frozen','واقف')}: أندل (SWE) في rayeh-o47</div>${opts()}
+   <div class="meta" style="margin-top:var(--sp-3)"><a href="#/issues?issue=rayeh-o47" style="color:var(--accent)">${T('Open full bead','افتح المهمة كاملة')}</a></div></article>
+  <article class="qcard" style="border-inline-start-color:var(--s-blocked)"><div class="meta" style="margin:0 0 var(--sp-2)"><span class="pri" style="color:var(--p1)">P1</span><span class="id">company-7530</span><span>${T('asked 1d ago','قبل يوم')}</span></div>
+   <h2 dir="auto">قرار يخص صياغة قانونية</h2><div class="eff" dir="auto">${T('Neutral title: details stay on the PC.','عنوان محايد: التفاصيل على الكمبيوتر فقط.')}</div>
+   <div class="desk">${T('PC only: answer in the chat session at your PC. No buttons here.','على الكمبيوتر فقط: رد في جلسة الدردشة. لا أزرار هنا.')}</div></article>`);
+}else if(scr==='detail'){
+  html=shell('board',`<div class="detail"><div><div class="meta" style="margin:0 0 var(--sp-2)"><a href="#/board" style="color:var(--accent)">← ${T('Board','اللوحة')}</a><span class="id">company-1bo5</span></div>
+  <h1 dir="auto">تصميم المتتبع السريع والمدمج</h1><div style="color:var(--text-3);direction:ltr;text-align:start;margin-bottom:var(--sp-4)">Fast, compact tracker design</div>
+  <div class="panel" style="margin-bottom:var(--sp-4)"><b>${T('Description','الوصف')}</b><p dir="auto" style="margin:var(--sp-2) 0 0;color:var(--text-2)">قياسات على بيانات حقيقية: أمر واحد يأخذ من ثانيتين إلى عشر ثوانٍ، واللوحة تشغّل سبع عمليات متتابعة عند كل تغيير. (Synthetic text, first 600 chars; "Show all" for the rest.)</p></div>
+  <div class="panel"><b>${T('Comments','التعليقات')} (14)</b><div class="cm"><b>cto · 3h</b><span dir="auto">اخترنا SQLite من البداية، والمهاجرة تتم لكل مشروع على حدة.</span></div><div class="cm"><b>ux · 1h</b><span dir="auto">${T('Showing latest 5 of 14.','عرض آخر 5 من 14.')} <a href="#" style="color:var(--accent)">${T('Load older','تحميل الأقدم')}</a></span></div>
+  <div class="opts"><button class="btn primary">${T('Comment','أضف تعليقاً')}</button></div></div></div>
+  <aside class="panel"><dl class="kv"><dt>${T('Status','الحالة')}</dt><dd>${g('progress')} ${T('In progress','قيد التنفيذ')}</dd><dt>${T('Priority','الأولوية')}</dt><dd>P1</dd><dt>${T('Assignee','المسؤول')}</dt><dd>cto</dd><dt>${T('Project','المشروع')}</dt><dd>company</dd><dt>${T('Labels','الوسوم')}</dt><dd>goal:tracker</dd><dt>${T('Blocks','يعطّل')}</dt><dd class="id">company-1bo5.2</dd><dt>${T('Updated','تحديث')}</dt><dd>3h</dd></dl></aside></div>`);
+}else{
+  html=shell('board',`<div class="state">
+  <div class="panel"><h4>Loading (skeleton, columns known)</h4><div class="sk"></div><div class="sk"></div><div class="sk" style="height:48px"></div></div>
+  <div class="panel"><h4>Empty column / empty queue</h4><div class="empty"><div style="font-size:28px">✓</div><b>${T('Nothing waiting on you','لا شيء بانتظار قرارك')}</b><div>${T('New decisions appear here and in the tab badge.','القرارات الجديدة تظهر هنا وعلى شارة التبويب.')}</div></div></div>
+  <div class="panel"><h4>Error: tracker unreachable (last good data kept)</h4><div class="banner"><span>■</span><span>${T('Cannot reach the tracker. Showing data from 12:04. Retrying in 5 s.','تعذّر الاتصال بالمتتبع. نعرض بيانات 12:04. إعادة المحاولة بعد 5 ثوانٍ.')}</span><button class="btn" style="margin-inline-start:auto">${T('Retry now','أعد الآن')}</button></div></div>
+  <div class="panel"><h4>Offline / stale (socket lost)</h4><div class="banner" style="background:var(--s-closed-bg);color:var(--text-2)"><span>○</span><span>${T('Live updates paused. Reconnecting...','التحديث المباشر متوقف. جارٍ إعادة الاتصال...')}</span></div></div>
+  <div class="panel"><h4>Bead not found (deep link)</h4><div class="empty"><b>${T('company-zzz was not found','لم نجد company-zzz')}</b><div>${T('It may live in another workspace.','قد تكون في مساحة عمل أخرى.')}</div><div class="opts" style="justify-content:center"><button class="btn primary">${T('Search all workspaces','ابحث في كل المساحات')}</button></div></div></div>
+  <div class="panel"><h4>Closed column: bounded</h4><div class="empty">${T('Showing 50 most recent of 1,204','عرض أحدث 50 من 1,204')}<div class="opts" style="justify-content:center"><button class="btn">${T('Show 50 more','عرض 50 أخرى')}</button></div></div></div>
+  </div>`);
+}
+document.getElementById('root').innerHTML=html;
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+/* beads-lite-ui redesign tokens (design/README.md section 3). No webfonts, no images: system fonts only. */
+:root {
+  color-scheme: light dark;
+  /* surface */
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef0f4;
+  --border: #dde1e8;
+  --text: #14181f;
+  --text-2: #4a5362;   /* 7.6:1 on --surface */
+  --text-3: #66707f;   /* 4.9:1 on --surface, min for meta text */
+  --accent: #3b4fd8;   /* primary action, focus ring, selection */
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e9fb;
+  --focus: #3b4fd8;
+  /* status: every status = color + glyph + label, never color alone */
+  --s-owner: #b4540a;      --s-owner-bg: #fdecd9;      /* needs the owner */
+  --s-progress: #1d6fd1;   --s-progress-bg: #e0eefc;
+  --s-test: #7a3fc4;       --s-test-bg: #efe5fa;
+  --s-merge: #0a7d78;      --s-merge-bg: #dcf3f1;
+  --s-ready: #2e7d32;      --s-ready-bg: #e3f3e4;
+  --s-blocked: #c0262d;    --s-blocked-bg: #fbe3e4;
+  --s-closed: #5b6472;     --s-closed-bg: #e9ebef;
+  /* priority */
+  --p0: #c0262d; --p1: #b4540a; --p2: #4a5362; --p3: #66707f; --p4: #8a93a1;
+  /* type */
+  --radius-s: 6px; --radius-m: 10px; --radius-l: 14px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --shadow-1: 0 1px 2px rgb(20 24 31 / 8%);
+  --shadow-pop: 0 8px 28px rgb(20 24 31 / 18%);
+  --font-ui: "Segoe UI", "Noto Sans Arabic", "Noto Sans", Tahoma, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --fs-xs: 12px; --fs-s: 13px; --fs-m: 15px; --fs-l: 18px; --fs-xl: 24px;
+  --lh-tight: 1.35; --lh-body: 1.6;   /* Arabic needs >=1.5 body */
+  --fw-regular: 400; --fw-strong: 600;
+  --tap: 44px;         /* min target on phone; 32px desktop */
+  --col-w: minmax(200px, 1fr);
+  --rail-w: 56px;
+}
+[data-theme="dark"] {
+  --bg: #0e1218; --surface: #161b23; --surface-2: #1e2530; --border: #2b3340;
+  --text: #e8ebf0; --text-2: #b4bcc9; --text-3: #8d97a6;
+  --accent: #8b9bff; --accent-ink: #0e1218; --accent-soft: #232a4d; --focus: #8b9bff;
+  --s-owner: #f0a566;   --s-owner-bg: #3a2512;
+  --s-progress: #7db5f5; --s-progress-bg: #15283f;
+  --s-test: #c4a0f0;    --s-test-bg: #2b1c42;
+  --s-merge: #5fd3cc;   --s-merge-bg: #11302f;
+  --s-ready: #7fd184;   --s-ready-bg: #14301a;
+  --s-blocked: #ff8a90; --s-blocked-bg: #3d1719;
+  --s-closed: #a0a9b7;  --s-closed-bg: #232a34;
+  --p0: #ff8a90; --p1: #f0a566; --p2: #b4bcc9; --p3: #8d97a6; --p4: #6f7a8a;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-pop: 0 8px 28px rgb(0 0 0 / 55%);
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
