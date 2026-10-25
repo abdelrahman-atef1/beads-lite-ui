@@ -5,6 +5,8 @@ Author: بو (UX). Status: spec + reference mockup done; **Stitch step NOT done*
 
 ## 1. Stitch status (honest)
 
+**Owner decision (2026-10-25, chat):** «مش محتاج Stitch، نموذج HTML ده كفاية». Stitch is dropped; `mockup.html` + `tokens.css` + this README are the approved design. The Stitch step below is not needed.
+
 The UX helper session had no Stitch MCP tools (ToolSearch for "stitch" returned nothing; no Stitch entry in `~/.claude.json` or settings). So there are **no Stitch links**. What exists instead:
 - `mockup.html` + `tokens.css`: a hand-built, runnable reference (light/dark, LTR/RTL, desktop/phone) rendered at 1440x900 and 390x844 into `screens/`.
 - Next step for whoever has Stitch (a main session with the Stitch MCP): generate the 6 screens in section 5 one at a time (`modelId GEMINI_3_5_FLASH_LITE`, project `designSystem` from `tokens.css`, prompt "use ONLY the copy given; add no other text", check `deviceType`), and list the links here. Per lessons-app, Stitch output is look-and-feel only: this file and `tokens.css` stay the source of truth.
