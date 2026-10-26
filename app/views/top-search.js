@@ -104,7 +104,7 @@ export function createTopSearch(mount_element, filter, opts = {}) {
             // Phone: an empty search box folds back into the icon.
             if (
               open_phone &&
-              !/** @type {HTMLInputElement} */ (ev.target).value
+              !(/** @type {HTMLInputElement} */ (ev.target).value)
             ) {
               open_phone = false;
               doRender();
