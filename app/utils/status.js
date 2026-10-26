@@ -107,6 +107,12 @@ export function statusLabel(status) {
       return 'In progress';
     case 'blocked':
       return 'Blocked';
+    case 'owner_decision':
+      return 'Owner decision';
+    case 'waiting_for_test':
+      return 'Waiting for test';
+    case 'waiting_for_merge':
+      return 'Waiting for merge';
     case 'deferred':
       return 'Deferred';
     case 'closed':

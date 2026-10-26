@@ -14,7 +14,7 @@
 /**
  * Every status `bd` can report on an issue.
  *
- * @typedef {'open'|'in_progress'|'blocked'|'deferred'|'closed'|'pinned'|'hooked'} Status
+ * @typedef {'open'|'in_progress'|'blocked'|'deferred'|'owner_decision'|'waiting_for_test'|'waiting_for_merge'|'closed'|'pinned'|'hooked'} Status
  */
 
 /**
@@ -23,7 +23,7 @@
  * the UI renders them but never offers them as an edit, and `update-status`
  * rejects them.
  *
- * @typedef {'open'|'in_progress'|'blocked'|'deferred'|'closed'} SettableStatus
+ * @typedef {'open'|'in_progress'|'blocked'|'deferred'|'owner_decision'|'waiting_for_test'|'waiting_for_merge'|'closed'} SettableStatus
  */
 
 /**
@@ -36,6 +36,9 @@ export const STATUSES = [
   'in_progress',
   'blocked',
   'deferred',
+  'owner_decision',
+  'waiting_for_test',
+  'waiting_for_merge',
   'closed',
   'pinned',
   'hooked'
@@ -53,6 +56,9 @@ export const SETTABLE_STATUSES = [
   'in_progress',
   'blocked',
   'deferred',
+  'owner_decision',
+  'waiting_for_test',
+  'waiting_for_merge',
   'closed'
 ];
 

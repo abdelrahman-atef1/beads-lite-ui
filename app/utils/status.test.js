@@ -14,6 +14,9 @@ describe('utils/status', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed',
       'pinned',
       'hooked'
@@ -26,6 +29,9 @@ describe('utils/status', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed'
     ]);
     expect(SETTABLE_STATUSES).not.toContain('pinned');

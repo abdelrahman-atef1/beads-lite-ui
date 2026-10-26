@@ -106,6 +106,18 @@ export function formatDateValue(value) {
  */
 
 /**
+ * Merge a mutation reply into the issue on screen. The tracker's data layer
+ * answers a mutation with just `{ id }` (the change is pushed to every
+ * subscriber by one refresh), so the reply must never replace the issue.
+ *
+ * @param {any} current
+ * @param {any} reply
+ */
+function mergeReply(current, reply) {
+  return { ...(current || {}), ...(reply || {}) };
+}
+
+/**
  * @param {string} hash
  */
 function defaultNavigateFn(hash) {
@@ -294,7 +306,7 @@ export function createDetailView(
 
   /** @param {string} id */
   function issueHref(id) {
-    /** @type {'issues'|'epics'|'board'} */
+    /** @type {'issues'|'epics'|'board'|'decisions'} */
     const view = parseView(window.location.hash || '');
     return issueHashFor(view, id);
   }
@@ -526,7 +538,7 @@ export function createDetailView(
         value: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_title = false;
         doRender();
       }
@@ -588,7 +600,7 @@ export function createDetailView(
         assignee: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_assignee = false;
         doRender();
       }
@@ -641,7 +653,7 @@ export function createDetailView(
         label: text
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         new_label_text = '';
         doRender();
       }
@@ -667,7 +679,7 @@ export function createDetailView(
         label
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         doRender();
       }
     } catch (err) {
@@ -701,7 +713,7 @@ export function createDetailView(
         status: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         doRender();
       }
     } catch (err) {
@@ -737,7 +749,7 @@ export function createDetailView(
         priority: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         doRender();
       }
     } catch (err) {
@@ -796,7 +808,7 @@ export function createDetailView(
         value: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_desc = false;
         doRender();
       }
@@ -874,7 +886,7 @@ export function createDetailView(
         value: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_design = false;
         doRender();
       }
@@ -942,7 +954,7 @@ export function createDetailView(
         value: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_notes = false;
         doRender();
       }
@@ -1009,7 +1021,7 @@ export function createDetailView(
         value: next
       });
       if (updated && typeof updated === 'object') {
-        current = /** @type {IssueDetail} */ (updated);
+        current = /** @type {IssueDetail} */ (mergeReply(current, updated));
         edit_accept = false;
         doRender();
       }
@@ -1625,7 +1637,7 @@ export function createDetailView(
             view_id: current.id
           });
           if (updated && typeof updated === 'object') {
-            current = /** @type {IssueDetail} */ (updated);
+            current = /** @type {IssueDetail} */ (mergeReply(current, updated));
             doRender();
           }
         } else {
@@ -1635,7 +1647,7 @@ export function createDetailView(
             view_id: current.id
           });
           if (updated && typeof updated === 'object') {
-            current = /** @type {IssueDetail} */ (updated);
+            current = /** @type {IssueDetail} */ (mergeReply(current, updated));
             doRender();
           }
         }
@@ -1688,7 +1700,7 @@ export function createDetailView(
             view_id: current.id
           });
           if (updated && typeof updated === 'object') {
-            current = /** @type {IssueDetail} */ (updated);
+            current = /** @type {IssueDetail} */ (mergeReply(current, updated));
             doRender();
           }
         } else {
@@ -1698,7 +1710,7 @@ export function createDetailView(
             view_id: current.id
           });
           if (updated && typeof updated === 'object') {
-            current = /** @type {IssueDetail} */ (updated);
+            current = /** @type {IssueDetail} */ (mergeReply(current, updated));
             doRender();
           }
         }

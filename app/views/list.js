@@ -87,7 +87,7 @@ export function createListView(
   const row_renderer = createIssueRowRenderer({
     navigate: (id) => {
       const nav = navigateFn || ((h) => (window.location.hash = h));
-      /** @type {'issues'|'epics'|'board'} */
+      /** @type {'issues'|'epics'|'board'|'decisions'} */
       const view = store ? store.getState().view : 'issues';
       nav(issueHashFor(view, id));
     },
@@ -576,7 +576,7 @@ export function createListView(
       const id = current ? current.getAttribute('data-issue-id') : '';
       if (id) {
         const nav = navigateFn || ((h) => (window.location.hash = h));
-        /** @type {'issues'|'epics'|'board'} */
+        /** @type {'issues'|'epics'|'board'|'decisions'} */
         const view = store ? store.getState().view : 'issues';
         nav(issueHashFor(view, id));
       }

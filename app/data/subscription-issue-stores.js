@@ -143,6 +143,16 @@ export function createSubscriptionIssueStores() {
       return stores_by_id.get(client_id) || null;
     },
     /**
+     * Whether the store for client_id has received its first snapshot.
+     *
+     * @param {string} client_id
+     * @returns {boolean}
+     */
+    isLoaded(client_id) {
+      const s = stores_by_id.get(client_id);
+      return s ? s.loaded() : false;
+    },
+    /**
      * @param {string} client_id
      * @returns {IssueLite[]}
      */

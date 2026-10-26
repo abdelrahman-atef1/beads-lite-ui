@@ -34,10 +34,51 @@ describe('views/nav', () => {
       /** @type {any} */ (router)
     );
     const links = mount.querySelectorAll('a.tab');
-    expect(links.length).toBe(3);
-    links[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(router.gotoView).toHaveBeenCalledWith('epics');
-    links[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(links.length).toBe(4);
+    links[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(router.gotoView).toHaveBeenCalledWith('board');
+    links[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(router.gotoView).toHaveBeenCalledWith('decisions');
+    links[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(router.gotoView).toHaveBeenCalledWith('issues');
+    links[3].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(router.gotoView).toHaveBeenCalledWith('epics');
+  });
+
+  test('Decisions tab shows the count of owner_decision beads', () => {
+    const { mount, store, router } = setup();
+    const stores = {
+      isLoaded: () => true,
+      snapshotFor: () => [
+        { id: 'a', status: 'owner_decision' },
+        { id: 'b', status: 'owner_decision' },
+        { id: 'c', status: 'open' }
+      ],
+      subscribeFor: () => () => {}
+    };
+    createTopNav(
+      mount,
+      /** @type {any} */ (store),
+      /** @type {any} */ (router),
+      stores
+    );
+    const badge = mount.querySelector('a.tab .nav-badge');
+    expect(badge && badge.textContent).toBe('2');
+  });
+
+  test('no badge while the list has not loaded (never a false 0)', () => {
+    const { mount, store, router } = setup();
+    const stores = {
+      isLoaded: () => false,
+      snapshotFor: () => [],
+      subscribeFor: () => () => {}
+    };
+    createTopNav(
+      mount,
+      /** @type {any} */ (store),
+      /** @type {any} */ (router),
+      stores
+    );
+    expect(mount.querySelector('.nav-badge')).toBeNull();
   });
 });

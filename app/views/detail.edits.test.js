@@ -192,11 +192,23 @@ describe('views/detail edits', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed'
     ]);
     expect(
       Array.from(select.options).map((o) => (o.textContent || '').trim())
-    ).toEqual(['Open', 'In progress', 'Blocked', 'Deferred', 'Closed']);
+    ).toEqual([
+      'Open',
+      'In progress',
+      'Blocked',
+      'Deferred',
+      'Owner decision',
+      'Waiting for test',
+      'Waiting for merge',
+      'Closed'
+    ]);
   });
 
   test('status select shows a machine-managed current status but disables it', async () => {
@@ -227,6 +239,9 @@ describe('views/detail edits', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed',
       'hooked'
     ]);
@@ -243,6 +258,9 @@ describe('views/detail edits', () => {
       in_progress: false,
       blocked: false,
       deferred: false,
+      owner_decision: false,
+      waiting_for_test: false,
+      waiting_for_merge: false,
       closed: false,
       hooked: true
     });

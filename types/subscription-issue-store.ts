@@ -40,6 +40,8 @@ export interface SubscriptionIssueStore {
 
   /** Convenience helpers for tests and lookups. */
   size(): number;
+  /** True once the first snapshot has been applied. */
+  loaded(): boolean;
   getById(id: string): Issue | undefined;
 
   /** Release references and listeners when the owning view unmounts. */

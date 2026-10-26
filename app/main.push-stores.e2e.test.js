@@ -82,185 +82,140 @@ vi.mock('./ws.js', () => {
 });
 
 describe('push stores integration (board view)', () => {
-  test('updates only the matching column on push events (multi-sub isolation)', async () => {
-    const client = /** @type {any} */ (createWsClient());
-    window.location.hash = '#/board';
-    document.body.innerHTML = '<main id="app"></main>';
-    const root = /** @type {HTMLElement} */ (document.getElementById('app'));
-
-    bootstrap(root);
-    // Allow router + subscriptions to wire
-    await flushStoreNotifications();
-
-    // Initial board: no cards
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(0);
-    expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
-    ).toBe(0);
-
-    // Send per-subscription snapshots
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:ready',
-      revision: 1,
-      issues: [
-        { id: 'R-1', title: 'ready 1', priority: 1, updated_at: 10_000 },
-        { id: 'R-2', title: 'ready 2', priority: 2, updated_at: 11_000 }
-      ]
-    });
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:in-progress',
-      revision: 1,
-      issues: [{ id: 'P-1', title: 'prog 1', updated_at: 20_000 }]
-    });
-    await flushStoreNotifications();
-
-    // Verify columns reflect only their subscription data
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
-    expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
-    ).toBe(1);
-
-    // Upsert into Ready only
-    client._trigger('upsert', {
-      type: 'upsert',
-      id: 'tab:board:ready',
-      revision: 2,
-      issue: { id: 'R-3', title: 'ready 3', priority: 1, updated_at: 12_000 }
-    });
-    await flushStoreNotifications();
-
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(3);
-    // In-progress unaffected
-    expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
-    ).toBe(1);
-
-    // Delete from In-progress only
-    client._trigger('delete', {
-      type: 'delete',
-      id: 'tab:board:in-progress',
-      revision: 2,
-      issue_id: 'P-1'
-    });
-    await flushStoreNotifications();
-
-    expect(
-      document.querySelectorAll('#in-progress-col .board-card').length
-    ).toBe(0);
-    // Ready unaffected
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(3);
-  });
-
-  test('reconnect replay does not duplicate entries', async () => {
-    const client = /** @type {any} */ (createWsClient());
-    window.location.hash = '#/board';
-    document.body.innerHTML = '<main id="app"></main>';
-    const root = /** @type {HTMLElement} */ (document.getElementById('app'));
-
-    bootstrap(root);
-    await flushStoreNotifications();
-
-    // Initial snapshot
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:ready',
-      revision: 1,
-      issues: [
-        { id: 'R-1', title: 'r1', priority: 1, updated_at: 10_000 },
-        { id: 'R-2', title: 'r2', priority: 2, updated_at: 10_100 }
-      ]
-    });
-    await flushStoreNotifications();
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
-
-    // Simulate reconnect cycle and server replaying the same snapshot
-    client._emitConn('reconnecting');
-    client._emitConn('open');
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:ready',
-      revision: 1,
-      issues: [
-        { id: 'R-1', title: 'r1', priority: 1, updated_at: 10_000 },
-        { id: 'R-2', title: 'r2', priority: 2, updated_at: 10_100 }
-      ]
-    });
-    await flushStoreNotifications();
-    // Still exactly two cards; no duplicates
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
-
-    // Newer upsert after replay updates item without duplication
-    client._trigger('upsert', {
-      type: 'upsert',
-      id: 'tab:board:ready',
-      revision: 2,
-      issue: { id: 'R-2', title: 'r2!', priority: 2, updated_at: 10_200 }
-    });
-    await flushStoreNotifications();
-    expect(document.querySelectorAll('#ready-col .board-card').length).toBe(2);
-  });
-
-  test('subscribes to both blocked sources when the board is shown', async () => {
+  /** Boot the app on the board and return the ws client + helpers. */
+  async function boot() {
     const client = /** @type {any} */ (createWsClient());
     client._sent.length = 0;
     window.location.hash = '#/board';
-    document.body.innerHTML = '<main id="app"></main>';
+    document.body.innerHTML = '<nav id="top-nav"></nav><main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
-
     bootstrap(root);
     await flushStoreNotifications();
-    await Promise.resolve();
+    return client;
+  }
+  /**
+   * @param {any} client
+   * @param {string} id
+   * @param {any[]} issues
+   * @param {number} [revision]
+   */
+  function snapshot(client, id, issues, revision = 1) {
+    client._trigger('snapshot', { type: 'snapshot', id, revision, issues });
+  }
+  const count = (/** @type {string} */ col) =>
+    document.querySelectorAll(`#${col}-col .card`).length;
 
+  test('subscribes to the all-issues list, ready, blocked and closed', async () => {
+    const client = await boot();
+    await Promise.resolve();
     const requested = client._sent
       .filter((/** @type {[string, any]} */ e) => e[0] === 'subscribe-list')
       .map((/** @type {[string, any]} */ e) => e[1]);
-    expect(
-      requested.find((/** @type {any} */ p) => p.id === 'tab:board:blocked')
-        ?.type
-    ).toBe('blocked-issues');
-    expect(
-      requested.find(
-        (/** @type {any} */ p) => p.id === 'tab:board:status-blocked'
-      )?.type
-    ).toBe('status-blocked-issues');
+    const typeOf = (/** @type {string} */ id) =>
+      requested.find((/** @type {any} */ p) => p.id === id)?.type;
+    expect(typeOf('tab:all')).toBe('all-issues');
+    expect(typeOf('tab:board:ready')).toBe('ready-issues');
+    expect(typeOf('tab:board:blocked')).toBe('blocked-issues');
+    expect(typeOf('tab:board:closed')).toBe('closed-issues');
+    // The contract needs one list call for every non-closed column, so the
+    // per-status lists are gone.
+    expect(typeOf('tab:board:in-progress')).toBeUndefined();
+    expect(typeOf('tab:board:status-blocked')).toBeUndefined();
   });
 
-  test('renders both blocked sources into the Blocked column, deduped', async () => {
-    const client = /** @type {any} */ (createWsClient());
-    window.location.hash = '#/board';
-    document.body.innerHTML = '<main id="app"></main>';
-    const root = /** @type {HTMLElement} */ (document.getElementById('app'));
+  test('columns follow push events (snapshot, upsert, delete)', async () => {
+    const client = await boot();
+    expect(count('progress')).toBe(0);
 
-    bootstrap(root);
-    await Promise.resolve();
+    snapshot(client, 'tab:all', [
+      { id: 'P-1', title: 'prog 1', status: 'in_progress', updated_at: 20_000 },
+      { id: 'R-1', title: 'ready 1', status: 'open', updated_at: 10_000 },
+      { id: 'R-2', title: 'ready 2', status: 'open', updated_at: 11_000 }
+    ]);
+    snapshot(client, 'tab:board:ready', [
+      { id: 'R-1', title: 'ready 1', status: 'open' },
+      { id: 'R-2', title: 'ready 2', status: 'open' }
+    ]);
+    await flushStoreNotifications();
+    expect(count('ready')).toBe(2);
+    expect(count('progress')).toBe(1);
 
-    // Dependency-blocked (from `bd blocked`; own status is open)
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:blocked',
-      revision: 1,
-      issues: [
-        { id: 'D-1', title: 'dep blocked', priority: 1, updated_at: 10_000 },
-        { id: 'X-1', title: 'both', priority: 1, updated_at: 10_100 }
-      ]
-    });
-    // Stored-status blocked (from `bd list --status blocked`)
-    client._trigger('snapshot', {
-      type: 'snapshot',
-      id: 'tab:board:status-blocked',
-      revision: 1,
-      issues: [
-        { id: 'S-1', title: 'status blocked', priority: 1, updated_at: 10_200 },
-        { id: 'X-1', title: 'both', priority: 1, updated_at: 10_100 }
-      ]
+    client._trigger('upsert', {
+      type: 'upsert',
+      id: 'tab:all',
+      revision: 2,
+      issue: {
+        id: 'P-1',
+        title: 'prog 1',
+        status: 'waiting_for_test',
+        updated_at: 21_000
+      }
     });
     await flushStoreNotifications();
+    expect(count('progress')).toBe(0);
+    expect(count('test')).toBe(1);
 
-    const ids = Array.from(
-      document.querySelectorAll('#blocked-col .board-card')
-    ).map((el) => el.getAttribute('data-issue-id'));
-    expect(ids.slice().sort()).toEqual(['D-1', 'S-1', 'X-1']);
+    client._trigger('delete', {
+      type: 'delete',
+      id: 'tab:all',
+      revision: 3,
+      issue_id: 'P-1'
+    });
+    await flushStoreNotifications();
+    expect(count('test')).toBe(0);
+    expect(count('ready')).toBe(2);
+  });
+
+  test('reconnect replay does not duplicate entries', async () => {
+    const client = await boot();
+    const issues = [
+      { id: 'R-1', title: 'r1', status: 'open', updated_at: 10_000 },
+      { id: 'R-2', title: 'r2', status: 'open', updated_at: 10_100 }
+    ];
+    snapshot(client, 'tab:all', issues);
+    snapshot(client, 'tab:board:ready', issues);
+    await flushStoreNotifications();
+    expect(count('ready')).toBe(2);
+
+    client._emitConn('reconnecting');
+    client._emitConn('open');
+    snapshot(client, 'tab:all', issues);
+    snapshot(client, 'tab:board:ready', issues);
+    await flushStoreNotifications();
+    expect(count('ready')).toBe(2);
+  });
+
+  test('Blocked holds dependency-blocked and stored-status blocked, once each', async () => {
+    const client = await boot();
+    snapshot(client, 'tab:all', [
+      { id: 'D-1', title: 'dep blocked', status: 'open', updated_at: 10_000 },
+      {
+        id: 'S-1',
+        title: 'status blocked',
+        status: 'blocked',
+        updated_at: 10_200
+      }
+    ]);
+    // `bd blocked` may also report the stored-status one: still one card.
+    snapshot(client, 'tab:board:blocked', [
+      { id: 'D-1', title: 'dep blocked', status: 'open' },
+      { id: 'S-1', title: 'status blocked', status: 'blocked' }
+    ]);
+    await flushStoreNotifications();
+    const ids = Array.from(document.querySelectorAll('#blocked-col .card')).map(
+      (el) => el.getAttribute('data-issue-id')
+    );
+    expect(ids.slice().sort()).toEqual(['D-1', 'S-1']);
+  });
+
+  test('the Decisions tab count follows owner_decision beads', async () => {
+    const client = await boot();
+    snapshot(client, 'tab:all', [
+      { id: 'O-1', title: 'q1', status: 'owner_decision', updated_at: 1 },
+      { id: 'O-2', title: 'q2', status: 'owner_decision', updated_at: 2 },
+      { id: 'P-1', title: 'p', status: 'in_progress', updated_at: 3 }
+    ]);
+    await flushStoreNotifications();
+    expect(document.querySelector('.nav-badge')?.textContent).toBe('2');
   });
 });

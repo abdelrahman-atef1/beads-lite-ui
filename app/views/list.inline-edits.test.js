@@ -262,6 +262,9 @@ describe('views/list inline edits', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed'
     ]);
   });
@@ -304,6 +307,9 @@ describe('views/list inline edits', () => {
       'in_progress',
       'blocked',
       'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
       'closed',
       'pinned'
     ]);
@@ -320,6 +326,9 @@ describe('views/list inline edits', () => {
       in_progress: false,
       blocked: false,
       deferred: false,
+      owner_decision: false,
+      waiting_for_test: false,
+      waiting_for_merge: false,
       closed: false,
       pinned: true
     });

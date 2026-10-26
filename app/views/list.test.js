@@ -795,6 +795,9 @@ describe('views/list', () => {
       'In progress',
       'Blocked',
       'Deferred',
+      'Owner decision',
+      'Waiting for test',
+      'Waiting for merge',
       'Closed',
       'Pinned'
     ]);

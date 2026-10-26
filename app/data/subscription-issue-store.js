@@ -203,6 +203,10 @@ export function createSubscriptionIssueStore(id, options = {}) {
     size() {
       return items_by_id.size;
     },
+    /** True once the first snapshot has been applied. */
+    loaded() {
+      return last_revision > 0;
+    },
     /**
      * @param {string} xid
      */
