@@ -3,9 +3,10 @@ import { t } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
 
 /**
- * Render the primary navigation: Board, Decisions (with the count of beads
- * waiting on the owner), List, Epics. On a phone CSS turns it into a bottom
- * tab bar (design/README.md section 3).
+ * Render the primary navigation (design/README.md 5.1): a left rail with
+ * Board, Decisions (badge = beads waiting on the owner), List and a Theme
+ * button. Epics is no longer a tab: it is the Type filter on Board and List.
+ * On a phone CSS turns the rail into a bottom tab bar.
  *
  * @param {HTMLElement} mount_element
  * @param {{ getState: () => any, subscribe: (fn: (s: any) => void) => () => void }} store
@@ -51,6 +52,37 @@ export function createTopNav(
       .filter((it) => it && it.status === 'owner_decision').length;
   }
 
+  /** Inline icons, one path each (design: no icon font, no images). */
+  const ICONS = {
+    board: 'M3 4h5v16H3zM10 4h5v10h-5zM17 4h4v13h-4z',
+    decisions: 'M12 3a9 9 0 100 18 9 9 0 000-18zM11 7h2v6h-2zM11 15h2v2h-2z',
+    issues: 'M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z',
+    theme: 'M12 3a9 9 0 100 18V3z'
+  };
+
+  /** @param {keyof typeof ICONS} k */
+  function icon(k) {
+    return html`<svg
+      class="tab__ico"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d=${ICONS[k]} fill="currentColor"></path>
+    </svg>`;
+  }
+
+  function toggleTheme() {
+    const sw = /** @type {HTMLInputElement|null} */ (
+      document.getElementById('theme-switch')
+    );
+    if (sw) {
+      sw.click();
+    }
+  }
+
   /**
    * @param {'issues'|'epics'|'board'|'decisions'} view
    * @param {string} active
@@ -62,7 +94,11 @@ export function createTopNav(
       class="tab ${active === view ? 'active' : ''}"
       aria-current=${active === view ? 'page' : 'false'}
       @click=${onClick(view)}
-      >${t(view)}${badge > 0
+      aria-label=${t(view)}
+      title=${t(view)}
+      >${icon(/** @type {any} */ (view))}<span class="tab__label"
+        >${t(view)}</span
+      >${badge > 0
         ? html`<span class="nav-badge" aria-label=${badge + ' waiting'}
             >${badge}</span
           >`
@@ -75,10 +111,18 @@ export function createTopNav(
     const active = s.view || 'issues';
     const n = waitingCount();
     return html`
-      <nav class="header-nav" aria-label="Primary">
-        ${tab('board', active, 0)} ${tab('decisions', active, n)}
-        ${tab('issues', active, 0)} ${tab('epics', active, 0)}
-      </nav>
+      ${tab('board', active, 0)} ${tab('decisions', active, n)}
+      ${tab('issues', active, 0)}
+      <button
+        type="button"
+        class="tab tab--theme"
+        id="rail-theme"
+        aria-label=${t('theme')}
+        title=${t('theme')}
+        @click=${toggleTheme}
+      >
+        ${icon('theme')}<span class="tab__label">${t('theme')}</span>
+      </button>
     `;
   }
 

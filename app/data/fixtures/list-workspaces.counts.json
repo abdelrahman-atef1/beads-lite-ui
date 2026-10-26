@@ -1,0 +1,24 @@
+{
+  "current": {
+    "root_dir": "C:\\Users\\abduu\\company",
+    "db_path": "C:\\Users\\abduu\\company\\.beads\\db"
+  },
+  "workspaces": [
+    {
+      "path": "C:\\Users\\abduu\\company",
+      "database": "company.db",
+      "counts": { "total": 1619, "owner_decision": 2 }
+    },
+    {
+      "path": "H:\\Projects\\rayeh",
+      "database": "rayeh.db",
+      "counts": { "total": 1034, "owner_decision": 1 }
+    },
+    {
+      "path": "H:\\Projects\\fatura",
+      "database": "fatura.db",
+      "counts": { "total": 536, "owner_decision": 0 }
+    },
+    { "path": "E:\\Projects\\whisper-flow", "database": "wf.db" }
+  ]
+}

@@ -10,6 +10,7 @@ import { createSubscriptionStore } from './data/subscriptions-store.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
 import { createStore } from './state.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
+import { createFilterState } from './utils/board-filter.js';
 import { applyLang, t, toggleLang } from './utils/i18n.js';
 import { debug } from './utils/logging.js';
 import { normalizeStatusFilters } from './utils/status.js';
@@ -23,6 +24,7 @@ import { createIssueDialog } from './views/issue-dialog.js';
 import { createListView } from './views/list.js';
 import { createTopNav } from './views/nav.js';
 import { createNewIssueDialog } from './views/new-issue-dialog.js';
+import { createTopSearch } from './views/top-search.js';
 import { createWorkspacePicker } from './views/workspace-picker.js';
 import { createWsClient } from './ws.js';
 
@@ -291,7 +293,9 @@ export function bootstrap(root_element) {
             path: ws.path,
             database: ws.database,
             pid: ws.pid,
-            version: ws.version
+            version: ws.version,
+            // Optional per-project counts (contracts/board-data.md)
+            counts: ws.counts
           }));
           const current = result.current
             ? {
@@ -462,7 +466,39 @@ export function bootstrap(root_element) {
     // Workspace picker (mount now that store exists)
     const workspace_mount = document.getElementById('workspace-picker');
     if (workspace_mount) {
-      createWorkspacePicker(workspace_mount, store, handleWorkspaceChange);
+      const picker = createWorkspacePicker(
+        workspace_mount,
+        store,
+        handleWorkspaceChange,
+        // Current project: count the loaded slice, so the badge is right even
+        // when the server sends no counts.
+        () => {
+          if (!sub_issue_stores.isLoaded('tab:all')) {
+            return null;
+          }
+          const all = sub_issue_stores.snapshotFor('tab:all');
+          return {
+            total: all.length,
+            owner_decision: all.filter((i) => i.status === 'owner_decision')
+              .length
+          };
+        }
+      );
+      sub_issue_stores.subscribeFor('tab:all', () => picker.refresh());
+    }
+
+    // Board chips + top-bar search share one filter state
+    const board_filter = createFilterState();
+    const search_mount = document.getElementById('top-search');
+    if (search_mount) {
+      createTopSearch(search_mount, board_filter, {
+        // Searching from another view lands on the board, where results show.
+        onSearch: () => {
+          if (store.getState().view !== 'board') {
+            router.gotoView('board');
+          }
+        }
+      });
     }
     // Load workspaces after WebSocket is connected
     void loadWorkspaces();
@@ -689,7 +725,8 @@ export function bootstrap(root_element) {
       (id) => router.gotoIssue(id),
       store,
       subscriptions,
-      sub_issue_stores
+      sub_issue_stores,
+      board_filter
     );
     // Preload epics when switching to view
     /**

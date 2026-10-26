@@ -34,6 +34,7 @@ import { normalizeStatusFilters, sameStatusFilters } from './utils/status.js';
  * @property {string} database - Path to the database file
  * @property {number} [pid] - Process ID of the daemon
  * @property {string} [version] - Version of beads
+ * @property {{ total: number, owner_decision: number }} [counts] - Optional per-project counts (contracts/board-data.md)
  */
 
 /**

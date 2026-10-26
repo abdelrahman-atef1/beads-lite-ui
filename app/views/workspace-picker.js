@@ -1,4 +1,5 @@
 import { html, render } from 'lit-html';
+import { getLang, t } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
 
 /**
@@ -6,43 +7,94 @@ import { debug } from '../utils/logging.js';
  */
 
 /**
- * Extract the project name from a workspace path. Returns just the directory
- * name (e.g., 'myproject' from '/home/user/code/myproject').
+ * Extract the project name from a workspace path (either separator).
  *
  * @param {string} workspace_path
  * @returns {string}
  */
-function getProjectName(workspace_path) {
+export function getProjectName(workspace_path) {
   if (!workspace_path) return 'Unknown';
-  const parts = workspace_path.split('/').filter(Boolean);
+  const parts = workspace_path.split(/[\\/]/).filter(Boolean);
   return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
 }
 
+const DOTS = [
+  's-progress',
+  's-merge',
+  's-test',
+  's-ready',
+  's-owner',
+  's-blocked'
+];
+
 /**
- * Create the workspace picker dropdown component.
+ * Stable colour per project name.
+ *
+ * @param {string} name
+ */
+function dotFor(name) {
+  let h = 0;
+  for (const ch of name) {
+    h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return 'var(--' + DOTS[h % DOTS.length] + ')';
+}
+
+/**
+ * Workspace switcher (design/README.md 5.5): a button showing the project
+ * name that opens a popover with one row per project (colour dot, name,
+ * bead count, owner-decision count). Arrow keys + Enter, Esc closes.
+ * Counts come from `workspace.counts` when the server sends them (contract
+ * board-data.md); the current project falls back to `liveCounts()`; else "-".
  *
  * @param {HTMLElement} mount_element
  * @param {{ getState: () => any, subscribe: (fn: (s: any) => void) => () => void }} store
  * @param {(workspace_path: string) => Promise<void>} onWorkspaceChange
+ * @param {() => ({ total: number, owner_decision: number } | null)} [liveCounts]
  */
-export function createWorkspacePicker(mount_element, store, onWorkspaceChange) {
+export function createWorkspacePicker(
+  mount_element,
+  store,
+  onWorkspaceChange,
+  liveCounts = () => null
+) {
   const log = debug('views:workspace-picker');
   /** @type {(() => void) | null} */
   let unsubscribe = null;
-  /** @type {boolean} */
   let is_switching = false;
+  let open = false;
+  let active = 0;
+
+  /** @returns {any[]} */
+  function available() {
+    return store.getState().workspace?.available || [];
+  }
 
   /**
-   * Handle workspace selection change.
-   *
-   * @param {Event} ev
+   * @param {any} ws
+   * @param {boolean} is_current
+   * @returns {{ total: number, owner_decision: number } | null}
    */
-  async function onChange(ev) {
-    const select = /** @type {HTMLSelectElement} */ (ev.target);
-    const new_path = select.value;
-    const s = store.getState();
-    const current_path = s.workspace?.current?.path || '';
+  function countsFor(ws, is_current) {
+    const live = is_current ? liveCounts() : null;
+    if (live) {
+      return live;
+    }
+    const c = ws.counts;
+    if (c && typeof c.total === 'number') {
+      return {
+        total: c.total,
+        owner_decision:
+          typeof c.owner_decision === 'number' ? c.owner_decision : 0
+      };
+    }
+    return null;
+  }
 
+  /** @param {string} new_path */
+  async function choose(new_path) {
+    const current_path = store.getState().workspace?.current?.path || '';
+    open = false;
     if (new_path && new_path !== current_path) {
       log('switching workspace to %s', new_path);
       is_switching = true;
@@ -55,53 +107,142 @@ export function createWorkspacePicker(mount_element, store, onWorkspaceChange) {
         is_switching = false;
         doRender();
       }
+    } else {
+      doRender();
+    }
+  }
+
+  function focusActive() {
+    /** @type {HTMLElement|null} */ (
+      mount_element.querySelector('.ws-row[data-active="true"]')
+    )?.focus();
+  }
+
+  /** @param {KeyboardEvent} ev */
+  function onKey(ev) {
+    const list = available();
+    if (ev.key === 'Escape' && open) {
+      open = false;
+      doRender();
+      /** @type {HTMLElement|null} */ (
+        mount_element.querySelector('.ws-btn')
+      )?.focus();
+    } else if (
+      open &&
+      list.length > 0 &&
+      (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')
+    ) {
+      ev.preventDefault();
+      const d = ev.key === 'ArrowDown' ? 1 : -1;
+      active = (active + d + list.length) % list.length;
+      doRender();
+      focusActive();
+    } else if (ev.key === 'Enter' && open && list[active]) {
+      ev.preventDefault();
+      void choose(list[active].path);
+    }
+  }
+
+  /** @param {MouseEvent} ev */
+  function onDocClick(ev) {
+    if (open && !mount_element.contains(/** @type {Node} */ (ev.target))) {
+      open = false;
+      doRender();
+    }
+  }
+
+  function toggle() {
+    open = !open;
+    if (open) {
+      const cur = store.getState().workspace?.current?.path;
+      active = Math.max(
+        0,
+        available().findIndex((w) => w.path === cur)
+      );
+    }
+    doRender();
+    if (open) {
+      focusActive();
     }
   }
 
   function template() {
-    const s = store.getState();
-    const current = s.workspace?.current;
-    const available = s.workspace?.available || [];
-
-    // Don't render if no workspaces available
-    if (available.length === 0) {
+    const list = available();
+    if (list.length === 0) {
       return html``;
     }
-
-    // If only one workspace, show it as a simple label
-    if (available.length === 1) {
-      const name = getProjectName(available[0].path);
-      return html`
-        <div class="workspace-picker workspace-picker--single">
-          <span class="workspace-picker__label" title="${available[0].path}"
-            >${name}</span
-          >
-        </div>
-      `;
-    }
-
-    // Multiple workspaces: show dropdown
-    const current_path = current?.path || '';
-    return html`
-      <div class="workspace-picker">
-        <select
-          class="workspace-picker__select"
-          @change=${onChange}
-          ?disabled=${is_switching}
-          aria-label="Select project workspace"
+    const cur_path = store.getState().workspace?.current?.path || '';
+    const cur = list.find((w) => w.path === cur_path) || list[0];
+    const cur_name = getProjectName(cur.path);
+    const cur_counts = countsFor(cur, true);
+    const waiting = cur_counts ? cur_counts.owner_decision : 0;
+    if (list.length === 1) {
+      return html`<div class="workspace-picker workspace-picker--single">
+        <span class="workspace-picker__label" title=${cur.path}
+          >${cur_name}</span
         >
-          ${available.map(
-            (/** @type {WorkspaceInfo} */ ws) => html`
-              <option
-                value="${ws.path}"
-                ?selected=${ws.path === current_path}
-                title="${ws.path}"
-              >
-                ${getProjectName(ws.path)}
-              </option>
-            `
-          )}
-        </select>
+      </div>`;
+    }
+    return html`
+      <div class="workspace-picker" @keydown=${onKey}>
+        <button
+          type="button"
+          class="btn ws-btn"
+          aria-haspopup="listbox"
+          aria-expanded=${open ? 'true' : 'false'}
+          aria-label=${t('workspace') + ': ' + cur_name}
+          ?disabled=${is_switching}
+          @click=${toggle}
+        >
+          <span class="ws-dot" style=${'background:' + dotFor(cur_name)}></span>
+          <span class="ws-name">${cur_name}</span>
+          ${waiting > 0
+            ? html`<span class="nav-badge" aria-label=${waiting + ' waiting'}
+                >${waiting}</span
+              >`
+            : ''}
+          <span aria-hidden="true">▾</span>
+        </button>
+        ${open
+          ? html`<div
+              class="pop"
+              role="listbox"
+              aria-label=${t('workspace')}
+              dir=${getLang() === 'ar' ? 'rtl' : 'ltr'}
+            >
+              ${list.map((ws, i) => {
+                const name = getProjectName(ws.path);
+                const is_cur = ws.path === cur_path;
+                const c = countsFor(ws, is_cur);
+                return html`<div
+                  class="ws-row"
+                  role="option"
+                  tabindex="-1"
+                  aria-selected=${is_cur ? 'true' : 'false'}
+                  data-active=${i === active ? 'true' : 'false'}
+                  data-path=${ws.path}
+                  title=${ws.path}
+                  @click=${() => void choose(ws.path)}
+                >
+                  <span
+                    class="ws-dot"
+                    style=${'background:' + dotFor(name)}
+                  ></span>
+                  <div class="ws-row__main">
+                    <span class="ws-row__name">${name}</span>
+                    <span class="ws-row__sub"
+                      >${c ? c.total : '-'} ${t('beads_n')}</span
+                    >
+                  </div>
+                  <span class="ws-row__wait"
+                    >${c && c.owner_decision > 0
+                      ? c.owner_decision + ' ⚑'
+                      : ''}</span
+                  >
+                </div>`;
+              })}
+            </div>`
+          : ''}
         ${is_switching
           ? html`<span
               class="workspace-picker__loading"
@@ -118,13 +259,19 @@ export function createWorkspacePicker(mount_element, store, onWorkspaceChange) {
 
   doRender();
   unsubscribe = store.subscribe(() => doRender());
+  document.addEventListener('click', onDocClick);
+  window.addEventListener('bdui-lang', doRender);
 
   return {
+    /** Re-render, e.g. when the loaded slice (live counts) changed. */
+    refresh: doRender,
     destroy() {
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
       }
+      document.removeEventListener('click', onDocClick);
+      window.removeEventListener('bdui-lang', doRender);
       render(html``, mount_element);
     }
   };

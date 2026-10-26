@@ -34,15 +34,14 @@ describe('views/nav', () => {
       /** @type {any} */ (router)
     );
     const links = mount.querySelectorAll('a.tab');
-    expect(links.length).toBe(4);
+    expect(links.length).toBe(3);
     links[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(router.gotoView).toHaveBeenCalledWith('board');
     links[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(router.gotoView).toHaveBeenCalledWith('decisions');
     links[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(router.gotoView).toHaveBeenCalledWith('issues');
-    links[3].dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(router.gotoView).toHaveBeenCalledWith('epics');
+    expect(mount.querySelector('button.tab--theme')).toBeTruthy();
   });
 
   test('Decisions tab shows the count of owner_decision beads', () => {

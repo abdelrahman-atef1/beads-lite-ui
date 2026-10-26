@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createSubscriptionIssueStores } from '../data/subscription-issue-stores.js';
+import { createFilterState } from '../utils/board-filter.js';
 import { createBoardView } from './board.js';
 
 const EMPTY = {
@@ -11,7 +12,7 @@ const EMPTY = {
 /**
  * @param {Record<string, any[]>} lists - client id -> issues (snapshot rev 1)
  */
-function setup(lists) {
+function setup(lists, filter = /** @type {any} */ (undefined)) {
   document.body.innerHTML = '<div id="m"></div>';
   const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
   const stores = createSubscriptionIssueStores();
@@ -30,7 +31,8 @@ function setup(lists) {
     (id) => clicked.push(id),
     undefined,
     undefined,
-    /** @type {any} */ (stores)
+    /** @type {any} */ (stores),
+    filter
   );
   /**
    * @param {string} id
@@ -209,5 +211,46 @@ describe('views/board', () => {
     await flush();
     expect(ids(mount, 'progress')).toEqual([]);
     expect(ids(mount, 'test')).toEqual(['L-1']);
+  });
+
+  test('chips and search narrow the cards; empty columns collapse', async () => {
+    const mem = /** @type {Map<string, string>} */ (new Map());
+    const filter = createFilterState(
+      /** @type {any} */ ({
+        getItem: (/** @type {string} */ k) => mem.get(k) ?? null,
+        setItem: (/** @type {string} */ k, /** @type {string} */ v) =>
+          void mem.set(k, v)
+      })
+    );
+    const { mount, view } = setup(
+      {
+        'tab:all': [
+          { id: 'P-1', title: 'alpha', status: 'in_progress', priority: 0 },
+          {
+            id: 'P-2',
+            title: 'beta',
+            title_ar: 'لوحة',
+            status: 'in_progress',
+            priority: 3
+          },
+          { id: 'T-1', title: 'gamma', status: 'waiting_for_test', priority: 3 }
+        ],
+        ...EMPTY
+      },
+      filter
+    );
+    await view.load();
+    expect(ids(mount, 'progress')).toEqual(['P-1', 'P-2']);
+    filter.set({ chip: 'p01' });
+    expect(ids(mount, 'progress')).toEqual(['P-1']);
+    expect(ids(mount, 'test')).toEqual([]);
+    expect(mount.querySelector('#test-col')?.classList).toContain(
+      'col--collapsed'
+    );
+    filter.set({ chip: 'all', search: 'لوح' });
+    expect(ids(mount, 'progress')).toEqual(['P-2']);
+    filter.set({ search: 't-1' });
+    expect(ids(mount, 'test')).toEqual(['T-1']);
+    expect(mount.querySelectorAll('.chips .chip').length).toBeGreaterThan(3);
   });
 });

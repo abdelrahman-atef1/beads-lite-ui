@@ -12,6 +12,12 @@ import { repeat } from 'lit-html/directives/repeat.js';
 import { createListSelectors } from '../data/list-selectors.js';
 import { cmpClosedDesc, cmpPriorityThenCreated } from '../data/sort.js';
 import {
+  currentUser,
+  facets,
+  isFiltering,
+  matchesFilter
+} from '../utils/board-filter.js';
+import {
   CLOSED_COLUMN,
   COLUMNS,
   OTHER_COLUMN,
@@ -39,6 +45,7 @@ const CLOSED_PAGE = 50;
  * @param {{ getState: () => any, setState: (patch: any) => void }} [_store]
  * @param {unknown} [_subscriptions]
  * @param {{ snapshotFor?: (client_id: string) => any[], isLoaded?: (client_id: string) => boolean, subscribe?: (fn: (client_id?: string) => void) => () => void, subscribeFor?: (client_ids: string | string[], fn: (client_id: string) => void) => () => void }} [issueStores]
+ * @param {{ get: () => any, set: (p: any) => void, subscribe: (fn: () => void) => () => void }} [filter] - shared chips/search state
  * @returns {{ load: () => Promise<void>, clear: () => void }}
  */
 export function createBoardView(
@@ -47,7 +54,8 @@ export function createBoardView(
   gotoIssue,
   _store,
   _subscriptions,
-  issueStores = undefined
+  issueStores = undefined,
+  filter = undefined
 ) {
   const log = debug('views:board');
   const selectors = issueStores ? createListSelectors(issueStores) : null;
@@ -59,6 +67,8 @@ export function createBoardView(
   /** @type {any[]} */
   let closed = [];
   let loaded = false;
+  /** Unfiltered slice, for the Type and Label menus. */
+  let facet_items = /** @type {any[]} */ ([]);
   let closed_open = false;
   let closed_shown = CLOSED_PAGE;
 
@@ -123,10 +133,13 @@ export function createBoardView(
   function columnTemplate(col, items) {
     const label = getLang() === 'ar' ? col.ar : col.en;
     const attn = col.id === 'owner' && items.length > 0;
+    const collapsed = loaded && items.length === 0 && filtering();
     const count_label = `${items.length} ${t('issues_n')}`;
     return html`
       <section
-        class="col ${attn ? 'col--attn' : ''}"
+        class="col ${attn ? 'col--attn' : ''} ${collapsed
+          ? 'col--collapsed'
+          : ''}"
         id=${col.id + '-col'}
         aria-label=${label}
       >
@@ -225,8 +238,82 @@ export function createBoardView(
     `;
   }
 
+  function filtering() {
+    return Boolean(filter && isFiltering(filter.get()));
+  }
+
+  /** @param {any} v */
+  function field(v) {
+    return String(v || '');
+  }
+
+  function chipsTemplate() {
+    if (!filter) {
+      return html``;
+    }
+    const f = filter.get();
+    const { types, labels } = facets(facet_items);
+    /**
+     * @param {string} key
+     * @param {boolean} on
+     * @param {() => void} fn
+     */
+    const chip = (key, on, fn) =>
+      html`<button
+        type="button"
+        class="chip"
+        aria-pressed=${on ? 'true' : 'false'}
+        @click=${fn}
+      >
+        ${t(key)}
+      </button>`;
+    /**
+     * @param {'type'|'label'} name
+     * @param {string[]} values
+     */
+    const menu = (name, values) =>
+      html`<label
+        class="chip chip--menu"
+        aria-pressed=${f[name] ? 'true' : 'false'}
+      >
+        <span>${t('chip_' + name)}</span>
+        <select
+          aria-label=${t('chip_' + name)}
+          @change=${(/** @type {Event} */ ev) =>
+            filter.set({
+              [name]: /** @type {HTMLSelectElement} */ (ev.target).value
+            })}
+        >
+          <option value="" ?selected=${!f[name]}>${t('any')}</option>
+          ${values.map(
+            (v) =>
+              html`<option value=${v} ?selected=${f[name] === v}>${v}</option>`
+          )}
+          ${f[name] && !values.includes(f[name])
+            ? html`<option value=${f[name]} selected>${f[name]}</option>`
+            : ''}
+        </select>
+      </label>`;
+    return html`<div class="chips" role="group" aria-label="Filters">
+      ${chip('chip_all', f.chip === 'all' && !f.type && !f.label, () =>
+        filter.set({ chip: 'all', type: '', label: '' })
+      )}
+      ${chip('chip_mine', f.chip === 'mine', () =>
+        filter.set({ chip: f.chip === 'mine' ? 'all' : 'mine' })
+      )}
+      ${chip('chip_p01', f.chip === 'p01', () =>
+        filter.set({ chip: f.chip === 'p01' ? 'all' : 'p01' })
+      )}
+      ${menu('type', types)} ${menu('label', labels)}
+      ${f.search.trim()
+        ? html`<span class="chips__q" dir="auto">“${field(f.search)}”</span>`
+        : ''}
+    </div>`;
+  }
+
   function template() {
     return html`
+      ${chipsTemplate()}
       <div class="board" id="board-root-inner">
         ${COLUMNS.map((c) => columnTemplate(c, columns[c.id] || []))}
         ${other.length > 0 ? columnTemplate(OTHER_COLUMN, other) : ''}
@@ -253,8 +340,12 @@ export function createBoardView(
         const blocked_ids = new Set(
           selectors.selectIssuesFor('tab:board:blocked').map((i) => i.id)
         );
+        facet_items = /** @type {any[]} */ (all);
+        const me = currentUser();
+        const keep = (/** @type {any} */ it) =>
+          !filter || matchesFilter(it, filter.get(), me);
         const split = splitColumns(
-          /** @type {any[]} */ (all),
+          /** @type {any[]} */ (all).filter(keep),
           ready_ids,
           blocked_ids
         );
@@ -269,7 +360,7 @@ export function createBoardView(
         columns.owner.sort((a, b) => (a.updated_at || 0) - (b.updated_at || 0));
         closed = selectors
           .selectBoardColumn('tab:board:closed', 'closed')
-          .slice()
+          .filter(keep)
           .sort(cmpClosedDesc);
       }
     } catch (err) {
@@ -282,6 +373,9 @@ export function createBoardView(
     selectors.subscribe(() => refreshFromStores(), BOARD_CLIENT_IDS);
   }
   window.addEventListener('bdui-lang', () => doRender());
+  if (filter) {
+    filter.subscribe(() => refreshFromStores());
+  }
   doRender();
 
   return {
