@@ -1,4 +1,5 @@
 import { runBdJson } from './bd.js';
+import { boardData, isBoardColumnType } from './board-data.js';
 import { debug } from './logging.js';
 
 const log = debug('list-adapters');
@@ -62,6 +63,26 @@ export function mapSubscriptionToBdArgs(spec) {
         'closed',
         '--limit',
         '1000'
+      ];
+    }
+    case 'owner-decision-issues':
+    case 'waiting-for-test-issues':
+    case 'waiting-for-merge-issues':
+    case 'status-issues': {
+      // Served from the shared board snapshot (board-data.js); args kept for
+      // callers that run the column on its own.
+      const status =
+        t === 'status-issues'
+          ? String(spec.params?.status || '')
+          : t.replace(/-issues$/, '').replace(/-/g, '_');
+      return [
+        'list',
+        '--json',
+        '--tree=false',
+        '--status',
+        status,
+        '--limit',
+        '0'
       ];
     }
     case 'issue-detail': {
@@ -148,6 +169,30 @@ export async function fetchListForSubscription(spec, options = {}) {
     log('mapSubscriptionToBdArgs failed for %o: %o', spec, err);
     const e = toErrorObject(err);
     return { ok: false, error: e };
+  }
+
+  // Board columns share one refresh (see board-data.js) instead of one bd
+  // process per column.
+  if (isBoardColumnType(String(spec.type))) {
+    try {
+      const col = await boardData.getColumn(spec, {
+        cwd: options.cwd,
+        priority: options.priority
+      });
+      if (!col.ok) {
+        return { ok: false, error: col.error };
+      }
+      return { ok: true, items: normalizeIssueList(col.raw) };
+    } catch (err) {
+      log('board column failed for %o: %o', spec, err);
+      return {
+        ok: false,
+        error: {
+          code: 'bd_error',
+          message: (err && /** @type {any} */ (err).message) || 'bd failed'
+        }
+      };
+    }
   }
 
   try {

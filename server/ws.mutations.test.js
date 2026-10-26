@@ -529,9 +529,10 @@ describe('ws mutation handlers', () => {
       ['update', 'UI-7', '--type', 'feature'],
       expect.objectContaining({ cwd: '/tmp/bdui-ws-test-fixture' })
     );
-    expect(mJson).toHaveBeenCalledWith(
+    // No post-mutation show (contract board-data.md).
+    expect(mJson).not.toHaveBeenCalledWith(
       ['show', 'UI-7', '--json'],
-      expect.objectContaining({ cwd: '/tmp/bdui-ws-test-fixture' })
+      expect.anything()
     );
   });
 });

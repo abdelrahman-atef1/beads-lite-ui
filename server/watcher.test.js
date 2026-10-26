@@ -118,3 +118,15 @@ describe('watchDb', () => {
     handle.close();
   });
 });
+
+describe('isNoiseFile', () => {
+  test('ignores files bd touches on reads, locks, temp and backups', async () => {
+    const { isNoiseFile } = await import('./watcher.js');
+    expect(isNoiseFile('last-touched')).toBe(true);
+    expect(isNoiseFile('embeddeddolt.gate.lock')).toBe(true);
+    expect(isNoiseFile('.~issues.jsonl.123')).toBe(true);
+    expect(isNoiseFile('backup\\x.jsonl')).toBe(true);
+    expect(isNoiseFile('embeddeddolt/db/.dolt/noms/manifest')).toBe(false);
+    expect(isNoiseFile('beads.db-wal')).toBe(false);
+  });
+});

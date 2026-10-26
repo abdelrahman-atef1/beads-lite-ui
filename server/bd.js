@@ -14,7 +14,7 @@ const BD_INTERACTIVE_BURST_LIMIT = 4;
 const bd_queue_interactive = [];
 /** @type {BdQueueTask[]} */
 const bd_queue_background = [];
-let bd_queue_running = false;
+let bd_queue_running = 0;
 let bd_queue_interactive_burst = 0;
 
 /**
@@ -198,9 +198,7 @@ function buildBdArgs(args) {
 }
 
 /**
- * Serialize `bd` invocations.
- * Dolt embedded mode can crash when multiple `bd` processes run concurrently
- * against the same workspace.
+ * Queue `bd` invocations, at most `getBdConcurrency()` (default 4) at once.
  *
  * Interactive work is dequeued before watcher-driven list refreshes. A bounded
  * burst prevents background refreshes from starving under sustained activity.
@@ -215,30 +213,37 @@ function withBdRunQueue(operation, priority = 'interactive') {
     const queue =
       priority === 'background' ? bd_queue_background : bd_queue_interactive;
     queue.push({ operation, resolve, reject });
-    void pumpBdQueue();
+    pumpBdQueue();
   });
 }
 
-/** Drain queued bd operations one at a time. */
-async function pumpBdQueue() {
-  if (bd_queue_running) {
-    return;
-  }
-  bd_queue_running = true;
-  try {
-    for (;;) {
-      const task = nextBdQueueTask();
-      if (!task) {
-        break;
-      }
-      try {
-        task.resolve(await task.operation());
-      } catch (err) {
-        task.reject(err);
-      }
+/**
+ * Maximum bd processes at once (contract board-data.md: 4). Override with
+ * BDUI_BD_CONCURRENCY; 1 restores the old strictly serial behaviour for a
+ * tracker that cannot take parallel readers.
+ *
+ * @returns {number}
+ */
+export function getBdConcurrency() {
+  const n = Number.parseInt(String(process.env.BDUI_BD_CONCURRENCY || ''), 10);
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 16) : 4;
+}
+
+/** Start queued bd operations until the concurrency cap is reached. */
+function pumpBdQueue() {
+  while (bd_queue_running < getBdConcurrency()) {
+    const task = nextBdQueueTask();
+    if (!task) {
+      return;
     }
-  } finally {
-    bd_queue_running = false;
+    bd_queue_running += 1;
+    task
+      .operation()
+      .then(task.resolve, task.reject)
+      .finally(() => {
+        bd_queue_running -= 1;
+        pumpBdQueue();
+      });
   }
 }
 

@@ -82,6 +82,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const dir of temp_dirs.splice(0)) {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -222,7 +223,32 @@ describe('runBd', () => {
     }
   });
 
+  test('runs at most 4 bd processes at once and starts the next as one ends', async () => {
+    /** @type {Array<() => void>} */
+    const closers = [];
+    mockedSpawn.mockImplementation(() => {
+      const proc = makeControlledProc();
+      closers.push(proc.close);
+      return proc.cp;
+    });
+    const all = Array.from({ length: 6 }, (_v, i) =>
+      runBd(['show', `c-${i}`], { priority: 'background' })
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockedSpawn).toHaveBeenCalledTimes(4);
+    closers[0]();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockedSpawn).toHaveBeenCalledTimes(5);
+    for (let i = 1; i < 6; i++) {
+      await new Promise((r) => setTimeout(r, 5));
+      closers[i]?.();
+    }
+    await Promise.all(all);
+    expect(mockedSpawn).toHaveBeenCalledTimes(6);
+  });
+
   test('runs interactive commands before queued background commands', async () => {
+    vi.stubEnv('BDUI_BD_CONCURRENCY', '1'); // ordering is only defined when serial
     /** @type {string[]} */
     const order = [];
     mockedSpawn.mockImplementation((_bin, args) => {
@@ -250,6 +276,7 @@ describe('runBd', () => {
   });
 
   test('runs background commands after bounded interactive bursts', async () => {
+    vi.stubEnv('BDUI_BD_CONCURRENCY', '1'); // ordering is only defined when serial
     /** @type {string[]} */
     const order = [];
     mockedSpawn.mockImplementation((_bin, args) => {
@@ -281,6 +308,7 @@ describe('runBd', () => {
   });
 
   test('does not count bursts while no background work is waiting', async () => {
+    vi.stubEnv('BDUI_BD_CONCURRENCY', '1'); // ordering is only defined when serial
     /** @type {string[]} */
     const order = [];
     /** @type {Array<() => void>} */

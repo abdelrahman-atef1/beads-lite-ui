@@ -13,6 +13,7 @@ import {
   makeOk
 } from '../app/protocol.js';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
+import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
@@ -160,6 +161,30 @@ function collectActiveListSpecs() {
  * Run refresh for all active list subscription specs and publish deltas.
  */
 async function refreshAllActiveListSubscriptions() {
+  // At most one refresh in flight; a change during one schedules exactly one
+  // more (contract board-data.md).
+  if (REFRESH_RUNNING) {
+    REFRESH_AGAIN = true;
+    return REFRESH_RUNNING;
+  }
+  REFRESH_RUNNING = (async () => {
+    try {
+      do {
+        REFRESH_AGAIN = false;
+        await refreshAllOnce();
+      } while (REFRESH_AGAIN);
+    } finally {
+      REFRESH_RUNNING = null;
+    }
+  })();
+  return REFRESH_RUNNING;
+}
+
+/** @type {Promise<void> | null} */
+let REFRESH_RUNNING = null;
+let REFRESH_AGAIN = false;
+
+async function refreshAllOnce() {
   clearDetailCaches();
   const specs = collectActiveListSpecs();
   // Run refreshes concurrently; locking is handled per key in the registry
@@ -235,6 +260,7 @@ function clearDetailCaches() {
   ISSUE_DETAIL_CACHE.clear();
   COMMENTS_CACHE.clear();
   DETAIL_CACHE_GENERATION += 1;
+  boardData.invalidate();
 }
 
 /**
@@ -885,14 +911,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id, assignee })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -933,14 +954,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id, status })));
     // After mutation, refresh active subscriptions once (watcher or timeout)
     try {
       triggerMutationRefreshOnce();
@@ -983,14 +999,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id, priority })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1036,14 +1047,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id, issue_type: type })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1101,14 +1107,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id, [field]: value })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1200,14 +1201,9 @@ export async function handleMessage(ws, data) {
       return;
     }
     const id = typeof view_id === 'string' && view_id.length > 0 ? view_id : a;
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1245,14 +1241,9 @@ export async function handleMessage(ws, data) {
       return;
     }
     const id = typeof view_id === 'string' && view_id.length > 0 ? view_id : a;
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1289,14 +1280,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id })));
     try {
       triggerMutationRefreshOnce();
     } catch {
@@ -1333,14 +1319,9 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const shown = await runBdJson(['show', id, '--json'], bd_options);
-    if (shown.code !== 0) {
-      ws.send(
-        JSON.stringify(makeError(req, 'bd_error', shown.stderr || 'bd failed'))
-      );
-      return;
-    }
-    ws.send(JSON.stringify(makeOk(req, shown.stdoutJson)));
+    // No post-mutation `show` (contract board-data.md): the one refresh below
+    // pushes the new state to every subscriber; the reply only echoes the change.
+    ws.send(JSON.stringify(makeOk(req, { id })));
     try {
       triggerMutationRefreshOnce();
     } catch {

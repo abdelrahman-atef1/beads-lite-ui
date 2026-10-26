@@ -298,10 +298,6 @@ describe('comments cache', () => {
     mockedRunBd.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
     mockedRunBdJson
       .mockImplementationOnce(() => stale.promise)
-      .mockResolvedValueOnce({
-        code: 0,
-        stdoutJson: { id: issue_id, status: 'closed' }
-      })
       .mockResolvedValueOnce({ code: 0, stdoutJson: fresh_comments });
 
     const sock = createSocket();
@@ -315,7 +311,7 @@ describe('comments cache', () => {
 
     await requestComments(sock, issue_id, 'req-2');
 
-    expect(mockedRunBdJson).toHaveBeenCalledTimes(3);
+    expect(mockedRunBdJson).toHaveBeenCalledTimes(2);
     const replies = sock.sent.map((msg) => JSON.parse(msg));
     expect(replies[replies.length - 1].payload).toEqual(fresh_comments);
   });

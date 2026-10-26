@@ -4,6 +4,25 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { debug } from './logging.js';
 
 /**
+ * True for files that bd touches on every call, including reads, or that are
+ * only lock/temp/backup noise. Reacting to them would make each refresh
+ * trigger the next one.
+ *
+ * @param {string} filename - path relative to the watched directory
+ * @returns {boolean}
+ */
+export function isNoiseFile(filename) {
+  const parts = String(filename).split(/[\\/]/).filter(Boolean);
+  const base = parts[parts.length - 1] || '';
+  return (
+    base === 'last-touched' ||
+    base.endsWith('.lock') ||
+    base.startsWith('.~') ||
+    parts[0] === 'backup'
+  );
+}
+
+/**
  * Watch the resolved workspace database target and invoke a callback after a
  * debounce window.
  *
@@ -69,11 +88,17 @@ export function watchDb(root_dir, onChange, options = {}) {
 
     // (Re)create watcher
     try {
+      // A Dolt store keeps its data in subfolders of .beads, so watch the whole
+      // tree there (the embedded engine writes below it); a SQLite file is
+      // matched by name in its own folder.
       watcher = fs.watch(
         current_dir,
-        { persistent: true },
+        { persistent: true, recursive: !current_file },
         (event_type, filename) => {
           if (current_file && filename && String(filename) !== current_file) {
+            return;
+          }
+          if (!current_file && filename && isNoiseFile(String(filename))) {
             return;
           }
           if (event_type === 'change' || event_type === 'rename') {
