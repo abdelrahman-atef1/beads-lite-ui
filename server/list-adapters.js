@@ -140,6 +140,54 @@ export function normalizeIssueList(value) {
 }
 
 /**
+ * Card fields the board, list and decision cards read. Everything else
+ * (description, design, notes, acceptance, comments, dependency lists) comes
+ * with the issue-detail subscription when a card is opened, so the initial
+ * payload stays small (payload budget, company-1bo5).
+ */
+const CARD_FIELDS = [
+  'id',
+  'title',
+  'title_ar',
+  'status',
+  'priority',
+  'issue_type',
+  'labels',
+  'assignee',
+  'created_at',
+  'updated_at',
+  'closed_at',
+  'dependency_count',
+  'dependent_count'
+];
+/** Metadata keys the cards read (decision-card fields, Arabic title). */
+const CARD_META = /^(card_[a-z_]+|title_ar)$/;
+
+/**
+ * @param {Array<Record<string, any>>} items
+ * @returns {Array<{ id: string, updated_at: number, closed_at: number | null } & Record<string, unknown>>}
+ */
+export function slimBoardItems(items) {
+  return items.map((it) => {
+    /** @type {any} */
+    const out = {};
+    for (const k of CARD_FIELDS) {
+      if (it[k] !== undefined) out[k] = it[k];
+    }
+    const m = it.metadata;
+    if (m && typeof m === 'object') {
+      /** @type {Record<string, unknown>} */
+      const slim = {};
+      for (const [k, v] of Object.entries(m)) {
+        if (CARD_META.test(k)) slim[k] = v;
+      }
+      if (Object.keys(slim).length > 0) out.metadata = slim;
+    }
+    return out;
+  });
+}
+
+/**
  * @typedef {Object} FetchListResultSuccess
  * @property {true} ok
  * @property {Array<{ id: string, updated_at: number, closed_at: number | null } & Record<string, unknown>>} items
@@ -183,7 +231,7 @@ export async function fetchListForSubscription(spec, options = {}) {
       if (!col.ok) {
         return { ok: false, error: col.error };
       }
-      return { ok: true, items: normalizeIssueList(col.raw) };
+      return { ok: true, items: slimBoardItems(normalizeIssueList(col.raw)) };
     } catch (err) {
       log('board column failed for %o: %o', spec, err);
       return {
