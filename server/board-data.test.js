@@ -177,4 +177,39 @@ describe('board data layer', () => {
     await bd.getSnapshot({ cwd: '/other' });
     expect(state.calls).toBe(4);
   });
+
+  test('allow_stale answers at once from the last snapshot and revalidates once', async () => {
+    const { state, load } = makeLoad();
+    const bd = createBoardData({ load });
+    let revalidated = 0;
+    bd.onRevalidated = () => {
+      revalidated += 1;
+    };
+    await bd.getColumn({ type: 'ready-issues' }, {});
+    expect(state.calls).toBe(1);
+    bd.invalidate();
+    let release = () => {};
+    state.gate = new Promise((r) => (release = () => r()));
+    const a = await bd.getColumn(
+      { type: 'ready-issues' },
+      { allow_stale: true }
+    );
+    const b = await bd.getColumn(
+      { type: 'closed-issues' },
+      { allow_stale: true }
+    );
+    expect(ids(a)).toEqual(['A']);
+    expect(ids(b)).toEqual(['Z']);
+    expect(state.calls).toBe(2);
+    expect(revalidated).toBe(0);
+    release();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(revalidated).toBe(1);
+    expect(state.calls).toBe(2);
+    // without allow_stale a stale snapshot is never returned
+    bd.invalidate();
+    state.gate = null;
+    await bd.getColumn({ type: 'ready-issues' }, {});
+    expect(state.calls).toBe(3);
+  });
 });

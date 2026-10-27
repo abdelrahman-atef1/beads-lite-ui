@@ -18,9 +18,9 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
-import { withCounts } from './workspace-counts.js';
 import { keyOf, registry } from './subscriptions.js';
 import { validateSubscribeListPayload } from './validators.js';
+import { withCounts } from './workspace-counts.js';
 
 const log = debug('ws');
 
@@ -200,6 +200,15 @@ async function refreshAllOnce() {
   );
 }
 
+// A page load answered from a stale board snapshot is corrected as soon as the
+// background reload finishes: publish the fresh items to every subscriber.
+// No cache clearing here, or the fresh snapshot would be thrown away.
+boardData.onRevalidated = () => {
+  for (const spec of collectActiveListSpecs()) {
+    void refreshAndPublish(spec).catch(() => undefined);
+  }
+};
+
 /**
  * Schedule a coalesced refresh of all active list subscriptions.
  */
@@ -341,7 +350,8 @@ function fetchInitialListForSubscription(spec) {
     return fetchCachedIssueDetail(spec);
   }
   return fetchListForSubscription(spec, {
-    cwd: CURRENT_WORKSPACE?.root_dir
+    cwd: CURRENT_WORKSPACE?.root_dir,
+    allow_stale: true
   });
 }
 

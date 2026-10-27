@@ -156,7 +156,7 @@ export function normalizeIssueList(value) {
  * Errors do not throw; they are surfaced as a structured object.
  *
  * @param {{ type: string, params?: Record<string, string | number | boolean> }} spec
- * @param {{ cwd?: string, priority?: 'interactive' | 'background' }} [options] - Optional bd command settings
+ * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean }} [options] - Optional bd command settings
  * @returns {Promise<FetchListResultSuccess | FetchListResultFailure>}
  */
 export async function fetchListForSubscription(spec, options = {}) {
@@ -177,7 +177,8 @@ export async function fetchListForSubscription(spec, options = {}) {
     try {
       const col = await boardData.getColumn(spec, {
         cwd: options.cwd,
-        priority: options.priority
+        priority: options.priority,
+        allow_stale: options.allow_stale
       });
       if (!col.ok) {
         return { ok: false, error: col.error };

@@ -132,6 +132,18 @@ export function createBoardData(options = {}) {
   let queued = null;
   /** @type {{ key: string, snapshot: Snapshot, at: number } | null} */
   let fresh = null;
+  /**
+   * The newest finished snapshot, kept past invalidate(). An initial page load
+   * with `allow_stale` is answered from it at once while one real reload runs
+   * (stale-while-revalidate), so a load after any write does not wait for four
+   * bd spawns. Zero idle cost: nothing reloads unless a page asks.
+   *
+   * @type {{ key: string, snapshot: Snapshot } | null}
+   */
+  let last = null;
+  let revalidating = false;
+  /** @type {(() => void) | null} Called when a stale answer has been replaced by a fresh load. */
+  let on_revalidated = null;
   let spawned = 0;
   /** Bumped by invalidate(); a load that started earlier is never cached. */
   let generation = 0;
@@ -154,6 +166,7 @@ export function createBoardData(options = {}) {
           if (started_generation === generation) {
             fresh = { key, snapshot, at: now() };
           }
+          last = { key, snapshot };
           return snapshot;
         },
         (err) => {
@@ -199,7 +212,7 @@ export function createBoardData(options = {}) {
   }
 
   /**
-   * @param {{ cwd?: string, priority?: 'interactive' | 'background' }} [opts]
+   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean }} [opts]
    * @returns {Promise<Snapshot>}
    */
   function getSnapshot(opts = {}) {
@@ -207,6 +220,21 @@ export function createBoardData(options = {}) {
     const max_age = key === watched_key ? watched_ttl_ms : ttl_ms;
     if (fresh && fresh.key === key && now() - fresh.at < max_age) {
       return Promise.resolve(fresh.snapshot);
+    }
+    if (opts.allow_stale && last && last.key === key) {
+      if (!revalidating) {
+        revalidating = true;
+        getSnapshot({ cwd: opts.cwd, priority: 'background' }).then(
+          () => {
+            revalidating = false;
+            on_revalidated?.();
+          },
+          () => {
+            revalidating = false;
+          }
+        );
+      }
+      return Promise.resolve(last.snapshot);
     }
     if (queued && queued.key === key) {
       return queued.promise;
@@ -240,7 +268,7 @@ export function createBoardData(options = {}) {
    * Items for one subscription spec, taken from the shared snapshot.
    *
    * @param {{ type: string, params?: Record<string, string | number | boolean> }} spec
-   * @param {{ cwd?: string, priority?: 'interactive' | 'background' }} [opts]
+   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean }} [opts]
    * @returns {Promise<{ ok: true, raw: unknown[] } | { ok: false, error: { code: string, message: string, details?: Record<string, unknown> } }>}
    */
   async function getColumn(spec, opts = {}) {
@@ -309,6 +337,10 @@ export function createBoardData(options = {}) {
     getColumn,
     watch,
     invalidate,
+    /** @param {(() => void) | null} fn */
+    set onRevalidated(fn) {
+      on_revalidated = fn;
+    },
     /** Number of snapshot loads started (4 bd calls each); for tests and logs. */
     get loads() {
       return spawned;
