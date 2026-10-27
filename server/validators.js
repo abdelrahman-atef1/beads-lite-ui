@@ -17,6 +17,10 @@ const SUBSCRIPTION_TYPES = new Set([
   'ready-issues',
   'in-progress-issues',
   'closed-issues',
+  'owner-decision-issues',
+  'waiting-for-test-issues',
+  'waiting-for-merge-issues',
+  'status-issues',
   'issue-detail'
 ]);
 
@@ -83,6 +87,18 @@ export function validateSubscribeListPayload(payload) {
       };
     }
     params = { id };
+  } else if (type === 'status-issues') {
+    // Any custom status column: params.status only.
+    const status =
+      params && typeof params.status === 'string' ? params.status : '';
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(status)) {
+      return {
+        ok: false,
+        code: 'bad_request',
+        message: 'params.status must be a status name like in_review'
+      };
+    }
+    params = { status };
   } else if (type === 'closed-issues') {
     if (params && 'since' in params) {
       const since = params.since;
