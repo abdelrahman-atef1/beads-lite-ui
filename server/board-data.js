@@ -17,6 +17,12 @@ const log = debug('board-data');
 const DEFAULT_CLOSED_LIMIT = 1000;
 /** A finished snapshot is reused this long, so the initial subscribes of all columns coalesce. */
 const DEFAULT_TTL_MS = 1500;
+/**
+ * The workspace the file watcher is bound to is kept this long: the watcher's
+ * invalidate() is what refreshes it, so a page load is answered from memory
+ * (no bd spawn). The cap only guards against a missed file event.
+ */
+const DEFAULT_WATCHED_TTL_MS = 120_000;
 
 /**
  * Subscription type -> how its items are taken from a snapshot.
@@ -110,10 +116,13 @@ async function loadSnapshot(cwd, priority) {
 }
 
 /**
- * @param {{ ttl_ms?: number, load?: typeof loadSnapshot, now?: () => number }} [options]
+ * @param {{ ttl_ms?: number, watched_ttl_ms?: number, load?: typeof loadSnapshot, now?: () => number }} [options]
  */
 export function createBoardData(options = {}) {
   const ttl_ms = options.ttl_ms ?? DEFAULT_TTL_MS;
+  const watched_ttl_ms = options.watched_ttl_ms ?? DEFAULT_WATCHED_TTL_MS;
+  /** @type {string | null} */
+  let watched_key = null;
   const load = options.load ?? loadSnapshot;
   const now = options.now ?? Date.now;
 
@@ -195,7 +204,8 @@ export function createBoardData(options = {}) {
    */
   function getSnapshot(opts = {}) {
     const key = opts.cwd || '';
-    if (fresh && fresh.key === key && now() - fresh.at < ttl_ms) {
+    const max_age = key === watched_key ? watched_ttl_ms : ttl_ms;
+    if (fresh && fresh.key === key && now() - fresh.at < max_age) {
       return Promise.resolve(fresh.snapshot);
     }
     if (queued && queued.key === key) {
@@ -282,9 +292,22 @@ export function createBoardData(options = {}) {
     return { ok: true, raw };
   }
 
+  /**
+   * Tell the data layer which workspace the change watcher covers, and load
+   * its snapshot now, so the first page load finds it ready. One load per
+   * call; nothing repeats.
+   *
+   * @param {string | undefined} cwd
+   */
+  function watch(cwd) {
+    watched_key = cwd || '';
+    getSnapshot({ cwd, priority: 'background' }).catch(() => undefined);
+  }
+
   return {
     getSnapshot,
     getColumn,
+    watch,
     invalidate,
     /** Number of snapshot loads started (4 bd calls each); for tests and logs. */
     get loads() {

@@ -159,4 +159,22 @@ describe('board data layer', () => {
     const prog = await bd.getColumn({ type: 'in-progress-issues' });
     expect(prog.ok).toBe(true);
   });
+
+  test('watched workspace is served from memory until invalidated; others use the short ttl', async () => {
+    const { state, load } = makeLoad();
+    let t = 0;
+    const bd = createBoardData({ load, now: () => t, ttl_ms: 1000 });
+    bd.watch('/w');
+    await bd.getSnapshot({ cwd: '/w' });
+    t = 60_000;
+    await bd.getSnapshot({ cwd: '/w' });
+    expect(state.calls).toBe(1);
+    bd.invalidate();
+    await bd.getSnapshot({ cwd: '/w' });
+    expect(state.calls).toBe(2);
+    await bd.getSnapshot({ cwd: '/other' });
+    t = 70_000;
+    await bd.getSnapshot({ cwd: '/other' });
+    expect(state.calls).toBe(4);
+  });
 });

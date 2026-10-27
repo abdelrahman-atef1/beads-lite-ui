@@ -586,6 +586,9 @@ export function attachWsServer(http_server, options = {}) {
   if (options.watcher) {
     DB_WATCHER = options.watcher;
   }
+  if (options.watcher) {
+    boardData.watch(CURRENT_WORKSPACE.root_dir);
+  }
   const heartbeat_ms = options.heartbeat_ms ?? 30000;
   if (typeof options.refresh_debounce_ms === 'number') {
     const n = options.refresh_debounce_ms;
@@ -692,6 +695,9 @@ export function attachWsServer(http_server, options = {}) {
       // Clear existing registry entries and refresh all subscriptions
       registry.clear();
       clearDetailCaches();
+      if (DB_WATCHER) {
+        boardData.watch(resolved_root);
+      }
 
       // Broadcast workspace-changed event to all clients
       broadcast('workspace-changed', CURRENT_WORKSPACE);
@@ -1524,6 +1530,9 @@ export async function handleMessage(ws, data) {
       // Clear existing registry entries
       registry.clear();
       clearDetailCaches();
+      if (DB_WATCHER) {
+        boardData.watch(resolved);
+      }
 
       // Schedule refresh of all active list subscriptions
       scheduleListRefresh();
