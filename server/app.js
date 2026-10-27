@@ -2,6 +2,7 @@
  * @import { Express, Request, Response } from 'express'
  */
 import express from 'express';
+import { prewarmCounts } from './workspace-counts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -51,6 +52,7 @@ export function createApp(config) {
       return;
     }
     registerWorkspace({ path: workspace_path, database });
+    prewarmCounts(workspace_path);
     res.status(200).json({ ok: true, registered: workspace_path });
   });
 

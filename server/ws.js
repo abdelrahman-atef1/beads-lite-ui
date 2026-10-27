@@ -18,6 +18,7 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
+import { withCounts } from './workspace-counts.js';
 import { keyOf, registry } from './subscriptions.js';
 import { validateSubscribeListPayload } from './validators.js';
 
@@ -1458,7 +1459,7 @@ export async function handleMessage(ws, data) {
   // list-workspaces: returns all available workspaces from the registry
   if (req.type === 'list-workspaces') {
     log('list-workspaces');
-    const workspaces = getAvailableWorkspaces();
+    const workspaces = await withCounts(getAvailableWorkspaces());
     ws.send(
       JSON.stringify(
         makeOk(req, {

@@ -39,8 +39,10 @@ Each entry of `workspaces[]` in the `list-workspaces` reply MAY carry:
 Fixture: `app/data/fixtures/list-workspaces.counts.json` (used by
 `app/views/workspace-picker.test.js`).
 
-Server change (NOT done, left for later): add `counts` in
-`getAvailableWorkspaces()` in `server/ws.js`.
+Server change (done, `server/workspace-counts.js`): `list-workspaces` runs
+`bd count --by-status --json` once per project (in that project's folder, via
+the shared bd queue), cached 10 s, waits at most 800 ms; slower projects omit
+`counts` this time and have them next time.
 
 ## Filters and search (client only)
 
