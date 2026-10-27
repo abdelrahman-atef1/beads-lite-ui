@@ -22,7 +22,7 @@ const DEFAULT_TTL_MS = 1500;
  * invalidate() is what refreshes it, so a page load is answered from memory
  * (no bd spawn). The cap only guards against a missed file event.
  */
-const DEFAULT_WATCHED_TTL_MS = 120_000;
+const DEFAULT_WATCHED_TTL_MS = 30 * 60_000;
 
 /**
  * Subscription type -> how its items are taken from a snapshot.
