@@ -594,12 +594,111 @@ function renderMedia(media) {
     );
     return;
   }
+  // Plain preview: no pointer handlers and touch-action:pan-y, so scrolling
+  // over it never draws. Drawing lives in the editor screen (openEditor).
   const canvas = h('canvas', {
     class: 'rpt-canvas',
+    role: 'img',
     'aria-label': t('rpt_canvas')
   });
   canvas.width = st.img.width;
   canvas.height = st.img.height;
+  const tools = h('div', { class: 'rpt-tools' }, [
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'rpt-btn rpt-edit',
+        'data-act': 'edit',
+        'aria-label': t('rpt_edit')
+      },
+      [penIcon(), h('span', {}, [t('rpt_edit')])]
+    ),
+    h('span', { class: 'rpt-sp' }),
+    h('button', { type: 'button', class: 'rpt-btn', 'data-act': 'drop' }, [
+      t('rpt_remove')
+    ])
+  ]);
+  tools.addEventListener('click', (/** @type {Event} */ e) => {
+    const b = /** @type {HTMLElement} */ (e.target).closest('button');
+    if (!b) return;
+    if (b.dataset.act === 'edit') {
+      openEditor(media);
+      return;
+    }
+    if (b.dataset.act === 'drop') {
+      st.img = null;
+      st.strokes = [];
+    }
+    renderMedia(media);
+  });
+  media.append(tools, canvas);
+  paintCanvas(/** @type {HTMLCanvasElement} */ (canvas));
+}
+
+/** Pen icon (inline SVG, no asset). */
+function penIcon() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('aria-hidden', 'true');
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', 'M3 21l3.5-.8L19 7.7 16.3 5 3.8 17.5zM15 6.3L17.7 9');
+  p.setAttribute('fill', 'none');
+  p.setAttribute('stroke', 'currentColor');
+  p.setAttribute('stroke-width', '2');
+  p.setAttribute('stroke-linejoin', 'round');
+  svg.append(p);
+  return svg;
+}
+
+/**
+ * Full-screen editing screen. Works on a copy of the strokes: Done commits
+ * them to the report, Cancel (or Escape) drops them.
+ *
+ * @param {HTMLElement} media - the sheet's media block to refresh after Done.
+ */
+function openEditor(media) {
+  if (!st.img || document.querySelector('.rpt-edscr')) return;
+  const base = st.img;
+  /** @type {any[]} */
+  let work = st.strokes.map((s) => ({ c: s.c, p: s.p.slice() }));
+  const prevPen = st.pen;
+  const canvas = /** @type {HTMLCanvasElement} */ (
+    h('canvas', { class: 'rpt-edcanvas', 'aria-label': t('rpt_edit') })
+  );
+  canvas.width = base.width;
+  canvas.height = base.height;
+  const scr = h('div', {
+    class: 'rpt-edscr',
+    role: 'dialog',
+    'aria-modal': 'true',
+    'aria-label': t('rpt_edit'),
+    dir: getLang() === 'ar' ? 'rtl' : 'ltr'
+  });
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    scr.remove();
+    st.cur = null;
+  };
+  const cancel = () => {
+    st.pen = prevPen;
+    close();
+  };
+  /** @param {KeyboardEvent} e */
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    cancel();
+  };
+  const draw = () => {
+    const keep = st.strokes;
+    st.strokes = work;
+    paintCanvas(canvas, base);
+    st.strokes = keep;
+  };
   const tools = h('div', { class: 'rpt-tools' }, [
     ...PENS.map(([c, k]) =>
       h('button', {
@@ -615,28 +714,53 @@ function renderMedia(media) {
     h('button', { type: 'button', class: 'rpt-btn', 'data-act': 'undo' }, [
       t('rpt_undo')
     ]),
-    h('button', { type: 'button', class: 'rpt-btn', 'data-act': 'drop' }, [
-      t('rpt_remove')
+    h('button', { type: 'button', class: 'rpt-btn', 'data-act': 'clear' }, [
+      t('rpt_clear')
     ])
   ]);
   tools.addEventListener('click', (/** @type {Event} */ e) => {
     const b = /** @type {HTMLElement} */ (e.target).closest('button');
     if (!b) return;
-    if (b.dataset.pen) st.pen = b.dataset.pen;
-    else if (b.dataset.act === 'undo') st.strokes.pop();
-    else if (b.dataset.act === 'drop') {
-      st.img = null;
-      st.strokes = [];
-    }
-    renderMedia(media);
+    if (b.dataset.pen) {
+      st.pen = b.dataset.pen;
+      for (const x of tools.querySelectorAll('.rpt-pen'))
+        x.setAttribute('aria-pressed', String(x === b));
+    } else if (b.dataset.act === 'undo') work.pop();
+    else if (b.dataset.act === 'clear') work = [];
+    draw();
   });
-  media.append(
-    tools,
-    canvas,
-    h('small', { class: 'rpt-note' }, [t('rpt_draw_hint')])
+  const bar = h('div', { class: 'rpt-edbar' }, [
+    h('button', { type: 'button', class: 'rpt-btn', 'data-act': 'cancel' }, [
+      t('rpt_cancel')
+    ]),
+    h('b', {}, [t('rpt_edit')]),
+    h(
+      'button',
+      { type: 'button', class: 'rpt-btn rpt-done', 'data-act': 'done' },
+      [t('rpt_done')]
+    )
+  ]);
+  bar.addEventListener('click', (/** @type {Event} */ e) => {
+    const b = /** @type {HTMLElement} */ (e.target).closest('button');
+    if (!b) return;
+    if (b.dataset.act === 'cancel') cancel();
+    else if (b.dataset.act === 'done') {
+      st.strokes = work;
+      close();
+      renderMedia(media);
+    }
+  });
+  scr.append(
+    bar,
+    h('div', { class: 'rpt-edstage' }, [canvas]),
+    h('small', { class: 'rpt-note' }, [t('rpt_draw_hint')]),
+    tools
   );
-  wireDraw(/** @type {HTMLCanvasElement} */ (canvas));
-  paintCanvas(/** @type {HTMLCanvasElement} */ (canvas));
+  wireDraw(canvas, () => work, draw);
+  document.addEventListener('keydown', onKey, true);
+  document.body.append(scr);
+  draw();
+  /** @type {HTMLElement | null} */ (scr.querySelector('.rpt-done'))?.focus();
 }
 
 /** @param {HTMLCanvasElement} c */
@@ -657,8 +781,14 @@ function paintCanvas(c, base = st.img) {
   }
 }
 
-/** @param {HTMLCanvasElement} c */
-function wireDraw(c) {
+/**
+ * Pointer drawing, for the editor canvas only.
+ *
+ * @param {HTMLCanvasElement} c
+ * @param {() => any[]} list - the editor's working strokes.
+ * @param {() => void} repaint - repaints from the working strokes.
+ */
+function wireDraw(c, list, repaint) {
   /** @param {PointerEvent} e */
   const pt = (e) => {
     const r = c.getBoundingClientRect();
@@ -667,21 +797,27 @@ function wireDraw(c) {
       ((e.clientY - r.top) * c.height) / r.height
     ];
   };
+  const live = () => {
+    const l = list();
+    l.push(st.cur);
+    repaint();
+    l.pop();
+  };
   c.addEventListener('pointerdown', (e) => {
     c.setPointerCapture?.(e.pointerId);
     st.cur = { c: st.pen, p: [pt(e)] };
-    paintCanvas(c);
+    live();
   });
   c.addEventListener('pointermove', (e) => {
     if (!st.cur) return;
     st.cur.p.push(pt(e));
-    paintCanvas(c);
+    live();
   });
   const end = () => {
     if (!st.cur) return;
-    st.strokes.push(st.cur);
+    list().push(st.cur);
     st.cur = null;
-    paintCanvas(c);
+    repaint();
   };
   c.addEventListener('pointerup', end);
   c.addEventListener('pointercancel', end);

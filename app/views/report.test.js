@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test, vi } from 'vitest';
+import { strings } from '../i18n/report.js';
 import {
   buildFrame,
   createQueue,
@@ -17,7 +19,10 @@ describe('report client', () => {
   });
 
   test('frame = u32 BE meta length, meta json, image bytes', () => {
-    const f = buildFrame({ project: 'p', text: 'x', version: '1' }, new Uint8Array([9, 8]));
+    const f = buildFrame(
+      { project: 'p', text: 'x', version: '1' },
+      new Uint8Array([9, 8])
+    );
     const n = new DataView(f.buffer).getUint32(0, false);
     const meta = JSON.parse(new TextDecoder().decode(f.slice(4, 4 + n)));
     expect(meta).toEqual({ project: 'p', text: 'x', version: '1' });
@@ -65,10 +70,12 @@ describe('report client', () => {
       throw new TypeError('fail');
     });
     const d = { project: 'p', text: 't', version: '1' };
-    expect(await submitReport(d, { fetch: /** @type {any} */ (boom) })).toEqual({
-      ok: false,
-      offline: true
-    });
+    expect(await submitReport(d, { fetch: /** @type {any} */ (boom) })).toEqual(
+      {
+        ok: false,
+        offline: true
+      }
+    );
     const ref = vi.fn(async () => ({
       ok: false,
       status: 400,
@@ -91,7 +98,9 @@ describe('report client', () => {
     let n = 0;
     const out = await flushQueue(q, async (d) => {
       seen.push(d.text);
-      return ++n === 2 ? { ok: false, offline: true } : { ok: true, id: 'id-' + d.text };
+      return ++n === 2
+        ? { ok: false, offline: true }
+        : { ok: true, id: 'id-' + d.text };
     });
     expect(seen).toEqual(['a', 'b']);
     expect(out).toEqual({ sent: ['id-a'], dropped: [], left: 2 });
@@ -109,5 +118,26 @@ describe('report client', () => {
     );
     expect(out).toEqual({ sent: [], dropped: ['unknown_project'], left: 1 });
     expect((await q.all()).map((x) => x.text)).toEqual(['later']);
+  });
+
+  test('scrolling over the sheet preview cannot draw (company-1bo5.6.35)', () => {
+    const css = readFileSync('app/css/report.css', 'utf8');
+    const rule = (/** @type {string} */ sel) => {
+      const i = css.indexOf(sel + ' {');
+      return css.slice(i, css.indexOf('}', i));
+    };
+    expect(rule('.rpt-canvas')).toContain('touch-action: pan-y');
+    expect(rule('.rpt-edcanvas')).toContain('touch-action: none');
+    const js = readFileSync('app/views/report.js', 'utf8');
+    // pointer drawing is wired only on the editor canvas
+    expect(js.split('wireDraw(').length - 1).toBe(2); // definition + one call
+    expect(js).toContain('wireDraw(canvas, () => work, draw)');
+  });
+
+  test('editor strings exist in English and Arabic', () => {
+    for (const k of ['rpt_edit', 'rpt_done', 'rpt_cancel', 'rpt_clear']) {
+      expect(strings[k].en).toBeTruthy();
+      expect(strings[k].ar).toBeTruthy();
+    }
   });
 });

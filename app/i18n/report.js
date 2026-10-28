@@ -29,9 +29,13 @@ export const strings =
       ar: 'ارسم بإصبعك لتحديد المشكلة.'
     },
     rpt_canvas: {
-      en: 'Screenshot, draw on it to mark',
-      ar: 'لقطة الشاشة، ارسم عليها للتأشير'
+      en: 'Screenshot',
+      ar: 'لقطة الشاشة'
     },
+    rpt_edit: { en: 'Edit image', ar: 'تعديل الصورة' },
+    rpt_done: { en: 'Done', ar: 'تم' },
+    rpt_cancel: { en: 'Cancel', ar: 'إلغاء' },
+    rpt_clear: { en: 'Clear', ar: 'مسح' },
     rpt_red: { en: 'Red pen', ar: 'قلم أحمر' },
     rpt_yellow: { en: 'Yellow pen', ar: 'قلم أصفر' },
     rpt_blue: { en: 'Blue pen', ar: 'قلم أزرق' },
