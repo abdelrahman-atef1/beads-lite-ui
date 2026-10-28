@@ -89,7 +89,7 @@ describe('push stores integration (board view)', () => {
     window.location.hash = '#/board';
     document.body.innerHTML = '<nav id="top-nav"></nav><main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
-    bootstrap(root);
+    await bootstrap(root).ready;
     await flushStoreNotifications();
     return client;
   }

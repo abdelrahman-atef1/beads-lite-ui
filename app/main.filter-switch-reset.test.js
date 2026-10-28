@@ -78,7 +78,7 @@ describe('issues view — store resets on spec change', () => {
     document.body.innerHTML = '<main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
-    bootstrap(root);
+    await bootstrap(root).ready;
     await Promise.resolve();
 
     // Seed tab:issues with a higher revision for the default list

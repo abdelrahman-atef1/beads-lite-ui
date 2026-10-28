@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { createHashRouter, parseHash, parseView } from './router.js';
+import {
+  createHashRouter,
+  isHomeHash,
+  parseHash,
+  parseView
+} from './router.js';
 import { createStore } from './state.js';
 
 describe('router', () => {
@@ -22,6 +27,18 @@ describe('router', () => {
 
     router.gotoIssue('UI-11');
     expect(window.location.hash).toBe('#/issues?issue=UI-11');
+    router.stop();
+  });
+
+  test('home (empty hash) is the Decisions view', () => {
+    expect(isHomeHash('')).toBe(true);
+    expect(isHomeHash('#/')).toBe(true);
+    expect(isHomeHash('#/board')).toBe(false);
+    const store = createStore({ view: 'board' });
+    window.location.hash = '';
+    const router = createHashRouter(store);
+    router.start();
+    expect(store.getState().view).toBe('decisions');
     router.stop();
   });
 

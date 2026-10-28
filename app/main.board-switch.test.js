@@ -44,7 +44,7 @@ describe('board visibility on view change', () => {
     document.body.innerHTML = '<main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
-    bootstrap(root);
+    await bootstrap(root).ready;
 
     // Allow initial render to flush
     await Promise.resolve();
@@ -57,8 +57,10 @@ describe('board visibility on view change', () => {
     // Navigate to board
     window.location.hash = '#/board';
     window.dispatchEvent(new HashChangeEvent('hashchange'));
-    await Promise.resolve();
-    await Promise.resolve();
+    // The board module loads lazily on first open (views/registry.js)
+    await vi.waitFor(() =>
+      expect(boardRoot.querySelector('.board-root')).not.toBeNull()
+    );
 
     // Board is visible and rendered with its internal shell
     expect(boardRoot.hidden).toBe(false);

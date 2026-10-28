@@ -6,17 +6,54 @@
     <meta name="board-token" content="__BOARD_TOKEN__" />
     <title>Beads</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./css/tokens.css" />
+    <link rel="stylesheet" href="./css/shell.css" />
+    <link rel="stylesheet" href="./css/nav.css" />
+    <link rel="stylesheet" href="./css/priority.css" />
+    <link rel="stylesheet" href="./css/decisions.css" />
+    <link rel="stylesheet" href="./css/board.css" />
+    <link rel="stylesheet" href="./css/list.css" />
+    <link rel="stylesheet" href="./css/detail.css" />
+    <link rel="stylesheet" href="./css/notifications.css" />
+    <link rel="stylesheet" href="./css/report.css" />
+    <link rel="stylesheet" href="./css/outputs.css" />
   </head>
   <body>
-    <div class="shell">
-      <nav id="top-nav" class="header-nav rail" aria-label="Primary"></nav>
+    <div class="shell" id="shell">
+      <aside class="side" id="side">
+        <div class="side__brand">Beads</div>
+        <nav id="top-nav" class="header-nav rail" aria-label="Primary"></nav>
+        <div class="side__drawer" id="side-drawer">
+          <div id="workspace-picker" class="header-workspace"></div>
+          <div class="side__foot">
+            <button
+              type="button"
+              class="hbtn"
+              data-act="lang"
+              aria-label="Language"
+            >
+              عربي
+            </button>
+            <button
+              type="button"
+              class="hbtn"
+              data-act="theme"
+              aria-label="Toggle dark mode"
+            >
+              Theme
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div class="side-scrim" id="side-scrim"></div>
       <div class="shell__main">
         <header class="app-header">
           <div class="header-left">
-            <h1 class="app-title">Beads</h1>
-            <div id="workspace-picker" class="header-workspace"></div>
-            <div id="top-search" class="top-search" role="search"></div>
+            <h1 class="app-crumb" id="app-crumb">
+              <b id="crumb-project">Beads</b><span id="crumb-view"></span>
+            </h1>
           </div>
+          <div id="top-search" class="top-search" role="search"></div>
           <div class="header-actions">
             <div
               id="header-loading"
@@ -29,13 +66,26 @@
               <span class="header-loading__spinner" aria-hidden="true"></span>
               <span class="visually-hidden">Loading</span>
             </div>
+            <span data-slot="bell"></span>
+            <span data-slot="report"></span>
             <button
               id="lang-btn"
               type="button"
-              class="btn btn--small"
+              class="hbtn"
+              data-act="lang"
               aria-label="Language"
             >
               عربي
+            </button>
+            <button
+              id="theme-btn"
+              type="button"
+              class="hbtn"
+              data-act="theme"
+              aria-label="Toggle dark mode"
+              title="Toggle dark mode"
+            >
+              Theme
             </button>
             <label
               class="theme-toggle theme-toggle--hidden"

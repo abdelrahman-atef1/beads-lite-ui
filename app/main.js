@@ -7,6 +7,7 @@ import { createListSelectors } from './data/list-selectors.js';
 import { createDataLayer } from './data/providers.js';
 import { createSubscriptionIssueStores } from './data/subscription-issue-stores.js';
 import { createSubscriptionStore } from './data/subscriptions-store.js';
+import { resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
 import { createStore } from './state.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
@@ -15,26 +16,28 @@ import { applyLang, t, toggleLang } from './utils/i18n.js';
 import { debug } from './utils/logging.js';
 import { normalizeStatusFilters } from './utils/status.js';
 import { showToast } from './utils/toast.js';
-import { resolveIssueWorkspace } from './issue-workspace.js';
-import { createBoardView } from './views/board.js';
-import { createDecisionsView } from './views/decisions.js';
 import { createDetailView } from './views/detail.js';
-import { createEpicsView } from './views/epics.js';
 import { createFatalErrorDialog } from './views/fatal-error-dialog.js';
 import { createIssueDialog } from './views/issue-dialog.js';
-import { createListView } from './views/list.js';
 import { createTopNav } from './views/nav.js';
 import { createNewIssueDialog } from './views/new-issue-dialog.js';
+import { lazyView, mountSlots } from './views/registry.js';
 import { createTopSearch } from './views/top-search.js';
-import { createWorkspacePicker } from './views/workspace-picker.js';
+import {
+  createWorkspacePicker,
+  getProjectName as projectName
+} from './views/workspace-picker.js';
 import { createWsClient } from './ws.js';
 
 /**
  * Bootstrap the SPA shell with two panels.
  *
  * @param {HTMLElement} root_element - The container element to render into.
+ * @returns {{ ready: Promise<void> }}
  */
 export function bootstrap(root_element) {
+  /** Resolves when the first route's view (a lazy module) has loaded. */
+  let ready = Promise.resolve();
   const log = debug('main');
   log('bootstrap start');
 
@@ -427,7 +430,7 @@ export function bootstrap(root_element) {
     }
     // Load last-view from storage
     /** @type {'issues'|'epics'|'board'|'decisions'} */
-    let last_view = 'issues';
+    let last_view = 'decisions';
     try {
       const raw_view = window.localStorage.getItem('beads-ui.view');
       if (
@@ -510,7 +513,9 @@ export function bootstrap(root_element) {
             owner_decision: all.filter((i) => i.status === 'owner_decision')
               .length
           };
-        }
+        },
+        // Sidebar: always-open project list (popover kept for the tests)
+        { list: true }
       );
       sub_issue_stores.subscribeFor('tab:all', () => picker.refresh());
     }
@@ -568,18 +573,22 @@ export function bootstrap(root_element) {
       return transport(type, payload);
     };
 
-    const issues_view = createListView(
-      list_mount,
-      /** @type {any} */ (listTransport),
-      (hash) => {
-        const id = parseHash(hash);
-        if (id) {
-          router.gotoIssue(id);
-        }
-      },
-      store,
-      subscriptions,
-      sub_issue_stores
+    const issues_view = lazyView(
+      'issues',
+      (/** @type {typeof import('./views/list.js')} */ m) =>
+        m.createListView(
+          list_mount,
+          /** @type {any} */ (listTransport),
+          (hash) => {
+            const id = parseHash(hash);
+            if (id) {
+              router.gotoIssue(id);
+            }
+          },
+          store,
+          subscriptions,
+          sub_issue_stores
+        )
     );
     // Persist filter changes to localStorage
     store.subscribe((s) => {
@@ -604,7 +613,7 @@ export function bootstrap(root_element) {
         persisted_board_json = next_json;
       }
     });
-    void issues_view.load();
+    // The list loads when its route opens (see onRouteChange).
 
     // Dialog for issue details (UI-104)
     const dialog = createIssueDialog(detail_mount, store, () => {
@@ -737,29 +746,41 @@ export function bootstrap(root_element) {
 
     // Toggle route shells on view/detail change and persist
     const data = createDataLayer(transport);
-    const epics_view = createEpicsView(
-      epics_root,
-      data,
-      (id) => router.gotoIssue(id),
-      subscriptions,
-      sub_issue_stores
+    const epics_view = lazyView(
+      'epics',
+      (/** @type {typeof import('./views/epics.js')} */ m) =>
+        m.createEpicsView(
+          epics_root,
+          data,
+          (id) => router.gotoIssue(id),
+          subscriptions,
+          sub_issue_stores
+        )
     );
-    const decisions_view = createDecisionsView(
-      decisions_root,
-      (id) => router.gotoIssue(id),
-      sub_issue_stores,
-      // Raw sender: an answer must fail loudly, not be swallowed as [].
-      (type, payload) =>
-        tracked_send(/** @type {MessageType} */ (type), payload)
+    const decisions_view = lazyView(
+      'decisions',
+      (/** @type {typeof import('./views/decisions.js')} */ m) =>
+        m.createDecisionsView(
+          decisions_root,
+          (id) => router.gotoIssue(id),
+          sub_issue_stores,
+          // Raw sender: an answer must fail loudly, not be swallowed as [].
+          (type, payload) =>
+            tracked_send(/** @type {MessageType} */ (type), payload)
+        )
     );
-    const board_view = createBoardView(
-      board_root,
-      data,
-      (id) => router.gotoIssue(id),
-      store,
-      subscriptions,
-      sub_issue_stores,
-      board_filter
+    const board_view = lazyView(
+      'board',
+      (/** @type {typeof import('./views/board.js')} */ m) =>
+        m.createBoardView(
+          board_root,
+          data,
+          (id) => router.gotoIssue(id),
+          store,
+          subscriptions,
+          sub_issue_stores,
+          board_filter
+        )
     );
     // Preload epics when switching to view
     /**
@@ -1031,12 +1052,57 @@ export function bootstrap(root_element) {
       }
     }
 
+    // Header crumb: project / view
+    const crumb_project = document.getElementById('crumb-project');
+    const crumb_view = document.getElementById('crumb-view');
+    function updateCrumb() {
+      const s = store.getState();
+      const cur = s.workspace?.current?.path || '';
+      if (crumb_project) {
+        crumb_project.textContent = cur ? projectName(cur) : t('app_name');
+      }
+      if (crumb_view) {
+        crumb_view.textContent = '/ ' + t(s.view);
+      }
+    }
+    store.subscribe(updateCrumb);
+    window.addEventListener('bdui-lang', updateCrumb);
+    updateCrumb();
+
+    // Phone: project drawer (bottom-nav button, scrim, Esc, picking a project)
+    const shell_el = document.getElementById('shell');
+    const set_drawer = (/** @type {boolean} */ on) => {
+      if (shell_el) {
+        shell_el.classList.toggle('side-open', on);
+      }
+    };
+    window.addEventListener('bdui-side-toggle', () =>
+      set_drawer(!shell_el?.classList.contains('side-open'))
+    );
+    document
+      .getElementById('side-scrim')
+      ?.addEventListener('click', () => set_drawer(false));
+    document
+      .getElementById('workspace-picker')
+      ?.addEventListener('click', () => set_drawer(false));
+    window.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        set_drawer(false);
+      }
+    });
+    window.addEventListener('hashchange', () => set_drawer(false));
+
+    // Header and detail slots (bell, report; card, outputs): see registry.js
+    void mountSlots(document);
+
     /**
      * Manage route visibility and list subscriptions per view.
      *
      * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions', filters: any }} s
      */
     const onRouteChange = (s) => {
+      /** @type {Promise<unknown>[]} */
+      const loads = [];
       if (
         issues_root &&
         epics_root &&
@@ -1054,23 +1120,27 @@ export function bootstrap(root_element) {
       // Ensure subscriptions for the active tab before loading the view to
       // avoid empty initial renders due to racing list-delta.
       ensureTabSubscriptions(s);
+      if (s.view === 'issues') {
+        loads.push(issues_view.load());
+      }
       if (!s.selected_id && s.view === 'epics') {
-        void epics_view.load();
+        loads.push(epics_view.load());
       }
       if (!s.selected_id && s.view === 'board') {
-        void board_view.load();
+        loads.push(board_view.load());
       }
       if (!s.selected_id && s.view === 'decisions') {
-        void decisions_view.load();
+        loads.push(decisions_view.load());
       }
       if (s.view !== persisted_view_value) {
         window.localStorage.setItem('beads-ui.view', s.view);
         persisted_view_value = s.view;
       }
+      return Promise.all(loads);
     };
     store.subscribe(onRouteChange);
     // Ensure initial state is reflected (fixes reload on #/epics)
-    onRouteChange(store.getState());
+    ready = onRouteChange(store.getState()).then(() => undefined);
 
     // Removed redundant filter-change subscription: handled by ensureTabSubscriptions
 
@@ -1097,6 +1167,7 @@ export function bootstrap(root_element) {
       }
     });
   }
+  return { ready };
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -1126,16 +1197,39 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
     // Language / direction (en LTR, ar RTL), see utils/i18n.js
     applyLang();
-    const lang_btn = document.getElementById('lang-btn');
+    // Header and drawer both carry a language and a theme button.
+    const lang_btns = Array.from(
+      document.querySelectorAll('[data-act="lang"]')
+    );
+    const theme_btns = Array.from(
+      document.querySelectorAll('[data-act="theme"]')
+    );
     const sync_lang_btn = () => {
-      if (lang_btn) {
-        lang_btn.textContent = t('lang_btn');
+      for (const b of lang_btns) {
+        b.textContent = t('lang_btn');
+        b.setAttribute('aria-label', t('language'));
+      }
+      for (const b of theme_btns) {
+        b.textContent = t('theme');
+        b.setAttribute('aria-label', t('theme'));
+      }
+      const nb = document.getElementById('new-issue-btn');
+      if (nb) {
+        nb.textContent = t('new_issue');
+        nb.setAttribute('aria-label', t('new_issue'));
       }
     };
     sync_lang_btn();
     window.addEventListener('bdui-lang', sync_lang_btn);
-    if (lang_btn) {
-      lang_btn.addEventListener('click', () => toggleLang());
+    for (const b of lang_btns) {
+      b.addEventListener('click', () => toggleLang());
+    }
+    for (const b of theme_btns) {
+      b.addEventListener('click', () =>
+        /** @type {HTMLInputElement|null} */ (
+          document.getElementById('theme-switch')
+        )?.click()
+      );
     }
 
     // Wire up theme switch in header

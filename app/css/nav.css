@@ -1,0 +1,258 @@
+/* Board v2 navigation: sidebar tabs + project list on desktop, bottom nav
+   and project drawer on phone. */
+
+.nav-badge {
+  background: var(--s-owner);
+  color: #fff;
+  font-size: 11px;
+  font-weight: var(--fw-strong);
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Primary tabs (#top-nav) */
+.header-nav.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail .tab,
+.rail .tab.active {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.rail .tab:visited {
+  color: var(--text);
+}
+.rail .tab:hover {
+  background: var(--hover);
+}
+.rail .tab.active {
+  background: var(--hover);
+  font-weight: 600;
+}
+.rail .tab__ico {
+  flex: none;
+  color: var(--text-3);
+}
+.rail .tab.active .tab__ico {
+  color: var(--accent);
+}
+.rail .tab__label {
+  flex: 1;
+  min-width: 0;
+}
+.rail .tab--menu {
+  display: none;
+}
+
+/* Project list (sidebar) */
+.side__drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+.side-projects__h {
+  margin: 12px 8px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.workspace-picker {
+  position: relative;
+}
+.workspace-picker--single .workspace-picker__label {
+  font-size: var(--fs-s);
+  color: var(--text-2);
+  padding: 4px 8px;
+}
+.workspace-picker__loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  border-top-color: var(--link);
+  animation: header-spin 700ms linear infinite;
+}
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.ws-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-start: 0;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-pop);
+  padding: var(--sp-2);
+  z-index: 70;
+}
+.ws-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-s);
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+.ws-row:hover,
+.ws-row[data-active='true'] {
+  background: var(--hover);
+}
+.ws-row[aria-selected='true'] {
+  background: var(--soft);
+  font-weight: 600;
+}
+.ws-row__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ws-row__sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.ws-row__wait {
+  margin-inline-start: auto;
+  color: var(--purple);
+  font-weight: var(--fw-strong);
+}
+/* List mode (sidebar): one compact line per project */
+.ws-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ws-list .ws-row {
+  min-height: 28px;
+  padding: 4px 8px;
+}
+.ws-list .ws-row__main {
+  flex: 1;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.ws-list .ws-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-list .ws-row__sub {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  /* Bottom nav: four equal cells, active pill fully inside its cell */
+  .header-nav.rail {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 4px env(safe-area-inset-bottom, 0px);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .rail .tab,
+  .rail .tab.active,
+  .rail .tab--menu {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+    min-height: var(--tap);
+    margin: 4px 2px;
+    padding: 2px 4px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: var(--fs-xs);
+    line-height: 1.2;
+  }
+  .rail .tab.active {
+    background: var(--soft);
+    color: var(--accent);
+  }
+  .rail .tab__label {
+    flex: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail .tab .nav-badge {
+    position: absolute;
+    top: 2px;
+    inset-inline-end: calc(50% - 22px);
+  }
+  /* Project drawer */
+  .side__drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(280px, 82vw);
+    z-index: 90;
+    background: var(--surface-2);
+    border-inline-end: 1px solid var(--border);
+    padding: var(--sp-2);
+    overflow: auto;
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition:
+      transform 0.15s,
+      visibility 0.15s;
+  }
+  [dir='rtl'] .side__drawer {
+    transform: translateX(105%);
+  }
+  .shell.side-open .side__drawer {
+    transform: none;
+    visibility: visible;
+  }
+  .ws-list .ws-row {
+    min-height: var(--tap);
+  }
+  .pop {
+    width: calc(100vw - 24px);
+  }
+}

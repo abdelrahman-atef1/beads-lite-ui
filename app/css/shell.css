@@ -1,0 +1,303 @@
+/* Board v2 shell (b.html): sidebar | header bar | main. Linked after
+   styles.css and tokens.css so these rules win. Phone breakpoint = 720px. */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+}
+.side,
+.side * {
+  box-sizing: border-box;
+}
+.side {
+  background: var(--surface-2);
+  border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+.side__brand {
+  font-weight: 700;
+  font-size: var(--fs-m);
+  padding: 4px 8px 8px;
+}
+.shell__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.shell__main > .app-shell {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+/* Header bar: crumb | search | spacer | slots | language, theme, new */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--bar-h);
+  padding: 0 var(--sp-4);
+  flex: none;
+  flex-wrap: nowrap;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  flex: 1;
+}
+.app-crumb {
+  margin: 0;
+  font-size: var(--fs-s);
+  font-weight: 400;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.app-crumb b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-crumb span {
+  color: var(--text-3);
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+/* Empty slots take no room; later tasks fill them (bell, report). */
+[data-slot]:empty {
+  display: none;
+}
+[data-slot] {
+  display: inline-flex;
+  align-items: center;
+}
+.hbtn {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.hbtn:hover {
+  background: var(--hover);
+}
+.header-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+}
+.header-loading__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--muted) 55%, transparent);
+  border-top-color: var(--fg);
+  animation: header-spin 880ms linear infinite;
+}
+@keyframes header-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.theme-toggle--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.side__foot {
+  display: none;
+}
+.side-scrim {
+  display: none;
+}
+
+/* Top-bar search */
+.top-search {
+  display: flex;
+  align-items: center;
+}
+.top-search__btn {
+  display: none;
+}
+.top-search__field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(320px, 30vw);
+  height: 32px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+}
+.top-search__field:focus-within {
+  border-color: var(--accent);
+}
+.top-search__field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+}
+.top-search__field kbd {
+  font: var(--fs-xs) var(--font-mono, monospace);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--text-3);
+  background: var(--surface);
+}
+
+/* Tablet: the legacy stacked layout wants natural height */
+@media (max-width: 900px) {
+  .shell__main > .app-shell {
+    height: auto;
+  }
+}
+
+/* Phone: one column, page scrolls, bottom nav, drawer for projects */
+@media (max-width: 720px) {
+  .shell {
+    display: block;
+  }
+  .side {
+    display: contents;
+  }
+  .side__brand {
+    display: none;
+  }
+  .shell__main {
+    display: block;
+    min-height: 100%;
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+  .app-header {
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+    height: 52px;
+  }
+  .header-left {
+    gap: 0;
+  }
+  .app-crumb span,
+  .hbtn--wide,
+  .header-actions .hbtn[data-act] {
+    display: none;
+  }
+  .hbtn {
+    min-height: var(--tap);
+    min-width: var(--tap);
+  }
+  #new-issue-btn {
+    min-width: var(--tap);
+    padding: 0;
+    font-size: 0;
+  }
+  #new-issue-btn::before {
+    content: '+';
+    font-size: 22px;
+    line-height: 1;
+  }
+  /* Search: a 44x44 icon button centred in its box; opens a full-width bar */
+  .top-search__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tap);
+    height: var(--tap);
+    min-height: var(--tap);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+  }
+  .top-search__btn svg {
+    width: 20px;
+    height: 20px;
+  }
+  .top-search__field {
+    display: none;
+  }
+  .top-search__field.is-open {
+    display: flex;
+    position: fixed;
+    top: 0;
+    inset-inline: 0;
+    width: auto;
+    height: var(--tap);
+    border-radius: 0;
+    border-width: 0 0 1px;
+    z-index: 80;
+  }
+  .top-search__field.is-open input {
+    font-size: 16px;
+  }
+  .top-search__field kbd {
+    display: none;
+  }
+  .side__foot {
+    display: flex;
+    gap: var(--sp-2);
+    margin-top: auto;
+    padding-top: var(--sp-3);
+  }
+  .side__foot .hbtn {
+    flex: 1;
+    min-height: var(--tap);
+  }
+  .side-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 85;
+    background: rgb(0 0 0 / 40%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .shell.side-open .side-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

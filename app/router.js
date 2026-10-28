@@ -53,6 +53,17 @@ export function parseView(hash) {
 }
 
 /**
+ * Home is Decisions: no hash at all, or just # or #/. Note that parseView keeps
+ * mapping an empty hash to the list, which the detail view relies on.
+ *
+ * @param {string} hash
+ */
+export function isHomeHash(hash) {
+  const h = String(hash || '');
+  return h === '' || h === '#' || h === '#/';
+}
+
+/**
  * @param {{ getState: () => any, setState: (patch: any) => void }} store
  */
 export function createHashRouter(store) {
@@ -73,7 +84,7 @@ export function createHashRouter(store) {
       }
     }
     const id = parseHash(hash);
-    const view = parseView(hash);
+    const view = isHomeHash(hash) ? 'decisions' : parseView(hash);
     log('hash change → view=%s id=%s', view, id);
     store.setState({ selected_id: id, view });
   };

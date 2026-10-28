@@ -51,12 +51,15 @@ function dotFor(name) {
  * @param {{ getState: () => any, subscribe: (fn: (s: any) => void) => () => void }} store
  * @param {(workspace_path: string) => Promise<void>} onWorkspaceChange
  * @param {() => ({ total: number, owner_decision: number } | null)} [liveCounts]
+ * @param {{ list?: boolean }} [opts] - list: always-open project list for the
+ * sidebar (one row per project) instead of the popover button.
  */
 export function createWorkspacePicker(
   mount_element,
   store,
   onWorkspaceChange,
-  liveCounts = () => null
+  liveCounts = () => null,
+  opts = {}
 ) {
   const log = debug('views:workspace-picker');
   /** @type {(() => void) | null} */
@@ -166,6 +169,53 @@ export function createWorkspacePicker(
     }
   }
 
+  /**
+   * Sidebar mode: every project is a row, the current one is selected.
+   *
+   * @param {any[]} list
+   * @param {string} cur_path
+   */
+  function listTemplate(list, cur_path) {
+    return html`
+      <div class="side-projects__h">${t('projects')}</div>
+      <div class="ws-list" role="listbox" aria-label=${t('workspace')}>
+        ${list.map((ws) => {
+          const name = getProjectName(ws.path);
+          const is_cur = ws.path === cur_path;
+          const c = countsFor(ws, is_cur);
+          return html`<div
+            class="ws-row"
+            role="option"
+            tabindex="0"
+            aria-selected=${is_cur ? 'true' : 'false'}
+            data-path=${ws.path}
+            title=${ws.path}
+            @click=${() => void choose(ws.path)}
+            @keydown=${(/** @type {KeyboardEvent} */ ev) => {
+              if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                void choose(ws.path);
+              }
+            }}
+          >
+            <span class="ws-dot" style=${'background:' + dotFor(name)}></span>
+            <div class="ws-row__main">
+              <span class="ws-row__name">${name}</span>
+              <span class="ws-row__sub">${c ? c.total : '-'}</span>
+            </div>
+            ${c && c.owner_decision > 0
+              ? html`<span
+                  class="nav-badge"
+                  aria-label=${c.owner_decision + ' waiting'}
+                  >${c.owner_decision}</span
+                >`
+              : ''}
+          </div>`;
+        })}
+      </div>
+    `;
+  }
+
   function template() {
     const list = available();
     if (list.length === 0) {
@@ -174,6 +224,9 @@ export function createWorkspacePicker(
     const cur_path = store.getState().workspace?.current?.path || '';
     const cur = list.find((w) => w.path === cur_path) || list[0];
     const cur_name = getProjectName(cur.path);
+    if (opts.list) {
+      return listTemplate(list, cur_path);
+    }
     const cur_counts = countsFor(cur, true);
     const waiting = cur_counts ? cur_counts.owner_decision : 0;
     if (list.length === 1) {

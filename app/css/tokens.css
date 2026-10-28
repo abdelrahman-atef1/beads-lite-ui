@@ -1,0 +1,143 @@
+/* Board v2 tokens (b.html palette, owner-approved 2026-10-28). Linked AFTER
+   styles.css so they win over the legacy palette; v2 names (--primary,
+   --hover, --purple) are aliases of the existing ones. */
+/* ===== Redesign (design/README.md) =====
+   Tokens from design/tokens.css, placed last so they win over the legacy
+   palette above; legacy names stay as aliases for one release. */
+:root,
+html[data-theme='light'] {
+  color-scheme: light;
+  /* surface */
+  --bg: #fbfbfc;
+  --surface: #ffffff;
+  --surface-2: #f6f6f8;
+  --border: #e6e6ea;
+  --text: #1f2023;
+  --text-2: #4b4f56; /* 7.6:1 on --surface */
+  --text-3: #6b6f76; /* 4.9:1 on --surface, min for meta text */
+  --accent: #5e6ad2; /* primary action, focus ring, selection */
+  --accent-ink: #ffffff;
+  --accent-soft: #eceefc;
+  --focus: #5e6ad2;
+  /* status: every status = color + glyph + label, never color alone */
+  --s-owner: #b4540a;
+  --s-owner-bg: #fdecd9; /* needs the owner */
+  --s-progress: #1d6fd1;
+  --s-progress-bg: #e0eefc;
+  --s-test: #7a3fc4;
+  --s-test-bg: #efe5fa;
+  --s-merge: #0a7d78;
+  --s-merge-bg: #dcf3f1;
+  --s-ready: #2e7d32;
+  --s-ready-bg: #e3f3e4;
+  --s-blocked: #c0262d;
+  --s-blocked-bg: #fbe3e4;
+  --s-closed: #5b6472;
+  --s-closed-bg: #e9ebef;
+  /* priority */
+  --p0: #c0262d;
+  --p1: #b4540a;
+  --p2: #4a5362;
+  --p3: #66707f;
+  --p4: #8a93a1;
+  /* type */
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --shadow-1: 0 1px 2px rgb(20 24 31 / 8%);
+  --shadow-pop: 0 8px 28px rgb(20 24 31 / 18%);
+  --font-ui:
+    'Segoe UI', 'Noto Sans Arabic', 'Noto Sans', Tahoma, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --fs-xs: 12px;
+  --fs-s: 13px;
+  --fs-m: 15px;
+  --fs-l: 18px;
+  --fs-xl: 24px;
+  --lh-tight: 1.35;
+  --lh-body: 1.6; /* Arabic needs >=1.5 body */
+  --fw-regular: 400;
+  --fw-strong: 600;
+  --tap: 44px; /* min target on phone; 32px desktop */
+  --col-w: minmax(200px, 1fr);
+  --rail-w: 56px;
+}
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e0f11;
+  --surface: #16171a;
+  --surface-2: #1b1c20;
+  --border: #26272b;
+  --text: #d7d8db;
+  --text-2: #b3b6bd;
+  --text-3: #8a8f98;
+  --accent: #8b95ee;
+  --accent-ink: #10112a;
+  --accent-soft: #23264a;
+  --focus: #8b95ee;
+  --s-owner: #f0a566;
+  --s-owner-bg: #3a2512;
+  --s-progress: #7db5f5;
+  --s-progress-bg: #15283f;
+  --s-test: #c4a0f0;
+  --s-test-bg: #2b1c42;
+  --s-merge: #5fd3cc;
+  --s-merge-bg: #11302f;
+  --s-ready: #7fd184;
+  --s-ready-bg: #14301a;
+  --s-blocked: #ff8a90;
+  --s-blocked-bg: #3d1719;
+  --s-closed: #a0a9b7;
+  --s-closed-bg: #232a34;
+  --p0: #ff8a90;
+  --p1: #f0a566;
+  --p2: #b4bcc9;
+  --p3: #8d97a6;
+  --p4: #6f7a8a;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-pop: 0 8px 28px rgb(0 0 0 / 55%);
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:root,
+html[data-theme='light'],
+html[data-theme='dark'] {
+  /* legacy aliases */
+  --fg: var(--text);
+  --muted: var(--text-3);
+  --panel-bg: var(--surface);
+  --control-bg: var(--surface);
+  --control-fg: var(--text);
+  --control-border: var(--border);
+  --button-bg: var(--surface-2);
+  --button-fg: var(--text);
+  --button-border: var(--border);
+  --link: var(--accent);
+  --link-hover: var(--accent);
+  --link-visited: var(--accent);
+}
+
+:root {
+  --primary: var(--accent);
+  --primary-fg: var(--accent-ink);
+  --soft: var(--accent-soft);
+  --hover: var(--surface-2);
+  --danger: var(--s-blocked);
+  --warn: var(--s-owner);
+  --ok: var(--s-ready);
+  --purple: var(--s-test);
+  --side-w: 232px;
+  --bar-h: 44px;
+  --nav-h: 60px;
+}
