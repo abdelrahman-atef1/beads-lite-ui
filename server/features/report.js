@@ -354,7 +354,28 @@ async function handleReport(req, res) {
   const now = Date.now();
   recent = recent.filter((t) => now - t < 3600_000);
   if (recent.length >= REPORTS_PER_HOUR) return fail(res, 429, 'rate_limited');
+  // Reserve the slot BEFORE any await so parallel posts cannot all pass the
+  // check; give it back unless the report was filed.
+  const slot = { t: now };
+  recent.push(slot.t);
+  try {
+    await fileReport(req, res, host);
+  } finally {
+    if (!res.locals.filed) {
+      const i = recent.indexOf(slot.t);
+      if (i >= 0) recent.splice(i, 1);
+    }
+  }
+}
 
+/**
+ * Body of POST /api/report after the gates and the rate-slot reservation.
+ * Sets res.locals.filed when a bead was created.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {string | undefined} host
+ */
+async function fileReport(req, res, host) {
   const body = await readBody(req);
   if (!body) return fail(res, 413, 'too_large');
   if (body.length < 4) return fail(res, 400, 'bad_request');
@@ -463,7 +484,7 @@ async function handleReport(req, res) {
     }
     return fail(res, 500, 'not_filed');
   }
-  recent.push(now);
+  res.locals.filed = true;
   const wake = await emitWake({
     kind: 'report',
     repo: project,

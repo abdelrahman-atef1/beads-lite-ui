@@ -12,12 +12,12 @@ import {
   makeError,
   makeOk
 } from '../app/protocol.js';
-import { MUTATING_TYPES, checkUpgrade } from './guard.js';
-import { getHandler, isFeatureMutating } from './features/index.js';
-import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
+import { getHandler, isFeatureMutating } from './features/index.js';
+import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
+import { MUTATING_TYPES, checkUpgrade } from './guard.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
@@ -1203,7 +1203,7 @@ export async function handleMessage(ws, data) {
       );
       return;
     }
-    const args = ['create', title];
+    const args = ['create'];
     if (
       typeof type === 'string' &&
       (type === 'bug' ||
@@ -1220,9 +1220,13 @@ export async function handleMessage(ws, data) {
     if (typeof description === 'string' && description.length > 0) {
       args.push('-d', description);
     }
+    // '--' so a title like '--help' is a title, never a bd flag.
     clearDetailCaches();
     // D6: a board-created task is marked and wakes CoS (agents never pass here).
-    const res = await runBd([...args, ...BOARD_TASK_ARGS], bd_options);
+    const res = await runBd(
+      [...args, ...BOARD_TASK_ARGS, '--', title],
+      bd_options
+    );
     if (res.code !== 0) {
       ws.send(
         JSON.stringify(makeError(req, 'bd_error', res.stderr || 'bd failed'))
@@ -1569,8 +1573,8 @@ export async function handleMessage(ws, data) {
 
     // Resolve and validate the path: only registered workspaces (SEC N1).
     const resolved = path.resolve(workspace_path);
-    const registered = getAvailableWorkspaces().some(
-      (w) => samePath(w.path, resolved)
+    const registered = getAvailableWorkspaces().some((w) =>
+      samePath(w.path, resolved)
     );
     if (!registered) {
       ws.send(

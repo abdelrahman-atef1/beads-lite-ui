@@ -1,9 +1,9 @@
-import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import {
   afterAll,
   beforeAll,
@@ -327,6 +327,29 @@ describe('POST /api/report', () => {
     }
     expect((await post(frame(GOOD))).status).toBe(429);
   }, 120_000);
+
+  test('cap holds under a parallel burst (slot reserved before awaits)', async () => {
+    const rs = await Promise.all(
+      Array.from({ length: 60 }, () => post(frame(GOOD)))
+    );
+    expect(rs.filter((r) => r.status === 200).length).toBe(30);
+    expect(rs.filter((r) => r.status === 429).length).toBe(30);
+  }, 120_000);
+
+  test('a failed report gives its slot back', async () => {
+    bdFail = true;
+    for (let i = 0; i < 31; i++)
+      expect((await post(frame(GOOD))).status).toBe(500);
+    bdFail = false;
+    expect((await post(frame(GOOD))).status).toBe(200);
+  }, 120_000);
+
+  test('bad JSON gets a JSON 400 with no stack or paths', async () => {
+    const body = Buffer.from('{not json');
+    const r = await post(body, { 'content-type': 'application/json' });
+    expect(r.status).toBe(400);
+    expect(r.json).toEqual({ ok: false, error: 'bad_request' });
+  });
 });
 
 describe('GET /att', () => {
