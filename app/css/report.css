@@ -5,9 +5,11 @@
 @media (max-width: 760px) {
   .rpt-open {
     position: fixed;
-    inset-block-end: 16px;
+    inset-block-end: calc(
+      var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px
+    );
     inset-inline-end: 16px;
-    z-index: 8;
+    z-index: 61;
     min-height: 52px;
     padding: 0 20px;
     border-radius: 26px;
@@ -22,10 +24,13 @@
 html.rpt-lock {
   overflow: hidden;
 }
+html.rpt-lock .rpt-open {
+  visibility: hidden;
+}
 .rpt {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -175,6 +180,12 @@ html.rpt-lock {
 }
 .rpt-pen[aria-pressed='true'] {
   border-color: var(--text);
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  transform: scale(1.12);
+}
+.rpt-cam {
+  margin-block-start: var(--sp-2);
 }
 .rpt-btn {
   min-height: 44px;

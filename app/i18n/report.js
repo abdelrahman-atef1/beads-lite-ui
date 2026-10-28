@@ -15,6 +15,11 @@ export const strings =
     },
     rpt_version_recent: { en: 'Recent versions', ar: 'نسخ سابقة' },
     rpt_shot_add: { en: 'Add a screenshot', ar: 'أضف لقطة شاشة' },
+    rpt_shot_cam: { en: 'Take a photo', ar: 'صوّر بالكاميرا' },
+    rpt_retry_in: {
+      en: 'Try again in about {n} min.',
+      ar: 'حاول بعد حوالي {n} دقيقة.'
+    },
     rpt_shot_hint: {
       en: 'Choose from the gallery or take a photo, or paste (Ctrl+V). Optional.',
       ar: 'اختر من المعرض أو صوّر، أو الصق (Ctrl+V). اختياري.'
@@ -66,8 +71,8 @@ export const strings =
       ar: 'لقطة الشاشة كبيرة جداً. احذفها أو اختر أصغر.'
     },
     rpt_e_rate_limited: {
-      en: 'Too many reports this hour. Your draft is kept, try again later.',
-      ar: 'بلاغات كثيرة في هذه الساعة. المسودة محفوظة، حاول لاحقاً.'
+      en: 'Too many reports this hour. Your draft is kept.',
+      ar: 'بلاغات كثيرة في هذه الساعة. المسودة محفوظة.'
     },
     rpt_e_version_required: {
       en: 'The version is required.',

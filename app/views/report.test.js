@@ -77,7 +77,8 @@ describe('report client', () => {
     expect(await submitReport(d, { fetch: /** @type {any} */ (ref) })).toEqual({
       ok: false,
       status: 400,
-      error: 'version_required'
+      error: 'version_required',
+      retryAfter: 0
     });
   });
 

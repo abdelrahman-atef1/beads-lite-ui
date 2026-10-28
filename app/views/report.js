@@ -121,7 +121,8 @@ export async function submitReport(d, o = {}) {
   return {
     ok: false,
     status: res.status,
-    error: (j && j.error) || 'other'
+    error: (j && j.error) || 'other',
+    retryAfter: Number(res.headers?.get?.('Retry-After')) || 0
   };
 }
 
@@ -556,21 +557,39 @@ async function fillProjects(sel, want) {
 function renderMedia(media) {
   media.replaceChildren();
   if (!st.img) {
-    const file = h('input', {
-      type: 'file',
-      accept: 'image/*',
-      class: 'rpt-file',
-      'aria-label': t('rpt_shot_add')
-    });
-    file.addEventListener('change', () => {
-      const f = /** @type {HTMLInputElement} */ (file).files?.[0];
-      if (f) void setImage(f);
-    });
+    const pick = (/** @type {HTMLInputElement} */ inp) => {
+      inp.addEventListener('change', () => {
+        const f = inp.files?.[0];
+        if (f) void setImage(f);
+      });
+      return inp;
+    };
+    const file = pick(
+      h('input', {
+        type: 'file',
+        accept: 'image/*',
+        class: 'rpt-file',
+        'aria-label': t('rpt_shot_add')
+      })
+    );
+    const cam = pick(
+      h('input', {
+        type: 'file',
+        accept: 'image/*',
+        capture: 'environment',
+        class: 'rpt-file',
+        'aria-label': t('rpt_shot_cam')
+      })
+    );
     media.append(
       h('label', { class: 'rpt-drop' }, [
         file,
         h('b', {}, [t('rpt_shot_add')]),
         h('small', {}, [t('rpt_shot_hint')])
+      ]),
+      h('label', { class: 'rpt-drop rpt-cam' }, [
+        cam,
+        h('b', {}, [t('rpt_shot_cam')])
       ])
     );
     return;
@@ -587,7 +606,7 @@ function renderMedia(media) {
         type: 'button',
         class: 'rpt-pen',
         'data-pen': c,
-        'aria-pressed': c === st.pen,
+        'aria-pressed': String(c === st.pen),
         'aria-label': t(k),
         style: `--c:${c}`
       })
@@ -686,6 +705,11 @@ async function setImage(f) {
 }
 
 /** @param {string} key */
+/** @param {number} sec - when to retry; the server window is one hour. */
+const retryText = (sec) => {
+  const m = sec > 0 ? Math.max(1, Math.ceil(sec / 60)) : 60;
+  return t('rpt_retry_in').replace('{n}', String(m));
+};
 const errText = (key) => {
   const k = 'rpt_e_' + key;
   const s = t(k);
@@ -745,6 +769,7 @@ async function doSend(send, msg) {
     } else {
       msg.className = 'rpt-msg rpt-err';
       msg.textContent = errText(String(r.error));
+      if (r.status === 429) msg.textContent += ' ' + retryText(r.retryAfter);
     }
   } catch {
     msg.className = 'rpt-msg rpt-err';
