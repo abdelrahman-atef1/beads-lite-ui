@@ -1,0 +1,19 @@
+PASS B00 board up on spare ports
+INFO register pqtwo -> 200
+INFO register pqthree -> 200
+PASS B01 headless chrome up
+PASS B02 board page loads through the phone door :: title=Beads
+INFO picker options: [{"v":"pqone","t":"pqone"},{"v":"pqtwo","t":"pqtwo"},{"v":"pqthree","t":"pqthree"}]
+PASS B10 report sheet picker lists the projects (not "No projects found") :: [{"v":"pqone","t":"pqone"},{"v":"pqtwo","t":"pqtwo"},{"v":"pqthree","t":"pqthree"}]
+PASS B11 sheet text has no "No projects found" :: Report a bug or note × Project pqone pqtwo pqthree Version / build (required) Add a screenshot Choose from the gallery or take a photo, or paste (Ctrl+V). Optio
+FAIL B12 no absolute local path rendered in page DOM
+PASS B20 screenshot attached in the sheet
+INFO msg after send: "Sent. Created bead pqtwo-7tb" sheet open: true
+PASS B21 report bead exists in the chosen COPY workspace (pqtwo)
+PASS B22 report did not land in the other workspaces
+PASS B23 report bead has Screenshot link
+PASS B24 screenshot stored under the temp attach root :: pqtwo\2026-10\7e0318aa4417764e.jpg
+INFO page fetch /api/workspaces: 200 {"ok":true,"workspaces":[{"path":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqone","database":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqone\\.beads","pid":39056,"version":"dynamic"},{"path":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqtwo","database":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqtwo\\.beads","pid":39056,"version":"dynamic"},{"path":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqthree","database":"E:\\Projects\\beads-lite-ui-wt-qa-company-1bo5-6-6\\docs\\qa\\e2e\\brun-1793211705720\\pqthree\\.beads","pid":39056,"version":"dynamic"}]}
+PASS B30 register-workspace from the phone page still refused :: 404
+
+TOTAL 12, FAIL 1
