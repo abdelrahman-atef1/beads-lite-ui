@@ -319,6 +319,45 @@ export async function afterBoardTask(root_dir, stdout, host) {
 }
 
 /**
+ * Arabic-Indic / Persian digits and the Arabic decimal separator to ASCII, so
+ * a version typed on an Arabic keyboard is accepted and stored as ASCII.
+ *
+ * @param {string} v
+ */
+export function normalizeVersion(v) {
+  return v
+    .trim()
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x6f0))
+    .replace(/٫/g, '.');
+}
+
+const BUSY_RE = /locked|busy|contention|timeout|try again|SQLITE_BUSY/i;
+export const CREATE_RETRIES = 6;
+
+/**
+ * Run bd create, retrying with a short backoff while bd reports a busy or
+ * locked store (parallel writers). Other failures return at once.
+ *
+ * @param {string[]} args
+ * @param {{ cwd: string }} opts
+ */
+async function createWithRetry(args, opts) {
+  let r = await runBd(args, opts);
+  for (let i = 1; i < CREATE_RETRIES; i++) {
+    if (
+      r.code === 0 ||
+      !BUSY_RE.test(`${r.stderr}
+${r.stdout}`)
+    )
+      break;
+    await new Promise((ok) => setTimeout(ok, 50 * i + Math.random() * 50));
+    r = await runBd(args, opts);
+  }
+  return r;
+}
+
+/**
  * @param {import('express').Response} res
  * @param {number} status
  * @param {string} error
@@ -398,7 +437,7 @@ async function fileReport(req, res, host) {
     typeof version !== 'string'
   )
     return fail(res, 400, 'bad_request');
-  const ver = version.trim();
+  const ver = normalizeVersion(version);
   if (!ver) return fail(res, 400, 'version_required');
   if (!VERSION_RE.test(ver)) return fail(res, 400, 'bad_version');
   const msg = text.trim();
@@ -449,13 +488,14 @@ async function fileReport(req, res, host) {
     .trim();
   const title = `[v${ver}] ${firstLine}`;
   const desc =
-    `${msg}\n\nVersion: ${ver}` + (rel ? `\nScreenshot: ${rel}` : '');
+    `${msg}\n\nVersion: ${ver}` +
+    (rel ? `\nScreenshot: [${rel}](/att/${rel})` : '');
   const metadata = {
     created_via: 'board-report',
     version: ver,
     attachments: rel ? [rel] : []
   };
-  const r = await runBd(
+  const r = await createWithRetry(
     [
       'create',
       title,
