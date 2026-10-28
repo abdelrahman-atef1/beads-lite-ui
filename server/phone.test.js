@@ -403,9 +403,14 @@ describe('phone door: servers', () => {
     expect(page.status).toBe(200);
     expect(page.body).toContain(getBoardToken('phone'));
     expect(page.body).not.toContain(getBoardToken('pc'));
-    expect((await http(phone_port, '/api/workspaces', good())).status).toBe(
-      404
-    );
+    // Regression (company-1bo5.6.6): the report sheet lists projects from this
+    // route; refusing it made the phone show "No projects found".
+    const ws = await http(phone_port, '/api/workspaces', good());
+    expect(ws.status).toBe(200);
+    expect(JSON.parse(ws.body).ok).toBe(true);
+    expect(
+      (await http(phone_port, '/api/workspaces', { Host: good().Host })).status
+    ).toBe(403);
     expect(
       (await http(phone_port, '/api/register-workspace', good(), 'POST')).status
     ).toBe(404);

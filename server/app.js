@@ -94,8 +94,10 @@ export function createApp(config, door = 'pc') {
     res.status(200).json({ ok: true, registered: workspace_path });
   });
 
-  // List all known workspaces (file-based registry + in-memory)
-  app.get('/api/workspaces', phoneRefuses, (_req, res) => {
+  // List all known workspaces (file-based registry + in-memory). Read-only and
+  // open on the phone door too: the report sheet builds its project picker
+  // from it (same data the phone's list-workspaces socket reply already gives).
+  app.get('/api/workspaces', (_req, res) => {
     const workspaces = getAvailableWorkspaces();
     res.status(200).json({ ok: true, workspaces });
   });
