@@ -1,86 +1,50 @@
-<h1 align="center">
-  Beads UI
-</h1>
-<p align="center">
-  <b>Local UI for the <code>bd</code> CLI – <a href="https://github.com/steveyegge/beads">Beads</a></b><br>
-  Collaborate on issues with your coding agent.
-</p>
-<div align="center">
-  <a href="https://www.npmjs.com/package/beads-ui"><img src="https://img.shields.io/npm/v/beads-ui.svg" alt="npm Version"></a>
-  <a href="https://semver.org"><img src="https://img.shields.io/:semver-%E2%9C%93-blue.svg" alt="SemVer"></a>
-  <a href="https://github.com/mantoni/beads-ui/actions/worflows/ci.yml"><img src="https://github.com/mantoni/eslint_d.js/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/npm/l/eslint_d.svg" alt="MIT License"></a>
-  <br>
-  <br>
-</div>
+# beads-lite-ui
 
-## Features
+A fork of [mantoni/beads-ui](https://github.com/mantoni/beads-ui) (the local web board for the `bd` CLI), changed to run on top of our [beads-lite](https://github.com/abdelrahman-atef1/beads-lite) `bd` and to work from a phone.
 
-- ✨ **Zero setup** – just run `bdui start`
-- 📺 **Live updates** – Monitors the beads database for changes
-- 🔎 **Issues view** – Filter and search issues, edit inline
-- ⛰️ **Epics view** – Show progress per epic, expand rows, edit inline
-- 🏂 **Board view** – Blocked / Ready / In progress / Closed columns
-- ⌨️ **Keyboard navigation** – Navigate and edit without touching the mouse
-- 🔀 **Multi-workspace** – Switch between projects via dropdown, auto-registers
-  workspaces
+Why: upstream's board shells out to `bd` for every refresh, which was slow and queued behind other processes on our machine (about 1,600 beads in the biggest project, many agents at once). Our board (a) reads through a small shared data layer, 4 `bd` calls per refresh and one refresh in flight at a time; (b) rejects pages from other origins (Host allowlist, Origin check, per-launch token on the socket); (c) is being redesigned ("board v2") for a phone screen, Arabic/RTL and owner decisions (cards, reports, notifications).
 
-## Setup
+## Branches (read this first)
 
-```sh
-npm i beads-ui -g
-# In your project directory:
-bdui start --open
+| Branch | What it is |
+|---|---|
+| `main` | Upstream `mantoni/beads-ui` **0.12.6** exactly as cloned, plus this README. Kept so the diff against upstream stays visible. |
+| `swe/board-v2` | **Our current line.** Upstream 0.12.6 plus the faster data layer, socket hardening and the board v2 shell. Build from this one. |
+| `swe/*`, `ux/*`, `qa/*`, `sre/*`, `cto/*` | Task branches, merged into `swe/board-v2` by the CTO. |
+
+The full upstream README (features, `bdui` CLI, env vars) is kept as [`README.upstream.md`](README.upstream.md).
+
+## Install and run on the owner's PC
+
+The board is a built copy in a folder outside this repo, started at logon by the company script `scripts/start-beads-ui.sh` (in the private company repo; scheduled task `CompanyBeadsUI`).
+
+```
+# from a swe/board-v2 checkout (Node 22+)
+npm install
+bash scripts/install-board.sh <abs dest>     # builds the frontend, copies app/ server/ bin/ to <dest>
+bash <company>/scripts/start-beads-ui.sh     # starts it on 127.0.0.1:3000, registers every project with .beads
 ```
 
-See `bdui --help` for options.
+- The board talks to `bd` through `BD_BIN`, which the script points at the installed beads-lite shim (the same `bd.exe` every other caller uses; see the [beads-lite runbook](https://github.com/abdelrahman-atef1/beads-lite/blob/lite-integration/docs/runbooks/cutover.md)).
+- It listens on `127.0.0.1` only. For the phone, the design publishes a second listener tailnet-only with Tailscale serve (never Funnel): [ADR 0006](https://github.com/abdelrahman-atef1/beads-lite/blob/lite-integration/docs/decisions/0006-board-decision-cards-and-wake.md), [ADR 0007](https://github.com/abdelrahman-atef1/beads-lite/blob/lite-integration/docs/decisions/0007-board-notifications-and-outputs.md) (notifications and outputs).
+- `BDUI_PORT` picks another port to try a build beside the live board.
 
-## Screenshots
+**Roll back:** start with `BDUI_ROLLBACK=1` (the script then runs the original npm `beads-ui` install instead of this fork). Nothing in the bead data changes, the board only reads and writes through `bd`.
 
-**Issues**
+## Docs
 
-![Issues view](https://github.com/mantoni/beads-ui/raw/main/media/bdui-issues.png)
+- Design for board v2 (tokens, mockup, three directions): [`design/`](https://github.com/abdelrahman-atef1/beads-lite-ui/tree/swe/board-v2/design) and [`docs/design`](https://github.com/abdelrahman-atef1/beads-lite-ui/tree/swe/board-v2/docs/design).
+- Architecture and protocol (inherited from upstream): [`docs/architecture.md`](https://github.com/abdelrahman-atef1/beads-lite-ui/blob/swe/board-v2/docs/architecture.md), [`docs/adr`](https://github.com/abdelrahman-atef1/beads-lite-ui/tree/swe/board-v2/docs/adr).
+- Product decisions live in the beads-lite repo: [`docs/decisions`](https://github.com/abdelrahman-atef1/beads-lite/tree/lite-integration/docs/decisions) (ADRs 0006 and 0007 are the board).
+- The `bd` it runs on: [beads-lite](https://github.com/abdelrahman-atef1/beads-lite) and its [spec](https://github.com/abdelrahman-atef1/beads-lite/tree/lite-integration/specs/001-fast-compact-tracker).
 
-**Epics**
+## Relation to other projects
 
-![Epics view](https://github.com/mantoni/beads-ui/raw/main/media/bdui-epics.png)
+- **Upstream** [mantoni/beads-ui](https://github.com/mantoni/beads-ui) (MIT, Copyright (c) 2025 Maximilian Antoni): where the code comes from. We have not sent changes back.
+- **[beads-lite](https://github.com/abdelrahman-atef1/beads-lite)**: our fork of the `bd` CLI; this board is its companion. Not related to [dcosson/beads-lite](https://github.com/dcosson/beads-lite), a different project with the same name ([ADR 0005](https://github.com/abdelrahman-atef1/beads-lite/blob/lite-integration/docs/decisions/0005-prior-art-dcosson-beads-lite.md)).
 
-**Board**
+## Licence
 
-![Board view](https://github.com/mantoni/beads-ui/raw/main/media/bdui-board.png)
+MIT. [`LICENSE`](LICENSE) is upstream's, unchanged (Copyright (c) 2025 Maximilian Antoni). We add no separate licence for our changes.
 
-## Environment variables
-
-- `BD_BIN`: path to the `bd` binary.
-- `BDUI_RUNTIME_DIR`: override runtime directory for PID/logs. Defaults to
-  `$XDG_RUNTIME_DIR/beads-ui` or the system temp dir.
-- `HOST`: overrides the bind address (default `127.0.0.1`).
-- `PORT`: overrides the listen port (default `3000`).
-
-These can also be set via CLI options: `bdui start --host 0.0.0.0 --port 8080`
-
-## Platform notes
-
-- macOS/Linux are fully supported. On Windows, the CLI uses `cmd /c start` to
-  open URLs and relies on Node’s `process.kill` semantics for stopping the
-  daemon.
-
-## Developer Workflow
-
-- 🔨 Clone the repo and run `npm install`.
-- 🚀 Start the dev server with `npm start`.
-- 🔗 Alternatively, use `npm link` to link the package globally and run
-  `bdui start` from any project.
-
-## Debug Logging
-
-- The codebase uses the `debug` package with namespaces like `beads-ui:*`.
-- Enable logs in the browser by running in DevTools:
-  - `localStorage.debug = 'beads-ui:*'` then reload the page
-- Enable logs for Node/CLI (server, build scripts) by setting `DEBUG`:
-  - `DEBUG=beads-ui:* bdui start`
-  - `DEBUG=beads-ui:* node scripts/build-frontend.js`
-
-## License
-
-MIT
+Not a product and not supported for others: it is the board of one small company, published so the fork is auditable.
