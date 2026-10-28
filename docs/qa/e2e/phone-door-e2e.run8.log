@@ -1,0 +1,119 @@
+INFO init 0
+INFO ids {"normal":"qa-ixd","sec":"qa-123","card":"qa-nnz","seccr":"qa-ygg","legal":"qa-9xa"}
+PASS C12a both doors up on spare ports
+TCP    127.0.0.1:3957         0.0.0.0:0              LISTENING       25288
+  TCP    127.0.0.1:3958         0.0.0.0:0              LISTENING       25288
+PASS C12b phone listener is 127.0.0.1 only
+PASS C01 owner identity + tailnet Host -> 200 :: status 200, 4010 bytes
+PASS C11 two different tokens, per door
+PASS C02 no identity -> 403 :: status 403
+PASS C03 other login -> 403 :: status 403
+INFO C04 upper-case owner login -> 200
+PASS C04 case-insensitive login is accepted (recorded) :: status 200
+PASS C05 repeated identity header -> refused :: HTTP/1.1 403 Forbidden
+PASS C08a identity + loopback Host -> 403 :: status 403
+PASS C08b identity + foreign Host -> 403 :: status 403
+PASS C09a GET with http Origin -> 403 :: status 403
+PASS C09b GET with foreign Origin -> 403 :: status 403
+PASS C13a /api/workspaces on phone -> 404 :: status 404
+PASS C13b /api/register-workspace on phone -> 404 :: status 404
+PASS C80a PC /api/workspaces still 200 :: status 200
+PASS C10 WS refused: no identity :: status 403
+PASS C10 WS refused: other identity :: status 403
+PASS C10 WS refused: bad token :: status 403
+PASS C10 WS refused: PC token on phone door :: status 403
+PASS C10 WS refused: http Origin :: status 403
+PASS C10 WS refused: loopback Host :: status 403
+PASS C10 WS refused: no Origin :: status 403
+PASS C10 WS refused: phone token on PC door :: status 403
+PASS C10 WS good identity+token connects
+PASS C20a ping
+PASS C70a subscribe-list all-issues ok :: {"id":"q2","ok":true,"type":"subscribe-list","payload":{"id":"all","key":"all-issues"}}
+snapshot ids qa-nnz(ptr),qa-123(ptr),qa-9xa(ptr),qa-ygg(ptr),qa-ixd
+PASS C43 normal bead delivered in full
+PASS C40 desk bead sec (qa-123) is pointer only :: id,status,priority,issue_type,labels,created_at,updated_at,closed_at,dependency_count,dependent_count,claimed_at,stalled,title,metadata,pointer,pointer_note
+PASS C40 desk bead card (qa-nnz) is pointer only :: id,status,priority,issue_type,created_at,updated_at,closed_at,dependency_count,dependent_count,claimed_at,stalled,title,metadata,pointer,pointer_note
+PASS C40 desk bead seccr (qa-ygg) is pointer only :: id,status,priority,issue_type,created_at,updated_at,closed_at,dependency_count,dependent_count,claimed_at,stalled,title,metadata,pointer,pointer_note
+PASS C40 desk bead legal (qa-9xa) is pointer only :: id,status,priority,issue_type,assignee,created_at,updated_at,closed_at,dependency_count,dependent_count,claimed_at,stalled,title,metadata,pointer,pointer_note
+PASS C41 desk bead nested in normal bead dependencies is pointer :: []
+FAIL C40z no secret strings in any phone frame so far :: SECRETDESK aimed_at":null,"stalled":false,"blocked_by_detail":[{"id":"qa-123","assignee":"","status":"open","title":"DESK security SECRETDESK1"}],"unblocks":0}]}},{"id":"q2","ok":true,"type":"subscribe
+PASS C80b PC socket sees full desk text
+PASS C42a issue-detail on desk bead: no secret text :: ok=true leak=
+PASS C42b issue-detail on normal bead (nested desk dep redacted) :: leak=
+PASS C20b get-comments normal bead
+PASS C26a get-comments desk bead refused :: {"code":"pc_only","message":"Answer at the PC"}
+PASS C27 get-comments unknown bead refused :: {"code":"pc_only","message":"Answer at the PC"}
+PASS C29 get-comments injection id "--help" refused
+PASS C29 get-comments injection id "qa-c4n --x" refused
+PASS C29 get-comments injection id "../x" refused
+PASS C29 get-comments injection id "" refused
+PASS C26b add-comment on desk refused :: {"code":"pc_only","message":"Answer at the PC"}
+FAIL C20c add-comment on normal ok
+PASS C21a delete-issue refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C21b delete-issue refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C22a label-remove refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C22b label-add refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23a update-status refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23b update-priority refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23c update-assignee refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23d update-type refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23e edit-text refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C23f dep-add refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C24a set-workspace refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C24b register-workspace refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C24c totally-unknown refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C24d report-submit refused on phone :: {"code":"forbidden","message":"Not allowed on the phone"}
+PASS C21c no bead changed by refused requests (state identical)
+PASS C20d create-issue ok :: {"created":true,"wake":"queued"}
+PASS C28 smuggled labels/assignee/created_by/metadata not applied :: {"cb":"owner-board","m":{"created_via":"board-task"}}
+INFO live edits via PC socket [true,true]
+INFO sample PC upsert {"id":"evt-1793198030832","ok":true,"type":"upsert","payload":{"type":"upsert","id":"all","revision":2,"issue":{"id":"qa-xt2","title":"phone made task","status":"open","priority":2,"issue_type":"task","created_by":"owner-board","created_at":1793198005000,"updated_at":1793198005000,"closed_at":null,"
+INFO phone readyState 1 frames 5
+INFO phone frame types after PC edits: upsert,upsert,upsert,upsert,upsert | pc: snapshot,subscribe-list,upsert,edit-text,edit-text,upsert,upsert
+FAIL C42c desk edit at PC reaches phone as pointer only :: leak=SECRETEDIT; upserts=2
+PASS C70b normal edit reaches phone live
+INFO flip [true,true]
+PASS C44 bead turned desk at PC is pointer on next frame :: leak=
+PASS C81 concurrent PC socket got full desk edit text
+INFO phone socket state before malformed 1
+PASS C25 malformed/huge frames: process still serves
+PASS C45 error frames carry no paths/stderr :: {"id":"unknown","ok":false,"type":"bad-json","error":{"code":"bd_error","message":"Could not complete"}}{"id":"unknown","ok":false,"type":"bad-request","error":{"code":"bad_request","message":"Bad req
+PASS C71a list-workspaces ok
+PASS C71b get-workspace ok
+INFO C90 phone index 4010 B, snapshot(5 beads) 2058 B
+PASS C61 report + screenshot through phone door -> 200 :: 200 {"ok":true,"id":"qa-cbn","wake":"queued","image":"pq/2026-10/9a7c1113dd9ae57c.png"}
+FAIL C60 report bead exists with Screenshot link :: qa-cbn labels=owner-report meta={"created_via":"board-report","version":"1.2.3","attachments":["pq/2026-10/9a7c1113dd9ae57c.png"]}
+PASS C62a /att link opens through phone door (png bytes, image/png) :: status 200 ct image/png 76 B
+PASS C62b EXIF/tEXt stripped from stored image
+PASS C53 /att without identity -> 403 :: status 403
+PASS C80c /att on PC door still 200
+INFO label add ✓ Added label 'security' to qa-cbn
+PASS C51 /att for a bead that is now desk -> 404 on phone :: status 404
+PASS C51b /att for desk bead still 200 on PC door
+PASS C52a /att orphan file (no owner bead) -> 404 on phone :: status 404
+PASS C52b /att traversal -> 404/403 :: status 404
+PASS C60b report text only -> 200 :: 200 {"ok":true,"id":"qa-mjy","wake":"queued","image":null}
+PASS C63a report with PC token on phone door -> 403 :: 403
+PASS C63b report without custom header -> 403
+PASS C63c report with other identity -> 403
+PASS C63d report with http Origin -> 403
+PASS C63e report wrong content-type refused (PC door does the same: json parser first) :: 400
+PASS C64a non-image bytes -> 415 bad_image, no bead :: 415 {"ok":false,"error":"bad_image"}
+INFO oversize: phone 413 pc 413
+PASS C64b oversize image refused (413, or connection closed early as on PC door) :: 413/413
+PASS C80d PC door: label-add/remove/delete-issue still work :: [true,true,true]
+INFO PC door with ts.net Host, no identity -> 200
+PASS C06 C06 missing phone.json: phone / 403, /att 403, ws 403; PC still 200
+PASS C07a C07a malformed phone.json: phone / 403, /att 403, ws 403; PC still 200
+PASS C07b C07b empty owner_login: phone / 403, /att 403, ws 403; PC still 200
+PASS C07c C07c owner_login not a string: phone / 403, /att 403, ws 403; PC still 200
+PASS C06b env BDUI_OWNER_LOGIN honoured; file owner refused :: 200/403
+PASS C12c PHONE_PORT=off: phone port not listening, PC up
+FAIL C12d phone port busy: PC door stays up
+
+TOTAL 96, FAIL 5
+  FAIL C40z no secret strings in any phone frame so far
+  FAIL C20c add-comment on normal ok
+  FAIL C42c desk edit at PC reaches phone as pointer only
+  FAIL C60 report bead exists with Screenshot link
+  FAIL C12d phone port busy: PC door stays up

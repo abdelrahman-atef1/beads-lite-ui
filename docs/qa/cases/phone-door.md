@@ -66,3 +66,12 @@ Door = second loopback listener (default 3001) reached only through `tailscale s
 - C90 Phone page load payload size over the phone door (bytes of index + snapshot) recorded.
 - C91 Socket drops mid-report: no half-bead; retry gives clear result.
 - C92 Phone door error text is plain and honest (says why: not allowed / answer at PC).
+
+## Mapping (added after the cases; run 2026-10-28 on 3e96b76, real process, ports 3957/3958)
+Automated by docs/qa/e2e/phone-door-e2e.mjs (needs the worktree path and bd.exe path edited; log in phone-door-e2e.run8.log) and server/phone.test.js (15 unit tests, pass).
+- C01-C05, C08-C11, C13, C06/C07: e2e, PASS. C12a/b/c: PASS. C12d (busy phone port): FAIL, process crashes (EADDRINUSE unhandled on WebSocketServer).
+- C20-C29: e2e, PASS. C40-C47: e2e. C40/C41/C42c FAIL: desk title leaks in blocked_by_detail of a non-desk bead. Others PASS.
+- C50-C53: PASS. C60-C64: PASS (C63e gives 400 not 415, same on PC door).
+- C70-C71, C80-C82: PASS except C82 (default PHONE_PORT 3001 with no env) NOT COVERED: would bind the real 3001.
+- C90: index 4010 B, 5-bead snapshot about 2-4 KB. C91 (drop mid-report) NOT COVERED.
+- N8 (Tailscale serve strips client-sent identity header): NOT COVERED, needs real serve (SRE .6).
