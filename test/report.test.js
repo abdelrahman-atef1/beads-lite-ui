@@ -29,13 +29,14 @@ process.env.WAKE_PROJECTS_LIST = list;
 const bdCalls = [];
 let bdFail = false;
 let bdBusyTimes = 0;
+let bdBusyMsg = 'database is locked';
 vi.mock('../server/bd.js', async (orig) => ({
   ...(await orig()),
   runBd: async (/** @type {string[]} */ args, /** @type {any} */ o) => {
     bdCalls.push({ args, cwd: o?.cwd });
     if (bdBusyTimes > 0) {
       bdBusyTimes--;
-      return { code: 1, stdout: '', stderr: 'database is locked' };
+      return { code: 1, stdout: '', stderr: bdBusyMsg };
     }
     return bdFail
       ? { code: 1, stdout: '', stderr: 'boom' }
@@ -164,6 +165,7 @@ function post(body, over = {}) {
         res.on('end', () =>
           resolve({
             status: res.statusCode || 0,
+            retryAfter: res.headers['retry-after'],
             json: (() => {
               try {
                 return JSON.parse(s);
@@ -331,7 +333,11 @@ describe('POST /api/report', () => {
     for (let i = 0; i < 30; i++) {
       expect((await post(frame(GOOD))).status).toBe(200);
     }
-    expect((await post(frame(GOOD))).status).toBe(429);
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(429);
+    const ra = Number(r.retryAfter);
+    expect(ra).toBeGreaterThan(3500);
+    expect(ra).toBeLessThanOrEqual(3600);
   }, 120_000);
 
   test('cap holds under a parallel burst (slot reserved before awaits)', async () => {
@@ -441,6 +447,16 @@ describe('company-1bo5.6.8 QA fixes', () => {
     const r = await post(frame(GOOD));
     expect(r.status).toBe(200);
     expect(bdCalls).toHaveLength(3);
+  });
+
+  test('bd create is retried on the transient historical-workspace error', async () => {
+    bdBusyMsg =
+      'historical SQLite workspace detected; explicit migration is required';
+    bdBusyTimes = 1;
+    const r = await post(frame(GOOD));
+    bdBusyMsg = 'database is locked';
+    expect(r.status).toBe(200);
+    expect(bdCalls).toHaveLength(2);
   });
 
   test('a non-busy bd failure is not retried', async () => {

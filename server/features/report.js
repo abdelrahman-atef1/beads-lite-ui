@@ -332,7 +332,7 @@ export function normalizeVersion(v) {
     .replace(/٫/g, '.');
 }
 
-const BUSY_RE = /locked|busy|contention|timeout|try again|SQLITE_BUSY/i;
+const BUSY_RE = /locked|busy|historical SQLite workspace|contention|timeout|try again|SQLITE_BUSY/i;
 export const CREATE_RETRIES = 6;
 
 /**
@@ -392,7 +392,14 @@ async function handleReport(req, res) {
 
   const now = Date.now();
   recent = recent.filter((t) => now - t < 3600_000);
-  if (recent.length >= REPORTS_PER_HOUR) return fail(res, 429, 'rate_limited');
+  if (recent.length >= REPORTS_PER_HOUR) {
+    // Seconds until the oldest slot in the window frees up.
+    res.set(
+      'Retry-After',
+      String(Math.max(1, Math.ceil((recent[0] + 3600_000 - now) / 1000)))
+    );
+    return fail(res, 429, 'rate_limited');
+  }
   // Reserve the slot BEFORE any await so parallel posts cannot all pass the
   // check; give it back unless the report was filed.
   const slot = { t: now };
