@@ -31,3 +31,7 @@
   display: inline-flex;
   align-items: center;
 }
+[role="gridcell"]:has(> .priority-icon) {
+  display: flex;
+  align-items: center;
+}
