@@ -253,3 +253,7 @@ html.rpt-lock .rpt-open {
     overflow: hidden;
   }
 }
+
+.rpt-open__plus {
+  margin-inline-end: 0.35em;
+}

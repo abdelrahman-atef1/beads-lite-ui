@@ -345,7 +345,7 @@ export function mountReport(el) {
   const paint = () => {
     b.textContent = '';
     b.append(
-      h('span', { class: 'rpt-open__plus', 'aria-hidden': 'true' }, ['+ '])
+      h('span', { class: 'rpt-open__plus', 'aria-hidden': 'true' }, ['+'])
     );
     b.append(h('span', { class: 'rpt-open__txt' }, [t('rpt_open')]));
     b.setAttribute('aria-label', t('rpt_open'));
