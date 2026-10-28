@@ -14,8 +14,8 @@ const log = debug('board-data');
  * bd today: only documented flags are used.
  */
 
-/** Closed column cap: the newest N (FR-011); the client offers "show more". */
-const DEFAULT_CLOSED_LIMIT = 1000;
+/** Closed column cap: the newest N (FR-011; 200 = four pages of the rail, payload budget); the client offers "show more". */
+const DEFAULT_CLOSED_LIMIT = 200;
 /** A finished snapshot is reused this long, so the initial subscribes of all columns coalesce. */
 const DEFAULT_TTL_MS = 1500;
 /**
