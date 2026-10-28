@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { fetchListForSubscription } from './list-adapters.js';
+import { registerWorkspace } from './registry-watcher.js';
 import { registry } from './subscriptions.js';
 import { handleMessage } from './ws.js';
 
@@ -97,6 +98,7 @@ async function requestComments(sock, issue_id, req_id) {
  * @param {string} root_dir
  */
 async function setWorkspace(sock, root_dir) {
+  registerWorkspace({ path: root_dir, database: path.join(root_dir, 'x.db') });
   await handleMessage(
     /** @type {any} */ (sock),
     Buffer.from(

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import path from 'node:path';
 import { runBd, runBdJson } from './bd.js';
+import { registerWorkspace } from './registry-watcher.js';
 import { handleMessage } from './ws.js';
 
 vi.mock('./bd.js', () => ({ runBdJson: vi.fn(), runBd: vi.fn() }));
@@ -22,7 +24,33 @@ function makeStubSocket() {
   };
 }
 
+describe('ws set-workspace (SEC N1)', () => {
+  test('refuses a path that is not registered', async () => {
+    const ws = makeStubSocket();
+    await handleMessage(
+      /** @type {any} */ (ws),
+      Buffer.from(
+        JSON.stringify({
+          id: 'sw-bad',
+          type: 'set-workspace',
+          payload: { path: '/tmp/never-registered-xyz' }
+        })
+      )
+    );
+    const res = JSON.parse(ws.sent[0]);
+    expect(res.ok).toBe(false);
+    expect(res.error.code).toBe('forbidden');
+  });
+});
+
 describe('ws mutation handlers', () => {
+  beforeEach(() => {
+    registerWorkspace({
+      path: '/tmp/bdui-ws-test-fixture',
+      database: '/tmp/bdui-ws-test-fixture/x.db'
+    });
+  });
+
   test('update-status validates and returns updated issue', async () => {
     const mRun = /** @type {import('vitest').Mock} */ (runBd);
     const mJson = /** @type {import('vitest').Mock} */ (runBdJson);
@@ -488,7 +516,7 @@ describe('ws mutation handlers', () => {
 
     expect(mRun).toHaveBeenCalledWith(
       ['update', 'UI-7', '--status', 'in_progress'],
-      expect.objectContaining({ cwd: '/tmp/bdui-ws-test-fixture' })
+      expect.objectContaining({ cwd: path.resolve('/tmp/bdui-ws-test-fixture') })
     );
   });
 
@@ -527,7 +555,7 @@ describe('ws mutation handlers', () => {
 
     expect(mRun).toHaveBeenCalledWith(
       ['update', 'UI-7', '--type', 'feature'],
-      expect.objectContaining({ cwd: '/tmp/bdui-ws-test-fixture' })
+      expect.objectContaining({ cwd: path.resolve('/tmp/bdui-ws-test-fixture') })
     );
     // No post-mutation show (contract board-data.md).
     expect(mJson).not.toHaveBeenCalledWith(

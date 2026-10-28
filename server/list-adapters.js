@@ -158,7 +158,13 @@ const CARD_FIELDS = [
   'updated_at',
   'closed_at',
   'dependency_count',
-  'dependent_count'
+  'dependent_count',
+  // Derived by board-derive.js; the cards read them (claimed age, stalled
+  // mark, blocked-by details, unblocks N).
+  'claimed_at',
+  'stalled',
+  'blocked_by_detail',
+  'unblocks'
 ];
 /** Metadata keys the cards read (decision-card fields, Arabic title). */
 const CARD_META = /^(card_[a-z_]+|title_ar)$/;

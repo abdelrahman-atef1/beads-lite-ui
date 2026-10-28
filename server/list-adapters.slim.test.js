@@ -47,4 +47,47 @@ describe('board payload', () => {
     expect(before).toBeGreaterThan(5_000_000);
     expect(after).toBeLessThan(250_000);
   });
+
+  test('keeps the derived card fields', () => {
+    const [it] = slimBoardItems([
+      {
+        ...fat(1),
+        claimed_at: '2026-10-01T00:00:00Z',
+        stalled: true,
+        blocked_by_detail: [{ id: 'x-2', assignee: 'a', status: 'open', title: 't' }],
+        unblocks: 3
+      }
+    ]);
+    expect(it.claimed_at).toBe('2026-10-01T00:00:00Z');
+    expect(it.stalled).toBe(true);
+    expect(it.blocked_by_detail).toHaveLength(1);
+    expect(it.unblocks).toBe(3);
+  });
+
+  test('derived fields survive the full path (fetchListForSubscription)', async () => {
+    const a = {
+      ...fat(1),
+      id: 'A',
+      status: 'in_progress',
+      updated_at: '2020-01-01T00:00:00Z',
+      started_at: '2020-01-01T00:00:00Z',
+      blocked_by: ['B']
+    };
+    const b = { ...fat(2), id: 'B', status: 'open', assignee: 'qa' };
+    vi.mocked(runBdJson).mockResolvedValue({ code: 0, stdoutJson: [a, b] });
+    const res = await fetchListForSubscription(
+      { type: 'in-progress-issues' },
+      { cwd: 'derive-test' }
+    );
+    expect(res.ok).toBe(true);
+    const it = res.items.find((x) => x.id === 'A');
+    expect(it.claimed_at).toBe('2020-01-01T00:00:00Z');
+    expect(it.stalled).toBe(true);
+    expect(it.blocked_by_detail).toEqual([
+      { id: 'B', assignee: 'qa', status: 'open', title: 'Title 2' }
+    ]);
+    expect(it.unblocks).toBe(0);
+    const bb = res.items.find((x) => x.id === 'B');
+    expect(bb).toBeUndefined();
+  });
 });

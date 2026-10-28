@@ -26,6 +26,17 @@ import { withCounts } from './workspace-counts.js';
 const log = debug('ws');
 
 /**
+ * Same folder, ignoring case and slash style (Windows).
+ * @param {string} a
+ * @param {string} b
+ */
+function samePath(a, b) {
+  const n = (/** @type {string} */ p) =>
+    path.resolve(p).split(path.sep).join('/').replace(/\/+$/, '').toLowerCase();
+  return n(a) === n(b);
+}
+
+/**
  * @typedef {{ id: string, updated_at: number, closed_at: number | null } & Record<string, unknown>} SubscriptionIssue
  * @typedef {Awaited<ReturnType<typeof fetchListForSubscription>>} FetchListResult
  */
@@ -1541,8 +1552,19 @@ export async function handleMessage(ws, data) {
       return;
     }
 
-    // Resolve and validate the path
+    // Resolve and validate the path: only registered workspaces (SEC N1).
     const resolved = path.resolve(workspace_path);
+    const registered = getAvailableWorkspaces().some(
+      (w) => samePath(w.path, resolved)
+    );
+    if (!registered) {
+      ws.send(
+        JSON.stringify(
+          makeError(req, 'forbidden', 'workspace is not registered')
+        )
+      );
+      return;
+    }
 
     // Update workspace (this will rebind watcher, clear registry, broadcast change)
     const new_db = resolveWorkspaceDatabase({ cwd: resolved });
