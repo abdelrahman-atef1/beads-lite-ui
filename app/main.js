@@ -285,6 +285,40 @@ export function bootstrap(root_element) {
       return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
     }
 
+    // Detail load/subscribe waits until the issue's project is the current
+    // workspace; otherwise the first subscribe hits the wrong store and pops
+    // "not found" (company-1bo5.6.33).
+    let workspaces_ready = false;
+    /** @type {string | null} */
+    let held_detail_id = null;
+
+    /**
+     * @param {string} id
+     * @returns {boolean}
+     */
+    function shouldHoldDetail(id) {
+      if (!workspaces_ready) return true;
+      const ws = store.getState().workspace;
+      if (!ws || !ws.available || ws.available.length === 0) return false;
+      return (
+        resolveIssueWorkspace(id, ws.current, ws.available).action === 'switch'
+      );
+    }
+
+    /**
+     * Re-select a held issue so the detail subscriber runs again.
+     *
+     * @param {string} id
+     */
+    function releaseHeldDetail(id) {
+      if (held_detail_id !== id) return;
+      held_detail_id = null;
+      if (store.getState().selected_id === id) {
+        store.setState({ selected_id: null });
+        store.setState({ selected_id: id });
+      }
+    }
+
     /**
      * Open an issue from another project: switch to the workspace its id
      * prefix belongs to, then re-select the issue so detail resubscribes.
@@ -294,8 +328,12 @@ export function bootstrap(root_element) {
     async function ensureIssueWorkspace(id) {
       if (!id) return;
       const ws = store.getState().workspace;
-      if (!ws || !ws.available || ws.available.length === 0) return;
+      if (!ws || !ws.available || ws.available.length === 0) {
+        releaseHeldDetail(id);
+        return;
+      }
       const r = resolveIssueWorkspace(id, ws.current, ws.available);
+      if (r.action !== 'switch') releaseHeldDetail(id);
       if (r.action === 'switch') {
         try {
           await handleWorkspaceChange(r.path);
@@ -352,6 +390,10 @@ export function bootstrap(root_element) {
         }
       } catch (err) {
         log('failed to load workspaces: %o', err);
+      } finally {
+        workspaces_ready = true;
+        const held = held_detail_id;
+        if (held) await ensureIssueWorkspace(held);
       }
     }
 
@@ -667,22 +709,28 @@ export function bootstrap(root_element) {
     if (initial_id) {
       detail_mount.hidden = false;
       dialog.open(initial_id);
-      if (detail) {
-        void detail.load(initial_id);
+      if (shouldHoldDetail(initial_id)) {
+        // Wait for list-workspaces; the release re-selects and the
+        // subscriber below loads and subscribes (company-1bo5.6.33).
+        held_detail_id = initial_id;
+      } else {
+        if (detail) {
+          void detail.load(initial_id);
+        }
+        // Ensure detail subscription is active on initial deep-link
+        const client_id = `detail:${initial_id}`;
+        const spec = { type: 'issue-detail', params: { id: initial_id } };
+        // Register store first to avoid dropping the initial snapshot
+        try {
+          sub_issue_stores.register(client_id, spec);
+        } catch (err) {
+          log('register detail store failed: %o', err);
+        }
+        void subscriptions.subscribeList(client_id, spec).catch((err) => {
+          log('detail subscribe failed: %o', err);
+          showFatalFromError(err, 'issue details');
+        });
       }
-      // Ensure detail subscription is active on initial deep-link
-      const client_id = `detail:${initial_id}`;
-      const spec = { type: 'issue-detail', params: { id: initial_id } };
-      // Register store first to avoid dropping the initial snapshot
-      try {
-        sub_issue_stores.register(client_id, spec);
-      } catch (err) {
-        log('register detail store failed: %o', err);
-      }
-      void subscriptions.subscribeList(client_id, spec).catch((err) => {
-        log('detail subscribe failed: %o', err);
-        showFatalFromError(err, 'issue details');
-      });
     }
 
     // Open/close dialog based on selected_id (always dialog; no page variant)
@@ -698,6 +746,11 @@ export function bootstrap(root_element) {
       if (id) {
         detail_mount.hidden = false;
         dialog.open(id);
+        if (shouldHoldDetail(id)) {
+          held_detail_id = id;
+          return;
+        }
+        if (held_detail_id === id) held_detail_id = null;
         if (detail) {
           void detail.load(id);
         }
