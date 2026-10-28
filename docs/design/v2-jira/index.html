@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beads v2 (Jira-style mockup)</title>
+<link rel="stylesheet" href="v2.css">
+</head>
+<body>
+<header class="top">
+  <span class="logo">Beads</span>
+  <div class="proj">
+    <button aria-haspopup="true" aria-expanded="false"><span data-ar="مشروع:">Project:</span> <b>rayeh</b> <span class="pill dec" title="owner decisions">3</span> &#9662;</button>
+    <div class="menu" role="menu">
+      <div class="row cur" role="menuitem"><span class="nm">rayeh</span><span class="cnts"><span class="pill">24</span><span class="pill dec">3</span><span class="pill blk">1</span></span></div>
+      <div class="row" role="menuitem"><span class="nm">fatura</span><span class="cnts"><span class="pill">17</span><span class="pill dec">1</span></span></div>
+      <div class="row" role="menuitem"><span class="nm">company</span><span class="cnts"><span class="pill">52</span><span class="pill dec">2</span><span class="pill blk">4</span></span></div>
+      <div class="row" role="menuitem"><span class="nm">abduu-tasks</span><span class="cnts"><span class="pill">9</span></span></div>
+      <div class="row" role="menuitem"><span class="nm">whisper-flow</span><span class="cnts"><span class="pill">0</span></span></div>
+      <div class="note" style="margin:var(--s2)"><span data-ar="الأرقام: مفتوح / قرار / محجوب">Counts: open / decisions / blocked</span></div>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <input type="search" aria-label="Search" placeholder="Search" data-ar-ph style="border:2px solid var(--border);background:var(--surface-2);border-radius:3px;padding:5px 12px;min-height:32px" class="hide-m">
+  <button class="btn" id="theme" aria-label="Toggle dark mode">&#9680; <span data-ar="داكن">Dark</span></button>
+  <button class="btn" id="dir" aria-label="Toggle RTL">AR / EN</button>
+  <button class="btn p" data-ar="+ إنشاء">+ Create</button>
+</header>
+
+<nav class="tabs" aria-label="Views">
+  <a href="#board" data-v="board" aria-current="page" data-ar="اللوحة">Board</a>
+  <a href="#backlog" data-v="backlog" data-ar="الباكلوج">Backlog</a>
+  <a href="#inbox" data-v="inbox"><span data-ar="قرارات المالك">Owner decisions</span> <span class="pill dec">3</span></a>
+</nav>
+
+<main>
+<!-- BOARD -->
+<section class="view on" id="board">
+  <div class="crumb">rayeh / <span data-ar="اللوحة">Board</span></div>
+  <h1><span data-ar="لوحة rayeh">rayeh board</span></h1>
+  <div class="filters" role="group" aria-label="Quick filters">
+    <input type="search" aria-label="Filter board" placeholder="Filter">
+    <span style="display:flex">
+      <span class="ava" title="swe" style="margin-inline-end:-6px">SW</span><span class="ava" title="qa" style="background:#00875a;margin-inline-end:-6px">QA</span><span class="ava" title="ux" style="background:#c9372c">UX</span>
+    </span>
+    <button class="chip" aria-pressed="false" data-ar="مسندة لي">Mine</button>
+    <button class="chip" aria-pressed="true" data-ar="بانتظار قرار">Needs decision</button>
+    <button class="chip" aria-pressed="false" data-ar="محجوبة">Blocked</button>
+    <button class="chip" aria-pressed="false" data-ar="تحدّثت اليوم">Updated today</button>
+    <button class="chip" aria-pressed="false" data-ar="P0 / P1">P0 / P1</button>
+    <span class="spacer"></span>
+    <label class="note" style="margin:0"><span data-ar="تجميع:">Group:</span>
+      <select aria-label="Group by"><option>Assignee</option><option>Epic</option><option>None</option></select></label>
+  </div>
+
+  <div class="board" role="region" aria-label="Board">
+    <div class="colhead">
+      <h3 class="col" style="min-height:0"><span data-ar="مفتوح">Open</span><span>6</span></h3>
+      <h3 class="col" style="min-height:0"><span data-ar="قيد التنفيذ">In progress</span><span>3</span></h3>
+      <h3 class="col" style="min-height:0"><span data-ar="بانتظار اختبار / دمج">Waiting</span><span>2</span></h3>
+      <h3 class="col" style="min-height:0"><span data-ar="قرار المالك">Owner decision</span><span>3</span></h3>
+      <h3 class="col" style="min-height:0"><span data-ar="تم">Done</span><span>11</span></h3>
+    </div>
+
+    <button class="lane" aria-expanded="true"><span class="car">&#9662;</span><span class="ava">SW</span> swe <span class="pill">7</span></button>
+    <div class="cells">
+      <div class="col">
+        <button class="card"><p class="t" data-ar="إصلاح مزامنة الحجوزات دون اتصال">Fix offline booking sync</p><div class="m"><span class="ico ty-bug">B</span><span class="id">rayeh-41</span><span class="pri p0">P0</span><span class="ava">SW</span></div></button>
+        <button class="card"><p class="t" data-ar="شاشة الترحيب الأولى">First-run welcome screen</p><div class="m"><span class="ico ty-task">T</span><span class="id">rayeh-52</span><span class="pri p1">P1</span><span class="ava">SW</span></div></button>
+      </div>
+      <div class="col">
+        <button class="card"><p class="t" data-ar="تحسين تحميل القائمة على شبكة 2G">Speed up list load on 2G</p><div class="m"><span class="ico ty-story">S</span><span class="id">rayeh-47</span><span class="pri p1">P1</span><span class="ava">SW</span></div></button>
+      </div>
+      <div class="col">
+        <button class="card"><p class="t" data-ar="تصدير CSV">CSV export</p><div class="m"><span class="lbl wait" data-ar="بانتظار اختبار">waiting for test</span><span class="id">rayeh-39</span><span class="ava">SW</span></div></button>
+      </div>
+      <div class="col">
+        <button class="card dec"><p class="t" data-ar="هل نستخدم Firestore أم SQLite محليا؟">Firestore or local SQLite for drafts?</p><div class="m"><span class="lbl dec" data-ar="قرار">decision</span><span class="id">rayeh-55</span><span class="ava">SW</span></div></button>
+      </div>
+      <div class="col">
+        <button class="card"><p class="t" data-ar="تسجيل الدخول بالهاتف">Phone sign-in</p><div class="m"><span class="ico ty-story">S</span><span class="id">rayeh-30</span><span class="stat done" data-ar="تم">done</span><span class="ava">SW</span></div></button>
+      </div>
+    </div>
+
+    <button class="lane" aria-expanded="true"><span class="car">&#9662;</span><span class="ava" style="background:#c9372c">UX</span> ux <span class="pill">2</span></button>
+    <div class="cells">
+      <div class="col"></div>
+      <div class="col">
+        <button class="card blk"><p class="t" data-ar="تصميم حالة انتهاء الحصة">Quota-exhausted state</p><div class="m"><span class="ico ty-task">T</span><span class="id">rayeh-58</span><span class="stat blk" data-ar="محجوب">blocked</span><span class="ava" style="background:#c9372c">UX</span></div></button>
+      </div>
+      <div class="col"></div>
+      <div class="col">
+        <button class="card dec"><p class="t" data-ar="اسم المنتج النهائي">Final product name</p><div class="m"><span class="lbl dec" data-ar="قرار">decision</span><span class="id">rayeh-60</span><span class="ava" style="background:#c9372c">UX</span></div></button>
+      </div>
+      <div class="col"></div>
+    </div>
+  </div>
+  <p class="note" data-ar="اضغط على بطاقة لفتح التفاصيل. السحب والإفلات يغيّر الحالة (غير مفعّل في النموذج).">Click a card to open details. Drag between columns changes status (not wired in this mockup).</p>
+</section>
+
+<!-- BACKLOG -->
+<section class="view" id="backlog">
+  <div class="crumb">rayeh / <span data-ar="الباكلوج">Backlog</span></div>
+  <h1><span data-ar="الباكلوج">Backlog</span></h1>
+  <div class="filters"><input type="search" aria-label="Filter backlog" placeholder="Filter"><button class="chip" aria-pressed="false" data-ar="مسندة لي">Mine</button><button class="chip" aria-pressed="false" data-ar="محجوبة">Blocked</button><button class="chip" aria-pressed="false" data-ar="بلا مسؤول">Unassigned</button></div>
+  <details class="sec" open><summary>&#9662; <span class="ico ty-epic">E</span> <span data-ar="مرحلة الإطلاق التجريبي">Pilot launch</span> <span class="pill">4 / 9</span></summary>
+    <table><thead><tr><th></th><th>ID</th><th data-ar="العنوان">Title</th><th class="hide-m" data-ar="الحالة">Status</th><th>P</th><th data-ar="المسؤول">Assignee</th></tr></thead><tbody>
+      <tr class="r"><td><span class="ico ty-bug">B</span></td><td class="id">rayeh-41</td><td data-ar="إصلاح مزامنة الحجوزات دون اتصال">Fix offline booking sync</td><td class="hide-m"><span class="stat">open</span></td><td><span class="pri p0">P0</span></td><td><span class="ava">SW</span></td></tr>
+      <tr class="r"><td><span class="ico ty-story">S</span></td><td class="id">rayeh-47</td><td data-ar="تحسين تحميل القائمة على شبكة 2G">Speed up list load on 2G</td><td class="hide-m"><span class="stat ip">in progress</span></td><td><span class="pri p1">P1</span></td><td><span class="ava">SW</span></td></tr>
+      <tr class="r"><td><span class="ico ty-task">T</span></td><td class="id">rayeh-58</td><td data-ar="تصميم حالة انتهاء الحصة">Quota-exhausted state</td><td class="hide-m"><span class="stat blk">blocked</span></td><td>P2</td><td><span class="ava" style="background:#c9372c">UX</span></td></tr>
+      <tr class="r"><td><span class="ico ty-decision">D</span></td><td class="id">rayeh-55</td><td data-ar="هل نستخدم Firestore أم SQLite محليا؟">Firestore or local SQLite for drafts?</td><td class="hide-m"><span class="lbl dec" data-ar="قرار">decision</span></td><td>P1</td><td><span class="ava">SW</span></td></tr>
+    </tbody></table></details>
+  <details class="sec"><summary>&#9656; <span data-ar="بدون إيبيك">No epic</span> <span class="pill">5</span></summary></details>
+</section>
+
+<!-- INBOX -->
+<section class="view" id="inbox">
+  <div class="crumb" data-ar="كل المشاريع">All projects</div>
+  <h1><span data-ar="قرارات المالك">Owner decisions</span> <span class="pill dec">3</span></h1>
+  <div class="inbox">
+    <article class="dcard">
+      <span class="lbl dec" data-ar="rayeh · قرار">rayeh · decision</span>
+      <h3 data-ar="هل نستخدم Firestore أم SQLite محليا للمسودات؟">Firestore or local SQLite for drafts?</h3>
+      <p class="fx" data-ar="الأثر: Firestore يضيف قراءات مدفوعة؛ SQLite يعمل دون اتصال وبتكلفة صفر.">Effect: Firestore adds billable reads; SQLite works offline at $0.</p>
+      <div class="opts">
+        <button class="opt rec" data-pick="SQLite"><b data-ar="SQLite محلي">Local SQLite</b><small data-ar="موصى به · تكلفة صفر · يعمل دون اتصال">Recommended · $0 · works offline</small></button>
+        <button class="opt" data-pick="Firestore"><b>Firestore</b><small data-ar="مزامنة أسهل · تكلفة لكل قراءة">Easier sync · cost per read</small></button>
+        <button class="opt" data-pick="Later"><b data-ar="أجّل القرار">Defer</b><small data-ar="يبقى العمل محجوبا">Work stays blocked</small></button>
+      </div>
+      <p class="res">&#10003; <b></b> <span data-ar="— تم إيقاظ swe ليكمل.">— swe was woken to continue.</span></p>
+      <p class="wake">&#9889; <span data-ar="بعد اختيارك يُشغَّل الوكيل الذي طلب القرار تلقائيا.">After you pick, the agent that asked is woken automatically.</span></p>
+    </article>
+    <article class="dcard">
+      <span class="lbl dec" data-ar="company · قرار">company · decision</span>
+      <h3 data-ar="نشر نسخة الاختبار للعموم؟">Publish the test build publicly?</h3>
+      <p class="fx" data-ar="الأثر: إعلان عام. يُقرَّر من الحاسوب فقط.">Effect: public announcement. Answered at the PC only.</p>
+      <div class="opts">
+        <button class="opt" data-pick="Yes"><b data-ar="نعم، انشر">Yes, publish</b></button>
+        <button class="opt" data-pick="No"><b data-ar="لا، انتظر">No, wait</b></button>
+      </div>
+      <p class="res">&#10003; <b></b></p>
+      <p class="wake">&#128274; <span data-ar="لا يُجاب من الهاتف.">Not answerable by phone.</span></p>
+    </article>
+    <article class="dcard done">
+      <span class="lbl dec">fatura · decision</span>
+      <h3 data-ar="لون الهوية الأساسي">Primary brand colour</h3>
+      <div class="opts"></div>
+      <p class="res" style="display:block">&#10003; <b>Teal</b> <span data-ar="— تم إيقاظ ux.">— ux was woken.</span></p>
+    </article>
+  </div>
+  <p class="note" data-ar="الخيارات أزرار كبيرة (48px). الخيار الموصى به مميّز بنجمة وليس بلون فقط.">Options are large buttons (48px). The recommended one is marked with a star, not colour alone.</p>
+</section>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" role="dialog" aria-label="Issue detail">
+  <button class="btn x" aria-label="Close">&#10005;</button>
+  <div class="main">
+    <div class="crumb">rayeh / <span data-ar="مرحلة الإطلاق التجريبي">Pilot launch</span> / rayeh-41</div>
+    <h2 data-ar="إصلاح مزامنة الحجوزات دون اتصال">Fix offline booking sync</h2>
+    <h4 data-ar="الوصف">Description</h4>
+    <p data-ar="تضيع الحجوزات المعمولة دون اتصال عند عودة الشبكة. المطلوب إعادة المحاولة بترتيب ثابت.">Bookings made offline are lost when the network returns. Retry in a stable order.</p>
+    <h4 data-ar="المهام المرتبطة">Linked</h4>
+    <div class="dep"><span class="ico ty-task">T</span><span class="id">rayeh-44</span> <span data-ar="طابور إعادة المحاولة">Retry queue</span><span class="spacer"></span><span class="stat done" data-ar="تم">done</span></div>
+    <div class="dep"><span class="ico ty-task">T</span><span class="id">rayeh-58</span> <span data-ar="حالة انتهاء الحصة">Quota-exhausted state</span><span class="spacer"></span><span class="stat blk" data-ar="محجوب">blocked</span></div>
+    <h4 data-ar="النشاط">Activity</h4>
+    <div class="cm"><span class="ava">SW</span><div class="b"><b>swe</b> · 2h<br><span data-ar="بدأت بالطابور المحلي؛ الاختبار على جهاز Redmi غدا.">Started with the local queue; testing on the Redmi tomorrow.</span></div></div>
+    <div class="cm"><span class="ava" style="background:#c9372c">UX</span><div class="b"><span data-ar="أضف تعليقا..." style="color:var(--muted)">Add a comment...</span></div></div>
+  </div>
+  <aside>
+    <div class="field"><span data-ar="الحالة">Status</span><span class="stat ip">in progress &#9662;</span></div>
+    <div class="field"><span data-ar="المسؤول">Assignee</span><span><span class="ava">SW</span> swe</span></div>
+    <div class="field"><span data-ar="الأولوية">Priority</span><span class="pri p0">P0</span></div>
+    <div class="field"><span data-ar="النوع">Type</span><span><span class="ico ty-bug">B</span> Bug</span></div>
+    <div class="field"><span data-ar="الإيبيك">Epic</span><span data-ar="الإطلاق التجريبي">Pilot launch</span></div>
+    <div class="field"><span>Labels</span><span class="lbl">goal:pilot</span></div>
+    <div class="field"><span data-ar="آخر تحديث">Updated</span><span>2h</span></div>
+  </aside>
+</aside>
+<script src="v2.js"></script>
+</body>
+</html>
