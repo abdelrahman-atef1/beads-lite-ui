@@ -23,3 +23,15 @@
 .priority-icon.is-p4 {
   color: var(--p4);
 }
+
+.priority-icon + select {
+  margin-inline-start: 6px;
+}
+.card__pri {
+  display: inline-flex;
+  align-items: center;
+}
+.pri-cell {
+  display: flex;
+  align-items: center;
+}

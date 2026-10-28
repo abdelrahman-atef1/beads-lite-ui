@@ -7,6 +7,7 @@
  * here by status), `tab:board:ready` (`bd ready`), `tab:board:blocked`
  * (`bd blocked`), `tab:board:closed` (newest closed, shown 50 at a time).
  */
+import { createPriorityBadge } from '../utils/priority-badge.js';
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { createListSelectors } from '../data/list-selectors.js';
@@ -98,11 +99,7 @@ export function createBoardView(
         ${secondary ? html`<div class="card__title2">${secondary}</div>` : ''}
         <div class="card__meta">
           <span class="card__id">${it.id}</span>
-          <span
-            class="card__pri"
-            style=${`color:var(--p${Math.min(4, Math.max(0, pri))})`}
-            >P${pri}</span
-          >
+          <span class="card__pri">${createPriorityBadge(pri)}</span>
           ${col.id === 'blocked'
             ? html`<span class="tag tag--blocked">${t('blocked_tag')}</span>`
             : ''}

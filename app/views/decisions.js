@@ -6,6 +6,7 @@
  * steps (option, then Confirm) and writes: a record comment, the card_back
  * role as assignee, and status `open`, through the existing transport.
  */
+import { createPriorityBadge } from '../utils/priority-badge.js';
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import {
@@ -107,11 +108,7 @@ export function createDecisionsView(
         lang=${lang_attr}
       >
         <div class="card__meta">
-          <span
-            class="card__pri"
-            style=${`color:var(--p${Math.min(4, Math.max(0, pri))})`}
-            >P${pri}</span
-          >
+          <span class="card__pri">${createPriorityBadge(pri)}</span>
           <span class="card__id">${it.id}</span>
           <span>${t('asked')} ${ageLabel(it.updated_at)}</span>
         </div>
