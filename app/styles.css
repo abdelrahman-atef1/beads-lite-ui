@@ -2361,3 +2361,10 @@ body {
     min-height: 40px;
   }
 }
+
+.bead-link {
+  color: var(--accent, #2563eb);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-family: ui-monospace, monospace;
+}

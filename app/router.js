@@ -68,8 +68,26 @@ export function isHomeHash(hash) {
  */
 export function createHashRouter(store) {
   const log = debug('router');
+  // In-app history depth: every entry the app creates is stamped with an index
+  // so "close" can step back (to the previous bead or the list it came from)
+  // instead of pushing a new entry that Back would reopen.
+  let cur_i = -1;
+  function stampEntry() {
+    try {
+      const st = window.history.state;
+      if (st && typeof st.bl_i === 'number') {
+        cur_i = st.bl_i;
+      } else {
+        cur_i += 1;
+        window.history.replaceState({ ...(st || {}), bl_i: cur_i }, '');
+      }
+    } catch {
+      // ignore
+    }
+  }
   /** @type {(ev?: HashChangeEvent) => any} */
   const onHashChange = () => {
+    stampEntry();
     const hash = window.location.hash || '';
     // Rewrite legacy #/issue/<id> to canonical #/issues?issue=<id>
     const legacyMatch = /^#\/issue\/([^\s?#]+)/.exec(hash);
@@ -96,6 +114,15 @@ export function createHashRouter(store) {
     },
     stop() {
       window.removeEventListener('hashchange', onHashChange);
+    },
+    /** True when the previous history entry was created by this app. */
+    canGoBack() {
+      const st = window.history.state;
+      return !!st && typeof st.bl_i === 'number' && st.bl_i > 0;
+    },
+    /** Step back to the previous entry (previous bead, else its list). */
+    back() {
+      window.history.back();
     },
     /**
      * @param {string} id

@@ -2,6 +2,7 @@
 import { html, render } from 'lit-html';
 import { parseView } from '../router.js';
 import { issueHashFor } from '../utils/issue-url.js';
+import { linkifyText } from '../utils/linkify-ids.js';
 import { debug } from '../utils/logging.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
@@ -762,7 +763,8 @@ export function createDetailView(
     }
   };
 
-  const onDescEdit = () => {
+  const onDescEdit = (/** @type {Event | undefined} */ ev) => {
+    if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_desc = true;
     doRender();
   };
@@ -828,7 +830,8 @@ export function createDetailView(
   };
 
   // Design inline edit handlers (same UX as Description)
-  const onDesignEdit = () => {
+  const onDesignEdit = (/** @type {Event | undefined} */ ev) => {
+    if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_design = true;
     doRender();
     try {
@@ -906,7 +909,8 @@ export function createDetailView(
   };
 
   // Notes inline edit handlers
-  const onNotesEdit = () => {
+  const onNotesEdit = (/** @type {Event | undefined} */ ev) => {
+    if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_notes = true;
     doRender();
   };
@@ -973,7 +977,8 @@ export function createDetailView(
     doRender();
   };
 
-  const onAcceptEdit = () => {
+  const onAcceptEdit = (/** @type {Event | undefined} */ ev) => {
+    if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_accept = true;
     doRender();
   };
@@ -1191,27 +1196,29 @@ export function createDetailView(
     </select>`;
 
     const priority_select = html`${createPriorityBadge(
-      typeof issue.priority === 'number' ? issue.priority : 2
-    )}<select
-      class=${`badge-select badge--priority is-p${String(
         typeof issue.priority === 'number' ? issue.priority : 2
-      )}`}
-      @change=${onPriorityChange}
-      .value=${String(typeof issue.priority === 'number' ? issue.priority : 2)}
-      ?disabled=${pending}
-    >
-      ${(() => {
-        const cur = String(
+      )}<select
+        class=${`badge-select badge--priority is-p${String(
           typeof issue.priority === 'number' ? issue.priority : 2
-        );
-        return priority_levels.map(
-          (p, i) =>
-            html`<option value=${String(i)} ?selected=${cur === String(i)}>
-              ${p}
-            </option>`
-        );
-      })()}
-    </select>`;
+        )}`}
+        @change=${onPriorityChange}
+        .value=${String(
+          typeof issue.priority === 'number' ? issue.priority : 2
+        )}
+        ?disabled=${pending}
+      >
+        ${(() => {
+          const cur = String(
+            typeof issue.priority === 'number' ? issue.priority : 2
+          );
+          return priority_levels.map(
+            (p, i) =>
+              html`<option value=${String(i)} ?selected=${cur === String(i)}>
+                ${p}
+              </option>`
+          );
+        })()}
+      </select>`;
 
     const desc_block = edit_desc
       ? html`<div class="description">
@@ -1473,7 +1480,7 @@ export function createDetailView(
                       >${formatCommentDate(c.created_at)}</span
                     >
                   </div>
-                  <div class="comment-text">${c.text}</div>
+                  <div class="comment-text">${linkifyText(c.text)}</div>
                 </div>
               `
             )}
