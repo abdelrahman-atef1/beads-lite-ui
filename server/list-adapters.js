@@ -154,6 +154,7 @@ const CARD_FIELDS = [
   'issue_type',
   'labels',
   'assignee',
+  'created_by', // phone door desk check (sec-created beads)
   'created_at',
   'updated_at',
   'closed_at',

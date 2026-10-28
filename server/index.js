@@ -6,7 +6,7 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { debug, enableAllDebug } from './logging.js';
 import { registerWorkspace, watchRegistry } from './registry-watcher.js';
 import { watchDb } from './watcher.js';
-import { attachWsServer } from './ws.js';
+import { attachPhoneDoor, attachWsServer } from './ws.js';
 
 if (process.argv.includes('--debug') || process.argv.includes('-d')) {
   enableAllDebug();
@@ -74,3 +74,17 @@ server.on('error', (err) => {
   log('server error %o', err);
   process.exitCode = 1;
 });
+
+// Phone door: a second loopback listener in this process, reached only through
+// `tailscale serve` (ADR 0001 section 2). Its own app and socket server; same
+// state. If it cannot bind, the PC door keeps running.
+if (config.phone_port > 0 && config.phone_port !== config.port) {
+  const phone_server = createServer(createApp(config, 'phone'));
+  attachPhoneDoor(phone_server, { path: '/ws', heartbeat_ms: 30000 });
+  phone_server.listen(config.phone_port, config.phone_host, () => {
+    log('phone door on %s:%d', config.phone_host, config.phone_port);
+  });
+  phone_server.on('error', (err) => {
+    log('phone door error %o', err);
+  });
+}
