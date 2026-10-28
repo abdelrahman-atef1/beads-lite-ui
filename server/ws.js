@@ -13,6 +13,7 @@ import {
   makeOk
 } from '../app/protocol.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
+import { getHandler, isFeatureMutating } from './features/index.js';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
@@ -265,6 +266,9 @@ let CURRENT_WSS = null;
  * @type {{ root_dir: string, db_path: string } | null}
  */
 let CURRENT_WORKSPACE = null;
+
+/** Set by attachWsServer; lets feature handlers broadcast. @type {((type: string, payload?: unknown) => void) | null} */
+let FEATURE_BROADCAST = null;
 
 /**
  * Reference to the database watcher for rebinding on workspace change.
@@ -749,6 +753,8 @@ export function attachWsServer(http_server, options = {}) {
     return { changed, workspace: CURRENT_WORKSPACE };
   }
 
+  FEATURE_BROADCAST = broadcast;
+
   return {
     wss,
     broadcast,
@@ -799,7 +805,7 @@ export async function handleMessage(ws, data) {
   if (
     /** @type {any} */ (ws).guarded &&
     !(/** @type {any} */ (ws).authed) &&
-    MUTATING_TYPES.has(req.type)
+    (MUTATING_TYPES.has(req.type) || isFeatureMutating(req.type))
   ) {
     ws.send(JSON.stringify(makeError(req, 'forbidden', 'Missing board token')));
     return;
@@ -1608,6 +1614,31 @@ export async function handleMessage(ws, data) {
         })
       )
     );
+    return;
+  }
+
+  // Feature seam: handlers registered by server/features/*.js
+  const feature = getHandler(req.type);
+  if (feature) {
+    try {
+      const out = await feature(req, {
+        ws,
+        root_dir: CURRENT_WORKSPACE?.root_dir,
+        broadcast: (type, payload) => FEATURE_BROADCAST?.(type, payload)
+      });
+      ws.send(JSON.stringify(makeOk(req, out === undefined ? null : out)));
+    } catch (e) {
+      const ex = /** @type {any} */ (e);
+      ws.send(
+        JSON.stringify(
+          makeError(
+            req,
+            typeof ex?.code === 'string' ? ex.code : 'internal_error',
+            String(ex?.message || 'Feature handler failed')
+          )
+        )
+      );
+    }
     return;
   }
 

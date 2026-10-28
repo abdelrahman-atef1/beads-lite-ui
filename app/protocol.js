@@ -97,6 +97,8 @@ export function isSettableStatus(status) {
  * @property {ErrorObject} [error] - Present when ok=false.
  */
 
+import { FEATURE_MESSAGE_TYPES } from '../server/features/types.js';
+
 /** @type {MessageType[]} */
 export const MESSAGE_TYPES = /** @type {const} */ ([
   'list-issues',
@@ -127,7 +129,9 @@ export const MESSAGE_TYPES = /** @type {const} */ ([
   'list-workspaces',
   'set-workspace',
   'get-workspace',
-  'workspace-changed'
+  'workspace-changed',
+  // Feature types (server/features/types.js)
+  ...FEATURE_MESSAGE_TYPES
 ]);
 
 /**

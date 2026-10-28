@@ -2,6 +2,7 @@
  * @import { Express, Request, Response } from 'express'
  */
 import express from 'express';
+import { mountFeatureRoutes } from './features/index.js';
 import { prewarmCounts } from './workspace-counts.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -77,6 +78,8 @@ export function createApp(config) {
     const workspaces = getAvailableWorkspaces();
     res.status(200).json({ ok: true, workspaces });
   });
+
+  mountFeatureRoutes(app, config);
 
   if (
     !fs.statSync(path.resolve(config.app_dir, 'main.bundle.js'), {
