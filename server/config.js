@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url';
  * (i.e., the current working directory) so DB resolution follows the
  * caller's context rather than the install location.
  *
- * @returns {{ host: string, port: number, app_dir: string, root_dir: string, url: string }}
+ * The phone door (ADR 0001 section 2) listens on loopback only, on
+ * PHONE_PORT (default 3001); PHONE_PORT=0 or "off" turns it off. There is no
+ * phone host setting: it is always 127.0.0.1, `tailscale serve` is the only
+ * way in.
+ *
+ * @returns {{ host: string, port: number, app_dir: string, root_dir: string, url: string, phone_host: string, phone_port: number }}
  */
 export function getConfig() {
   const this_file = fileURLToPath(new URL(import.meta.url));
@@ -23,6 +28,14 @@ export function getConfig() {
     port_value = 3000;
   }
 
+  const phone_env = (process.env.PHONE_PORT || '').trim().toLowerCase();
+  let phone_port = Number.parseInt(phone_env, 10);
+  if (phone_env === 'off' || phone_port === 0) {
+    phone_port = 0;
+  } else if (!Number.isInteger(phone_port) || phone_port > 65535) {
+    phone_port = 3001;
+  }
+
   const host_env = process.env.HOST;
   const host_value = host_env && host_env.length > 0 ? host_env : '127.0.0.1';
 
@@ -31,6 +44,8 @@ export function getConfig() {
     port: port_value,
     app_dir: path.resolve(package_root, 'app'),
     root_dir,
+    phone_host: '127.0.0.1',
+    phone_port,
     url: `http://${host_value}:${port_value}`
   };
 }

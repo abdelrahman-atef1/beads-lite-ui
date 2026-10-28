@@ -10,6 +10,7 @@ import * as report from './report.js';
 import * as notifier from './notifier.js';
 import * as push from './push.js';
 import * as outputs from './outputs.js';
+import { allowPhoneFeatureType } from '../phone.js';
 
 /**
  * Handler gets the request and a context; returns the reply payload (or
@@ -29,12 +30,16 @@ const routes = [];
 /**
  * @param {string} type
  * @param {FeatureHandler} fn
- * @param {{ mutating?: boolean }} [opts] mutating = needs the board token
+ * @param {{ mutating?: boolean, phone?: boolean }} [opts] mutating = needs the
+ *   board token; phone = the phone door may send it (default: refused there)
  */
 export function registerHandler(type, fn, opts = {}) {
   handlers.set(type, fn);
   if (opts.mutating) {
     mutating.add(type);
+  }
+  if (opts.phone) {
+    allowPhoneFeatureType(type);
   }
 }
 

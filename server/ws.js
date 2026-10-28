@@ -18,6 +18,7 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
+import { installPhoneSocket, phoneGate } from './phone.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
@@ -150,11 +151,10 @@ function collectActiveListSpecs() {
   const specs = [];
   /** @type {Set<string>} */
   const seen = new Set();
-  const wss = CURRENT_WSS;
-  if (!wss) {
+  if (!CURRENT_WSS) {
     return specs;
   }
-  for (const ws of wss.clients) {
+  for (const ws of allClients()) {
     if (ws.readyState !== ws.OPEN) {
       continue;
     }
@@ -260,6 +260,18 @@ const SUBS = new WeakMap();
 
 /** @type {WebSocketServer | null} */
 let CURRENT_WSS = null;
+/** Phone-door socket servers (second listener, ADR 0001 section 2). @type {Set<WebSocketServer>} */
+const PHONE_WSS = new Set();
+
+/** @returns {Iterable<WebSocket>} every open client of both doors */
+function allClients() {
+  /** @type {WebSocket[]} */
+  const out = [];
+  for (const w of [CURRENT_WSS, ...PHONE_WSS]) {
+    if (w) out.push(...w.clients);
+  }
+  return out;
+}
 
 /**
  * Current workspace configuration.
@@ -706,7 +718,7 @@ export function attachWsServer(http_server, options = {}) {
       type,
       payload
     });
-    for (const ws of wss.clients) {
+    for (const ws of allClients()) {
       if (ws.readyState === ws.OPEN) {
         ws.send(msg);
       }
@@ -768,6 +780,78 @@ export function attachWsServer(http_server, options = {}) {
 }
 
 /**
+ * Attach the phone door's socket server to a second HTTP server (bound to
+ * loopback, proxied by `tailscale serve`). Shares all state with the PC door;
+ * differs in its upgrade check (owner identity, tailnet Host, https Origin,
+ * its own token) and in that every socket gets the redacting send (B4).
+ *
+ * @param {Server} http_server
+ * @param {{ path?: string, heartbeat_ms?: number }} [options]
+ * @returns {{ wss: WebSocketServer }}
+ */
+export function attachPhoneDoor(http_server, options = {}) {
+  const wss = new WebSocketServer({
+    server: http_server,
+    path: options.path || '/ws',
+    verifyClient: (info, cb) => {
+      const r = checkUpgrade(info.req, 'phone');
+      if (r.ok) {
+        cb(true);
+      } else {
+        log('phone upgrade refused: %s', r.reason);
+        cb(false, 403, 'Forbidden');
+      }
+    }
+  });
+  // The ws server re-emits the http server's errors (e.g. EADDRINUSE); with no
+  // listener Node would throw and take the whole board down.
+  wss.on('error', (err) => {
+    log('phone door ws error %o', err);
+  });
+  PHONE_WSS.add(wss);
+  wss.on('connection', (ws, upgrade_req) => {
+    log('phone client connected');
+    /** @type {any} */
+    const m = ws;
+    m.isAlive = true;
+    m.guarded = true;
+    m.authed = true;
+    m.hostHeader = upgrade_req?.headers?.host;
+    installPhoneSocket(ws);
+    ensureSubs(ws);
+    ws.on('pong', () => {
+      m.isAlive = true;
+    });
+    ws.on('message', (data) => {
+      handleMessage(ws, data);
+    });
+    ws.on('close', () => {
+      try {
+        registry.onDisconnect(ws);
+      } catch {
+        // ignore cleanup errors
+      }
+    });
+  });
+  const interval = setInterval(() => {
+    for (const ws of wss.clients) {
+      if (/** @type {any} */ (ws).isAlive === false) {
+        ws.terminate();
+        continue;
+      }
+      /** @type {any} */ (ws).isAlive = false;
+      ws.ping();
+    }
+  }, options.heartbeat_ms ?? 30000);
+  interval.unref?.();
+  wss.on('close', () => {
+    clearInterval(interval);
+    PHONE_WSS.delete(wss);
+  });
+  return { wss };
+}
+
+/**
  * Handle an incoming message frame and respond to the same socket.
  *
  * @param {WebSocket} ws
@@ -802,6 +886,20 @@ export async function handleMessage(ws, data) {
   }
 
   const req = json;
+
+  // Phone door (SEC B3): allowlist of request types; per-bead types refuse
+  // desk beads. Replies leave through the redacting send (B4).
+  if (/** @type {any} */ (ws).door === 'phone') {
+    const refused = await phoneGate(ws, req, {
+      cwd: CURRENT_WORKSPACE?.root_dir
+    });
+    if (refused) {
+      ws.send(
+        JSON.stringify(makeError(req, refused, 'Refused on the phone door'))
+      );
+      return;
+    }
+  }
 
   // D8 defence in depth: a real connection that is not authed never mutates.
   // (Stub sockets used by unit tests carry no `guarded` marker.)

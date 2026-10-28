@@ -5,7 +5,12 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mountFeatureRoutes } from './features/index.js';
-import { getBoardToken, isAllowedHost, isAllowedOrigin } from './guard.js';
+import {
+  getBoardToken,
+  isAllowedHost,
+  isAllowedOrigin,
+  isOwnerIdentity
+} from './guard.js';
 import {
   getAvailableWorkspaces,
   registerWorkspace
@@ -16,22 +21,27 @@ import { prewarmCounts } from './workspace-counts.js';
  * Create and configure the Express application.
  *
  * @param {{ host: string, port: number, app_dir: string, root_dir: string }} config - Server configuration.
+ * @param {import('./guard.js').Door} [door] - 'pc' (default) or 'phone' (ADR 0001 section 2).
  * @returns {Express} Configured Express app instance.
  */
-export function createApp(config) {
+export function createApp(config, door = 'pc') {
   const app = express();
+  app.locals.door = door;
 
   // Basic hardening and config
   app.disable('x-powered-by');
 
   // D8: refuse unknown Host (DNS rebinding) and any request whose Origin is
   // not this board's own origin. Requests with no Origin (curl, the CLI) pass.
+  // Phone door: first the owner's Tailscale identity (a Funnel request or a
+  // local process has none), then the tailnet Host and an https Origin.
   app.use((req, res, next) => {
     const host = req.headers.host;
     const origin = req.headers.origin;
     if (
-      !isAllowedHost(host) ||
-      (origin !== undefined && !isAllowedOrigin(origin, host))
+      (door === 'phone' && !isOwnerIdentity(req.headers)) ||
+      !isAllowedHost(host, door) ||
+      (origin !== undefined && !isAllowedOrigin(origin, host, door))
     ) {
       res.status(403).type('text/plain').send('Forbidden');
       return;
@@ -52,13 +62,24 @@ export function createApp(config) {
   // Enable JSON body parsing for API endpoints
   app.use(express.json());
 
+  // These two serve the CLI and the PC page only; the phone door has no use
+  // for them (and register-workspace changes what the board can open).
+  /** @type {import('express').RequestHandler} */
+  const phoneRefuses = (_req, res, next) => {
+    if (door === 'phone') {
+      res.status(404).type('text/plain').send('Not found');
+      return;
+    }
+    next();
+  };
+
   // Register workspace endpoint - allows CLI to register workspaces dynamically
   // when the server is already running
   /**
    * @param {Request} req
    * @param {Response} res
    */
-  app.post('/api/register-workspace', (req, res) => {
+  app.post('/api/register-workspace', phoneRefuses, (req, res) => {
     const { path: workspace_path, database } = req.body || {};
     if (!workspace_path || typeof workspace_path !== 'string') {
       res.status(400).json({ ok: false, error: 'Missing or invalid path' });
@@ -74,7 +95,7 @@ export function createApp(config) {
   });
 
   // List all known workspaces (file-based registry + in-memory)
-  app.get('/api/workspaces', (_req, res) => {
+  app.get('/api/workspaces', phoneRefuses, (_req, res) => {
     const workspaces = getAvailableWorkspaces();
     res.status(200).json({ ok: true, workspaces });
   });
@@ -131,7 +152,7 @@ export function createApp(config) {
   const sendIndex = (_req, res) => {
     const html = fs
       .readFileSync(path.join(config.app_dir, 'index.html'), 'utf8')
-      .replace('__BOARD_TOKEN__', getBoardToken());
+      .replace('__BOARD_TOKEN__', getBoardToken(door));
     res.setHeader('Cache-Control', 'no-store');
     res.type('html').send(html);
   };

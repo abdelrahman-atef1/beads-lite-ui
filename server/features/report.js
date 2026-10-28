@@ -17,8 +17,9 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runBd } from '../bd.js';
+import { runBd, runBdJson } from '../bd.js';
 import { isAllowedOrigin, isValidToken } from '../guard.js';
+import { isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 
 export const MAX_IMAGE = 4 * 1024 * 1024;
@@ -332,7 +333,8 @@ export function normalizeVersion(v) {
     .replace(/٫/g, '.');
 }
 
-const BUSY_RE = /locked|busy|historical SQLite workspace|contention|timeout|try again|SQLITE_BUSY/i;
+const BUSY_RE =
+  /locked|busy|historical SQLite workspace|contention|timeout|try again|SQLITE_BUSY/i;
 export const CREATE_RETRIES = 6;
 
 /**
@@ -373,13 +375,14 @@ function fail(res, status, error) {
 async function handleReport(req, res) {
   const host = req.headers.host;
   const origin = req.headers.origin;
+  const door = doorOf(req);
   // B2: Origin must be present and ours (a cross-site form post cannot be);
   // the custom header forces a CORS preflight the board refuses.
-  if (!origin || !isAllowedOrigin(origin, host))
+  if (!origin || !isAllowedOrigin(origin, host, door))
     return fail(res, 403, 'forbidden');
   if (req.headers['x-bdui-report'] !== '1') return fail(res, 403, 'forbidden');
   const tok = req.headers['x-board-token'];
-  if (typeof tok !== 'string' || !isValidToken(tok))
+  if (typeof tok !== 'string' || !isValidToken(tok, door))
     return fail(res, 403, 'forbidden');
   if (
     String(req.headers['content-type'] || '')
@@ -542,13 +545,66 @@ async function fileReport(req, res, host) {
 }
 
 /**
+ * Which door answered: the app's door, set by createApp.
+ *
+ * @param {import('express').Request} req
+ * @returns {'pc' | 'phone'}
+ */
+function doorOf(req) {
+  return req.app.locals.door === 'phone' ? 'phone' : 'pc';
+}
+
+/**
+ * Phone door only (SEC B4): an image is served only when the bead that owns
+ * it is found and is not a desk bead. Fail closed on any doubt.
+ *
+ * @param {string} project
+ * @param {string} rel  project/yyyy-mm/name.ext
+ * @returns {Promise<boolean>}
+ */
+async function attOwnerIsNonDesk(project, rel) {
+  const root = projects().get(project);
+  if (!root) return false;
+  const r = await runBdJson(
+    [
+      'list',
+      '--all',
+      '--limit',
+      '0',
+      '--has-metadata-key',
+      'attachments',
+      '--json'
+    ],
+    { cwd: root }
+  );
+  if (r.code !== 0 || !Array.isArray(r.stdoutJson)) return false;
+  const owners = r.stdoutJson.filter(
+    (/** @type {any} */ b) =>
+      Array.isArray(b?.metadata?.attachments) &&
+      b.metadata.attachments.includes(rel)
+  );
+  return (
+    owners.length > 0 && owners.every((/** @type {any} */ b) => !isDeskIssue(b))
+  );
+}
+
+/**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
-function handleAtt(req, res) {
+async function handleAtt(req, res) {
   const m = ATT_RE.exec(req.path);
   if (!m) return fail(res, 404, 'not_found');
   const [, project, ym, name, ext] = m;
+  if (doorOf(req) === 'phone') {
+    let ok = false;
+    try {
+      ok = await attOwnerIsNonDesk(project, `${project}/${ym}/${name}.${ext}`);
+    } catch {
+      ok = false;
+    }
+    if (!ok) return fail(res, 404, 'not_found');
+  }
   try {
     const root = fs.realpathSync(attachRoot());
     const real = fs.realpathSync(
@@ -574,6 +630,8 @@ export function register(seam) {
         if (!res.headersSent) fail(res, 500, 'not_filed');
       });
     });
-    app.get('/att/*splat', handleAtt);
+    app.get('/att/*splat', (req, res) => {
+      handleAtt(req, res).catch(() => fail(res, 404, 'not_found'));
+    });
   });
 }
