@@ -116,7 +116,7 @@ describe('issues view — fast filter switching', () => {
     document.body.innerHTML = '<main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
-    bootstrap(root);
+    await bootstrap(root).ready;
     // Let router + subscriptions wire
     await Promise.resolve();
 

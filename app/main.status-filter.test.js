@@ -157,7 +157,7 @@ describe('issues view — status filter model', () => {
     document.body.innerHTML = '<main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
-    bootstrap(root);
+    await bootstrap(root).ready;
     await settle();
     client._trigger('snapshot', {
       type: 'snapshot',

@@ -3,11 +3,18 @@
  * issue text is shown as stored. The choice is kept in localStorage and
  * mirrored on <html lang dir>; views re-render on the `bdui-lang` event.
  */
+import { strings as board } from '../i18n/board.js';
+import { strings as decisions } from '../i18n/decisions.js';
+import { strings as detail } from '../i18n/detail.js';
+import { strings as list } from '../i18n/list.js';
+import { strings as notifications } from '../i18n/notifications.js';
+import { strings as outputs } from '../i18n/outputs.js';
+import { strings as report } from '../i18n/report.js';
 
 const KEY = 'beads-ui.lang';
 
 /** @type {Record<string, { en: string, ar: string }>} */
-const STRINGS = {
+const SHELL = {
   board: { en: 'Board', ar: 'اللوحة' },
   decisions: { en: 'Decisions', ar: 'قراراتي' },
   issues: { en: 'List', ar: 'القائمة' },
@@ -68,7 +75,29 @@ const STRINGS = {
   send: { en: 'Send', ar: 'إرسال' },
   asked: { en: 'asked', ar: 'منذ' },
   blocked_tag: { en: 'blocked', ar: 'معطّل' },
-  lang_btn: { en: 'عربي', ar: 'EN' }
+  lang_btn: { en: 'عربي', ar: 'EN' },
+  projects: { en: 'Projects', ar: 'المشاريع' },
+  app_name: { en: 'Beads', ar: 'بيدز' },
+  language: { en: 'Language', ar: 'اللغة' },
+  new_issue: { en: 'New issue', ar: 'مهمة جديدة' },
+  close: { en: 'Close', ar: 'إغلاق' }
+};
+
+/**
+ * Shell strings plus one file per feature (app/i18n/*.js), so parallel tasks
+ * never edit the same file. Later files win on a duplicate key.
+ *
+ * @type {Record<string, { en: string, ar: string }>}
+ */
+const STRINGS = {
+  ...SHELL,
+  ...decisions,
+  ...board,
+  ...list,
+  ...detail,
+  ...notifications,
+  ...report,
+  ...outputs
 };
 
 /** @returns {'en'|'ar'} */

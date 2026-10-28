@@ -4,8 +4,9 @@ import { debug } from '../utils/logging.js';
 
 /**
  * Render the primary navigation (design/README.md 5.1): a left rail with
- * Board, Decisions (badge = beads waiting on the owner), List and a Theme
- * button. Epics is no longer a tab: it is the Type filter on Board and List.
+ * Decisions (home; badge = beads waiting on the owner), Board and List, plus a
+ * Projects button that only shows on a phone (opens the project drawer).
+ * Epics is no longer a tab: it is the Type filter on Board and List.
  * On a phone CSS turns the rail into a bottom tab bar.
  *
  * @param {HTMLElement} mount_element
@@ -57,7 +58,7 @@ export function createTopNav(
     board: 'M3 4h5v16H3zM10 4h5v10h-5zM17 4h4v13h-4z',
     decisions: 'M12 3a9 9 0 100 18 9 9 0 000-18zM11 7h2v6h-2zM11 15h2v2h-2z',
     issues: 'M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z',
-    theme: 'M12 3a9 9 0 100 18V3z'
+    menu: 'M3 6l2-2h5l2 2h9v13H3z'
   };
 
   /** @param {keyof typeof ICONS} k */
@@ -74,13 +75,9 @@ export function createTopNav(
     </svg>`;
   }
 
-  function toggleTheme() {
-    const sw = /** @type {HTMLInputElement|null} */ (
-      document.getElementById('theme-switch')
-    );
-    if (sw) {
-      sw.click();
-    }
+  /** Phone: ask the shell to open/close the project drawer. */
+  function toggleDrawer() {
+    window.dispatchEvent(new Event('bdui-side-toggle'));
   }
 
   /**
@@ -111,17 +108,17 @@ export function createTopNav(
     const active = s.view || 'issues';
     const n = waitingCount();
     return html`
-      ${tab('board', active, 0)} ${tab('decisions', active, n)}
+      ${tab('decisions', active, n)} ${tab('board', active, 0)}
       ${tab('issues', active, 0)}
       <button
         type="button"
-        class="tab tab--theme"
-        id="rail-theme"
-        aria-label=${t('theme')}
-        title=${t('theme')}
-        @click=${toggleTheme}
+        class="tab tab--menu"
+        id="rail-menu"
+        aria-label=${t('projects')}
+        title=${t('projects')}
+        @click=${toggleDrawer}
       >
-        ${icon('theme')}<span class="tab__label">${t('theme')}</span>
+        ${icon('menu')}<span class="tab__label">${t('projects')}</span>
       </button>
     `;
   }
