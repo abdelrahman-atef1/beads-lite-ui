@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
 import path from 'node:path';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { runBd, runBdJson } from './bd.js';
 import { registerWorkspace } from './registry-watcher.js';
 import { handleMessage } from './ws.js';
@@ -481,6 +481,25 @@ describe('ws mutation handlers', () => {
     expect(obj.payload && obj.payload.created).toBe(true);
   });
 
+  test('create-issue passes the title after -- so --help is not a flag', async () => {
+    const mRun = /** @type {import('vitest').Mock} */ (runBd);
+    mRun.mockResolvedValueOnce({ code: 0, stdout: 'UI-98', stderr: '' });
+    const ws = makeStubSocket();
+    await handleMessage(
+      /** @type {any} */ (ws),
+      Buffer.from(
+        JSON.stringify({
+          id: 'r8',
+          type: 'create-issue',
+          payload: { title: '--help' }
+        })
+      )
+    );
+    const args = mRun.mock.calls[mRun.mock.calls.length - 1][0];
+    expect(args.slice(-2)).toEqual(['--', '--help']);
+    expect(args[0]).toBe('create');
+  });
+
   test('write handlers run bd in the active workspace cwd', async () => {
     const mRun = /** @type {import('vitest').Mock} */ (runBd);
     const mJson = /** @type {import('vitest').Mock} */ (runBdJson);
@@ -516,7 +535,9 @@ describe('ws mutation handlers', () => {
 
     expect(mRun).toHaveBeenCalledWith(
       ['update', 'UI-7', '--status', 'in_progress'],
-      expect.objectContaining({ cwd: path.resolve('/tmp/bdui-ws-test-fixture') })
+      expect.objectContaining({
+        cwd: path.resolve('/tmp/bdui-ws-test-fixture')
+      })
     );
   });
 
@@ -555,7 +576,9 @@ describe('ws mutation handlers', () => {
 
     expect(mRun).toHaveBeenCalledWith(
       ['update', 'UI-7', '--type', 'feature'],
-      expect.objectContaining({ cwd: path.resolve('/tmp/bdui-ws-test-fixture') })
+      expect.objectContaining({
+        cwd: path.resolve('/tmp/bdui-ws-test-fixture')
+      })
     );
     // No post-mutation show (contract board-data.md).
     expect(mJson).not.toHaveBeenCalledWith(

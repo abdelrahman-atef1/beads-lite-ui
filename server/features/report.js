@@ -319,6 +319,45 @@ export async function afterBoardTask(root_dir, stdout, host) {
 }
 
 /**
+ * Arabic-Indic / Persian digits and the Arabic decimal separator to ASCII, so
+ * a version typed on an Arabic keyboard is accepted and stored as ASCII.
+ *
+ * @param {string} v
+ */
+export function normalizeVersion(v) {
+  return v
+    .trim()
+    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x6f0))
+    .replace(/٫/g, '.');
+}
+
+const BUSY_RE = /locked|busy|historical SQLite workspace|contention|timeout|try again|SQLITE_BUSY/i;
+export const CREATE_RETRIES = 6;
+
+/**
+ * Run bd create, retrying with a short backoff while bd reports a busy or
+ * locked store (parallel writers). Other failures return at once.
+ *
+ * @param {string[]} args
+ * @param {{ cwd: string }} opts
+ */
+async function createWithRetry(args, opts) {
+  let r = await runBd(args, opts);
+  for (let i = 1; i < CREATE_RETRIES; i++) {
+    if (
+      r.code === 0 ||
+      !BUSY_RE.test(`${r.stderr}
+${r.stdout}`)
+    )
+      break;
+    await new Promise((ok) => setTimeout(ok, 50 * i + Math.random() * 50));
+    r = await runBd(args, opts);
+  }
+  return r;
+}
+
+/**
  * @param {import('express').Response} res
  * @param {number} status
  * @param {string} error
@@ -353,8 +392,36 @@ async function handleReport(req, res) {
 
   const now = Date.now();
   recent = recent.filter((t) => now - t < 3600_000);
-  if (recent.length >= REPORTS_PER_HOUR) return fail(res, 429, 'rate_limited');
+  if (recent.length >= REPORTS_PER_HOUR) {
+    // Seconds until the oldest slot in the window frees up.
+    res.set(
+      'Retry-After',
+      String(Math.max(1, Math.ceil((recent[0] + 3600_000 - now) / 1000)))
+    );
+    return fail(res, 429, 'rate_limited');
+  }
+  // Reserve the slot BEFORE any await so parallel posts cannot all pass the
+  // check; give it back unless the report was filed.
+  const slot = { t: now };
+  recent.push(slot.t);
+  try {
+    await fileReport(req, res, host);
+  } finally {
+    if (!res.locals.filed) {
+      const i = recent.indexOf(slot.t);
+      if (i >= 0) recent.splice(i, 1);
+    }
+  }
+}
 
+/**
+ * Body of POST /api/report after the gates and the rate-slot reservation.
+ * Sets res.locals.filed when a bead was created.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {string | undefined} host
+ */
+async function fileReport(req, res, host) {
   const body = await readBody(req);
   if (!body) return fail(res, 413, 'too_large');
   if (body.length < 4) return fail(res, 400, 'bad_request');
@@ -377,7 +444,7 @@ async function handleReport(req, res) {
     typeof version !== 'string'
   )
     return fail(res, 400, 'bad_request');
-  const ver = version.trim();
+  const ver = normalizeVersion(version);
   if (!ver) return fail(res, 400, 'version_required');
   if (!VERSION_RE.test(ver)) return fail(res, 400, 'bad_version');
   const msg = text.trim();
@@ -428,13 +495,14 @@ async function handleReport(req, res) {
     .trim();
   const title = `[v${ver}] ${firstLine}`;
   const desc =
-    `${msg}\n\nVersion: ${ver}` + (rel ? `\nScreenshot: ${rel}` : '');
+    `${msg}\n\nVersion: ${ver}` +
+    (rel ? `\nScreenshot: [${rel}](/att/${rel})` : '');
   const metadata = {
     created_via: 'board-report',
     version: ver,
     attachments: rel ? [rel] : []
   };
-  const r = await runBd(
+  const r = await createWithRetry(
     [
       'create',
       title,
@@ -463,7 +531,7 @@ async function handleReport(req, res) {
     }
     return fail(res, 500, 'not_filed');
   }
-  recent.push(now);
+  res.locals.filed = true;
   const wake = await emitWake({
     kind: 'report',
     repo: project,

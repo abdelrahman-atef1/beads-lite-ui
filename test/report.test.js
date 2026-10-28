@@ -1,9 +1,9 @@
-import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import {
   afterAll,
   beforeAll,
@@ -28,10 +28,16 @@ process.env.WAKE_PROJECTS_LIST = list;
 /** @type {Array<{args: string[], cwd?: string}>} */
 const bdCalls = [];
 let bdFail = false;
+let bdBusyTimes = 0;
+let bdBusyMsg = 'database is locked';
 vi.mock('../server/bd.js', async (orig) => ({
   ...(await orig()),
   runBd: async (/** @type {string[]} */ args, /** @type {any} */ o) => {
     bdCalls.push({ args, cwd: o?.cwd });
+    if (bdBusyTimes > 0) {
+      bdBusyTimes--;
+      return { code: 1, stdout: '', stderr: bdBusyMsg };
+    }
     return bdFail
       ? { code: 1, stdout: '', stderr: 'boom' }
       : { code: 0, stdout: 'demo-ab1\n', stderr: '' };
@@ -108,6 +114,7 @@ afterAll(() => {
 beforeEach(() => {
   bdCalls.length = 0;
   bdFail = false;
+  bdBusyTimes = 0;
   resetReportRate();
   fs.rmSync(wakeRoot, { recursive: true, force: true });
   fs.rmSync(attach, { recursive: true, force: true });
@@ -158,6 +165,7 @@ function post(body, over = {}) {
         res.on('end', () =>
           resolve({
             status: res.statusCode || 0,
+            retryAfter: res.headers['retry-after'],
             json: (() => {
               try {
                 return JSON.parse(s);
@@ -235,7 +243,7 @@ describe('POST /api/report', () => {
     );
     expect(fs.existsSync(path.join(attach, meta.attachments[0]))).toBe(true);
     expect(call.args[call.args.indexOf('-d') + 1]).toContain(
-      'Screenshot: ' + meta.attachments[0]
+      `Screenshot: [${meta.attachments[0]}](/att/${meta.attachments[0]})`
     );
     expect(pending()).toHaveLength(1);
     const ev = JSON.parse(
@@ -325,8 +333,35 @@ describe('POST /api/report', () => {
     for (let i = 0; i < 30; i++) {
       expect((await post(frame(GOOD))).status).toBe(200);
     }
-    expect((await post(frame(GOOD))).status).toBe(429);
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(429);
+    const ra = Number(r.retryAfter);
+    expect(ra).toBeGreaterThan(3500);
+    expect(ra).toBeLessThanOrEqual(3600);
   }, 120_000);
+
+  test('cap holds under a parallel burst (slot reserved before awaits)', async () => {
+    const rs = await Promise.all(
+      Array.from({ length: 60 }, () => post(frame(GOOD)))
+    );
+    expect(rs.filter((r) => r.status === 200).length).toBe(30);
+    expect(rs.filter((r) => r.status === 429).length).toBe(30);
+  }, 120_000);
+
+  test('a failed report gives its slot back', async () => {
+    bdFail = true;
+    for (let i = 0; i < 31; i++)
+      expect((await post(frame(GOOD))).status).toBe(500);
+    bdFail = false;
+    expect((await post(frame(GOOD))).status).toBe(200);
+  }, 120_000);
+
+  test('bad JSON gets a JSON 400 with no stack or paths', async () => {
+    const body = Buffer.from('{not json');
+    const r = await post(body, { 'content-type': 'application/json' });
+    expect(r.status).toBe(400);
+    expect(r.json).toEqual({ ok: false, error: 'bad_request' });
+  });
 });
 
 describe('GET /att', () => {
@@ -357,5 +392,77 @@ describe('board-created task wake', () => {
       bead: 'demo-zz9',
       via: 'phone'
     });
+  });
+});
+
+describe('company-1bo5.6.8 QA fixes', () => {
+  test('Arabic-Indic and Persian digits and the Arabic separator are stored as ASCII', async () => {
+    for (const v of ['١٫٢٫٣', '١.٢.٣+١٤', '۱.۲.۳']) {
+      resetReportRate();
+      bdCalls.length = 0;
+      const r = await post(frame({ ...GOOD, version: v }));
+      expect(r.status).toBe(200);
+      const a = bdCalls[0].args;
+      const meta = JSON.parse(a[a.indexOf('--metadata') + 1]);
+      expect(meta.version).toMatch(/^[0-9.+]+$/);
+    }
+    resetReportRate();
+    bdCalls.length = 0;
+    await post(frame({ ...GOOD, version: '١٫٢٫٣' }));
+    const a = bdCalls[0].args;
+    expect(JSON.parse(a[a.indexOf('--metadata') + 1]).version).toBe('1.2.3');
+    expect(a[1]).toMatch(/^\[v1\.2\.3\]/);
+    resetReportRate();
+    expect((await post(frame({ ...GOOD, version: 'إصدار' }))).status).toBe(400);
+  });
+
+  test('screenshot is a clickable markdown link to /att in the description', async () => {
+    const r = await post(frame(GOOD, PNG));
+    expect(r.status).toBe(200);
+    const a = bdCalls[0].args;
+    const d = a[a.indexOf('-d') + 1];
+    const m = /\[([^\]]+)\]\((\/att\/[^)]+)\)/.exec(d);
+    expect(m).not.toBeNull();
+    const g = /** @type {any} */ (await get(m?.[2] || '/'));
+    expect(g.status).toBe(200);
+    const ts = await new Promise((resolve) => {
+      http.get(
+        {
+          port,
+          host: '127.0.0.1',
+          path: m?.[2],
+          headers: { host: 'abdelrahman.tail8a4e50.ts.net' }
+        },
+        (res) => {
+          res.resume();
+          resolve(res.statusCode);
+        }
+      );
+    });
+    expect(ts).toBe(200);
+  });
+
+  test('bd create is retried on a locked store, then filed', async () => {
+    bdBusyTimes = 2;
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(200);
+    expect(bdCalls).toHaveLength(3);
+  });
+
+  test('bd create is retried on the transient historical-workspace error', async () => {
+    bdBusyMsg =
+      'historical SQLite workspace detected; explicit migration is required';
+    bdBusyTimes = 1;
+    const r = await post(frame(GOOD));
+    bdBusyMsg = 'database is locked';
+    expect(r.status).toBe(200);
+    expect(bdCalls).toHaveLength(2);
+  });
+
+  test('a non-busy bd failure is not retried', async () => {
+    bdFail = true;
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(500);
+    expect(bdCalls).toHaveLength(1);
   });
 });

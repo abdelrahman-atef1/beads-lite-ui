@@ -2,15 +2,15 @@
  * @import { Express, Request, Response } from 'express'
  */
 import express from 'express';
-import { mountFeatureRoutes } from './features/index.js';
-import { prewarmCounts } from './workspace-counts.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { mountFeatureRoutes } from './features/index.js';
 import { getBoardToken, isAllowedHost, isAllowedOrigin } from './guard.js';
 import {
   getAvailableWorkspaces,
   registerWorkspace
 } from './registry-watcher.js';
+import { prewarmCounts } from './workspace-counts.js';
 
 /**
  * Create and configure the Express application.
@@ -139,6 +139,36 @@ export function createApp(config) {
 
   // Static assets from /app
   app.use(express.static(config.app_dir));
+
+  // Last: any body-parse or route error becomes a short JSON reply, never the
+  // default HTML page with a stack trace and local file paths.
+  app.use(
+    /**
+     * @param {any} err
+     * @param {Request} _req
+     * @param {Response} res
+     * @param {Function} next
+     */
+    (err, _req, res, next) => {
+      if (res.headersSent) return next(err);
+      const status =
+        err &&
+        Number.isInteger(err.status) &&
+        err.status >= 400 &&
+        err.status < 500
+          ? err.status
+          : 500;
+      res.status(status).json({
+        ok: false,
+        error:
+          status === 400
+            ? 'bad_request'
+            : status < 500
+              ? 'rejected'
+              : 'server_error'
+      });
+    }
+  );
 
   return app;
 }
