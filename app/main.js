@@ -15,6 +15,7 @@ import { applyLang, t, toggleLang } from './utils/i18n.js';
 import { debug } from './utils/logging.js';
 import { normalizeStatusFilters } from './utils/status.js';
 import { showToast } from './utils/toast.js';
+import { resolveIssueWorkspace } from './issue-workspace.js';
 import { createBoardView } from './views/board.js';
 import { createDecisionsView } from './views/decisions.js';
 import { createDetailView } from './views/detail.js';
@@ -282,6 +283,32 @@ export function bootstrap(root_element) {
     }
 
     /**
+     * Open an issue from another project: switch to the workspace its id
+     * prefix belongs to, then re-select the issue so detail resubscribes.
+     *
+     * @param {string | null} id
+     */
+    async function ensureIssueWorkspace(id) {
+      if (!id) return;
+      const ws = store.getState().workspace;
+      if (!ws || !ws.available || ws.available.length === 0) return;
+      const r = resolveIssueWorkspace(id, ws.current, ws.available);
+      if (r.action === 'switch') {
+        try {
+          await handleWorkspaceChange(r.path);
+        } catch {
+          return;
+        }
+        if (store.getState().selected_id === id) {
+          store.setState({ selected_id: null });
+          store.setState({ selected_id: id });
+        }
+      } else if (r.action === 'none') {
+        showToast('No project found for issue ' + id, 'error', 4000);
+      }
+    }
+
+    /**
      * Load available workspaces from server and update state.
      */
     async function loadWorkspaces() {
@@ -304,6 +331,7 @@ export function bootstrap(root_element) {
               }
             : null;
           store.setState({ workspace: { current, available } });
+          await ensureIssueWorkspace(store.getState().selected_id);
 
           // Check if we have a saved preference that differs from current
           const savedWorkspace =
@@ -651,8 +679,13 @@ export function bootstrap(root_element) {
     // Open/close dialog based on selected_id (always dialog; no page variant)
     /** @type {null | (() => Promise<void>)} */
     let unsub_detail = null;
+    let last_checked_id = null;
     store.subscribe((s) => {
       const id = s.selected_id;
+      if (id && id !== last_checked_id) {
+        void ensureIssueWorkspace(id);
+      }
+      last_checked_id = id;
       if (id) {
         detail_mount.hidden = false;
         dialog.open(id);
