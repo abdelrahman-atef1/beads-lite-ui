@@ -1,1 +1,244 @@
-/* report: filled by its own task (board v2). Empty on purpose; one owner per file. */
+/* Report sheet (company-1bo5.6.30). Phone first; tokens from tokens.css. */
+.rpt-open {
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .rpt-open {
+    position: fixed;
+    inset-block-end: 16px;
+    inset-inline-end: 16px;
+    z-index: 8;
+    min-height: 52px;
+    padding: 0 20px;
+    border-radius: 26px;
+    border: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+}
+html.rpt-lock {
+  overflow: hidden;
+}
+.rpt {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.rpt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-block-end: 1px solid var(--border);
+  background: var(--surface);
+}
+.rpt-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.rpt-x {
+  min-width: 48px;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rpt-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+.rpt-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.rpt-field label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.rpt select,
+.rpt input[type='text'],
+.rpt textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* no iOS/Android zoom on focus */
+}
+.rpt textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+.rpt input:focus-visible,
+.rpt select:focus-visible,
+.rpt textarea:focus-visible,
+.rpt button:focus-visible,
+.rpt-drop:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.rpt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.rpt-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.rpt-chips:empty {
+  display: none;
+}
+.rpt-media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.rpt-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 22px var(--sp-3);
+  min-height: 96px;
+  justify-content: center;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  cursor: pointer;
+}
+.rpt-drop small,
+.rpt-note {
+  color: var(--text-3);
+  font-size: 13px;
+}
+.rpt-file {
+  /* the whole drop zone is the tap target; keep the input usable by keyboard */
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+}
+.rpt-drop {
+  position: relative;
+}
+.rpt-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rpt-sp {
+  flex: 1;
+}
+.rpt-pen {
+  inline-size: 44px;
+  block-size: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  background: var(--c);
+  cursor: pointer;
+  padding: 0;
+}
+.rpt-pen[aria-pressed='true'] {
+  border-color: var(--text);
+}
+.rpt-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.rpt-canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  touch-action: none; /* finger draws, the page does not scroll */
+  background: #fff;
+}
+.rpt-msg {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 15px;
+}
+.rpt-ok {
+  color: var(--s-ready);
+  font-weight: 600;
+}
+.rpt-err {
+  color: var(--s-blocked);
+  font-weight: 600;
+}
+.rpt-foot {
+  padding: var(--sp-3) var(--sp-4) max(var(--sp-3), env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--border);
+  background: var(--surface);
+}
+.rpt-send {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rpt-send[disabled] {
+  opacity: 0.6;
+}
+@media (min-width: 761px) {
+  .rpt {
+    inset: 5vh auto auto 50%;
+    transform: translateX(-50%);
+    width: min(600px, 94vw);
+    max-height: 90vh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+  }
+}
