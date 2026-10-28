@@ -47,10 +47,16 @@ export function createWsClient(options = {}) {
       return options.url;
     }
     if (typeof location !== 'undefined') {
+      const meta =
+        typeof document !== 'undefined'
+          ? document.querySelector('meta[name="board-token"]')
+          : null;
+      const token = meta ? meta.getAttribute('content') || '' : '';
       return (
         (location.protocol === 'https:' ? 'wss://' : 'ws://') +
         location.host +
-        '/ws'
+        '/ws' +
+        (token ? '?t=' + encodeURIComponent(token) : '')
       );
     }
     return 'ws://localhost/ws';

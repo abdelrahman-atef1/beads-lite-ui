@@ -12,6 +12,7 @@ import {
   makeError,
   makeOk
 } from '../app/protocol.js';
+import { MUTATING_TYPES, checkUpgrade } from './guard.js';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
@@ -607,7 +608,20 @@ export function attachWsServer(http_server, options = {}) {
     }
   }
 
-  const wss = new WebSocketServer({ server: http_server, path: ws_path });
+  const wss = new WebSocketServer({
+    server: http_server,
+    path: ws_path,
+    // D8: foreign/missing Origin, unknown Host or bad token never upgrade.
+    verifyClient: (info, cb) => {
+      const r = checkUpgrade(info.req);
+      if (r.ok) {
+        cb(true);
+      } else {
+        log('upgrade refused: %s', r.reason);
+        cb(false, 403, 'Forbidden');
+      }
+    }
+  });
   CURRENT_WSS = wss;
 
   // Heartbeat: track if client answered the last ping
@@ -615,6 +629,11 @@ export function attachWsServer(http_server, options = {}) {
     log('client connected');
     // @ts-expect-error add marker property
     ws.isAlive = true;
+    // Reached only after verifyClient passed (Origin + token).
+    // @ts-expect-error marker
+    ws.guarded = true;
+    // @ts-expect-error marker
+    ws.authed = true;
 
     // Initialize subscription state for this connection
     ensureSubs(ws);
@@ -763,6 +782,17 @@ export async function handleMessage(ws, data) {
   }
 
   const req = json;
+
+  // D8 defence in depth: a real connection that is not authed never mutates.
+  // (Stub sockets used by unit tests carry no `guarded` marker.)
+  if (
+    /** @type {any} */ (ws).guarded &&
+    !(/** @type {any} */ (ws).authed) &&
+    MUTATING_TYPES.has(req.type)
+  ) {
+    ws.send(JSON.stringify(makeError(req, 'forbidden', 'Missing board token')));
+    return;
+  }
 
   // Pin every bd invocation made during this message to the active workspace.
   // Without this, runBd/runBdJson fall back to process.cwd() and bd reports

@@ -5,6 +5,7 @@ import express from 'express';
 import { prewarmCounts } from './workspace-counts.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { getBoardToken, isAllowedHost, isAllowedOrigin } from './guard.js';
 import {
   getAvailableWorkspaces,
   registerWorkspace
@@ -21,6 +22,21 @@ export function createApp(config) {
 
   // Basic hardening and config
   app.disable('x-powered-by');
+
+  // D8: refuse unknown Host (DNS rebinding) and any request whose Origin is
+  // not this board's own origin. Requests with no Origin (curl, the CLI) pass.
+  app.use((req, res, next) => {
+    const host = req.headers.host;
+    const origin = req.headers.origin;
+    if (
+      !isAllowedHost(host) ||
+      (origin !== undefined && !isAllowedOrigin(origin, host))
+    ) {
+      res.status(403).type('text/plain').send('Forbidden');
+      return;
+    }
+    next();
+  });
 
   // Health endpoint
   /**
@@ -104,18 +120,22 @@ export function createApp(config) {
     });
   }
 
-  // Static assets from /app
-  app.use(express.static(config.app_dir));
-
-  // Root serves index.html explicitly (even if static would catch it)
+  // Page with the per-launch token injected (D8); before static so it wins.
   /**
    * @param {Request} _req
    * @param {Response} res
    */
-  app.get('/', (_req, res) => {
-    const index_path = path.join(config.app_dir, 'index.html');
-    res.sendFile(index_path);
-  });
+  const sendIndex = (_req, res) => {
+    const html = fs
+      .readFileSync(path.join(config.app_dir, 'index.html'), 'utf8')
+      .replace('__BOARD_TOKEN__', getBoardToken());
+    res.setHeader('Cache-Control', 'no-store');
+    res.type('html').send(html);
+  };
+  app.get(['/', '/index.html'], sendIndex);
+
+  // Static assets from /app
+  app.use(express.static(config.app_dir));
 
   return app;
 }
