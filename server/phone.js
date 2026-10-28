@@ -132,6 +132,43 @@ const NESTED_ISSUE_KEYS = [
   'blocks'
 ];
 
+const NESTED_TEXT = [
+  'title',
+  'title_ar',
+  'description',
+  'design',
+  'notes',
+  'acceptance_criteria'
+];
+
+/**
+ * A nested entry (blocker, dependency, child). If it carries labels it is a
+ * full issue and is judged like one; if it does not (e.g. blocked_by_detail
+ * is {id, assignee, status, title}) we cannot prove it is not a desk bead, so
+ * its text is dropped and only ids and state remain.
+ *
+ * @param {any} x
+ * @returns {any}
+ */
+function redactNested(x) {
+  if (Array.isArray(x.labels)) {
+    return redactIssue(x);
+  }
+  if (isDeskIssue(x)) {
+    return toPointer(x);
+  }
+  const out = { ...x };
+  for (const k of NESTED_TEXT) {
+    if (k in out) {
+      out[k] = '';
+    }
+  }
+  if (out.metadata !== undefined) {
+    delete out.metadata;
+  }
+  return out;
+}
+
 /**
  * @param {any} issue
  * @returns {any}
@@ -150,7 +187,7 @@ export function redactIssue(issue) {
         out = { ...issue };
       }
       out[k] = issue[k].map((/** @type {any} */ x) =>
-        x && typeof x === 'object' ? redactIssue(x) : x
+        x && typeof x === 'object' ? redactNested(x) : x
       );
     }
   }

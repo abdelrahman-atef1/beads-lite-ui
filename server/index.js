@@ -85,6 +85,12 @@ if (config.phone_port > 0 && config.phone_port !== config.port) {
     log('phone door on %s:%d', config.phone_host, config.phone_port);
   });
   phone_server.on('error', (err) => {
-    log('phone door error %o', err);
+    // Busy or failing port: log, switch the phone door off, keep the PC door.
+    log('phone door disabled: %o', err);
+    try {
+      phone_server.close();
+    } catch {
+      // not listening; nothing to close
+    }
   });
 }

@@ -22,7 +22,12 @@ import {
   isValidToken
 } from './guard.js';
 import { fetchListForSubscription } from './list-adapters.js';
-import { installPhoneSocket, isDeskIssue, redactFrame } from './phone.js';
+import {
+  installPhoneSocket,
+  isDeskIssue,
+  redactFrame,
+  redactIssue
+} from './phone.js';
 import { registerWorkspace } from './registry-watcher.js';
 import { attachPhoneDoor, attachWsServer, handleMessage } from './ws.js';
 
@@ -222,6 +227,60 @@ describe('phone door: redaction chokepoint (B4)', () => {
     expect(sent.length).toBeGreaterThan(1);
     expect(sent.join('\n')).not.toMatch(leak);
     expect(sent.join('\n')).toContain('plain task');
+  });
+});
+
+describe('phone door: derived fields (B4)', () => {
+  test('blocked_by_detail never carries a desk title', () => {
+    const issue = {
+      id: 'p-1',
+      title: 'plain',
+      labels: [],
+      blocked_by_detail: [
+        { id: 'd-1', assignee: '', status: 'open', title: 'SECRET-DESK-TITLE' },
+        { id: 'd-2', assignee: 'legal', status: 'open', title: 'LEGAL-TITLE' }
+      ]
+    };
+    const out = JSON.stringify(redactIssue(issue));
+    expect(out).not.toMatch(/SECRET-DESK-TITLE|LEGAL-TITLE/);
+    expect(out).toContain('d-1');
+    expect(out).toContain('plain');
+  });
+
+  test('a snapshot frame with blocked_by_detail is scrubbed', () => {
+    const raw = JSON.stringify({
+      type: 'list-snapshot',
+      payload: {
+        issues: [
+          {
+            id: 'p-1',
+            title: 'plain',
+            labels: [],
+            blocked_by_detail: [
+              { id: 'd-1', status: 'open', title: 'SECRET-DESK-TITLE' }
+            ]
+          }
+        ]
+      }
+    });
+    const out = redactFrame(raw, new Set());
+    expect(out === null || !out.includes('SECRET-DESK-TITLE')).toBe(true);
+  });
+});
+
+describe('phone door: busy port', () => {
+  test('attachPhoneDoor on a busy port does not throw', async () => {
+    const blocker = createServer();
+    await new Promise((r) => blocker.listen(0, '127.0.0.1', () => r(undefined)));
+    const port = /** @type {any} */ (blocker.address()).port;
+    const phone = createServer();
+    attachPhoneDoor(phone, { path: '/ws', heartbeat_ms: 60000 });
+    const err = await new Promise((resolve) => {
+      phone.on('error', resolve);
+      phone.listen(port, '127.0.0.1');
+    });
+    expect(/** @type {any} */ (err).code).toBe('EADDRINUSE');
+    blocker.close();
   });
 });
 

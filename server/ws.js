@@ -803,6 +803,11 @@ export function attachPhoneDoor(http_server, options = {}) {
       }
     }
   });
+  // The ws server re-emits the http server's errors (e.g. EADDRINUSE); with no
+  // listener Node would throw and take the whole board down.
+  wss.on('error', (err) => {
+    log('phone door ws error %o', err);
+  });
   PHONE_WSS.add(wss);
   wss.on('connection', (ws, upgrade_req) => {
     log('phone client connected');
