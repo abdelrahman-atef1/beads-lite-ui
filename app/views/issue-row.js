@@ -4,7 +4,7 @@
 import { html } from 'lit-html';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { ISSUE_TYPES, typeLabel } from '../utils/issue-type.js';
-import { emojiForPriority } from '../utils/priority-badge.js';
+import { createPriorityBadge } from '../utils/priority-badge.js';
 import { priority_levels } from '../utils/priority.js';
 import {
   isSettableStatus,
@@ -196,6 +196,7 @@ export function createIssueRowRenderer(options) {
         ${editableText(it.id, 'assignee', it.assignee || '', 'Unassigned')}
       </td>
       <td role="gridcell">
+        ${createPriorityBadge(Number(cur_prio))}
         <select
           class="badge-select badge--priority ${'is-p' + cur_prio}"
           .value=${cur_prio}
@@ -207,7 +208,7 @@ export function createIssueRowRenderer(options) {
                 value=${String(i)}
                 ?selected=${cur_prio === String(i)}
               >
-                ${emojiForPriority(i)} ${p}
+                ${p}
               </option>`
           )}
         </select>

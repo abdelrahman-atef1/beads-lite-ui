@@ -4,7 +4,7 @@ import { parseView } from '../router.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { debug } from '../utils/logging.js';
 import { renderMarkdown } from '../utils/markdown.js';
-import { emojiForPriority } from '../utils/priority-badge.js';
+import { createPriorityBadge } from '../utils/priority-badge.js';
 import { priority_levels } from '../utils/priority.js';
 import {
   isSettableStatus,
@@ -1190,7 +1190,9 @@ export function createDetailView(
       })()}
     </select>`;
 
-    const priority_select = html`<select
+    const priority_select = html`${createPriorityBadge(
+      typeof issue.priority === 'number' ? issue.priority : 2
+    )}<select
       class=${`badge-select badge--priority is-p${String(
         typeof issue.priority === 'number' ? issue.priority : 2
       )}`}
@@ -1205,7 +1207,7 @@ export function createDetailView(
         return priority_levels.map(
           (p, i) =>
             html`<option value=${String(i)} ?selected=${cur === String(i)}>
-              ${emojiForPriority(i)} ${p}
+              ${p}
             </option>`
         );
       })()}
