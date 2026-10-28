@@ -1,4 +1,5 @@
 import { runBdJson } from './bd.js';
+import { buildIndex, deriveItems, stallHours } from './board-derive.js';
 import { debug } from './logging.js';
 
 const log = debug('board-data');
@@ -264,6 +265,20 @@ export function createBoardData(options = {}) {
     generation += 1;
   }
 
+  /** @type {WeakMap<Snapshot, ReturnType<typeof buildIndex>>} */
+  const indexes = new WeakMap();
+  /** @param {Snapshot} snapshot */
+  function indexFor(snapshot) {
+    let idx = indexes.get(snapshot);
+    if (!idx) {
+      const list = (/** @type {Part} */ p) =>
+        p.ok && Array.isArray(p.value) ? p.value : [];
+      idx = buildIndex(list(snapshot.open), list(snapshot.blocked));
+      indexes.set(snapshot, idx);
+    }
+    return idx;
+  }
+
   /**
    * Items for one subscription spec, taken from the shared snapshot.
    *
@@ -317,6 +332,7 @@ export function createBoardData(options = {}) {
           /** @type {any} */ (it).status === want
       );
     }
+    raw = deriveItems(raw, indexFor(snapshot), now(), stallHours());
     return { ok: true, raw };
   }
 

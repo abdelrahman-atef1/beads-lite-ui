@@ -15,7 +15,8 @@ import {
   currentUser,
   facets,
   isFiltering,
-  matchesFilter
+  matchesFilter,
+  stallHoursFromQuery
 } from '../utils/board-filter.js';
 import {
   CLOSED_COLUMN,
@@ -81,6 +82,11 @@ export function createBoardView(
     const pri = typeof it.priority === 'number' ? it.priority : 2;
     const who = String(it.assignee || '').trim();
     const age = ageLabel(it.updated_at);
+    const claimed_ms = Date.parse(String(it.claimed_at || ''));
+    const claimed = Number.isFinite(claimed_ms) ? ageLabel(claimed_ms) : '';
+    const blockers = Array.isArray(it.blocked_by_detail)
+      ? it.blocked_by_detail
+      : [];
     return html`
       <a
         class="card"
@@ -100,6 +106,14 @@ export function createBoardView(
           ${col.id === 'blocked'
             ? html`<span class="tag tag--blocked">${t('blocked_tag')}</span>`
             : ''}
+          ${isStalled(it)
+            ? html`<span class="tag tag--stalled">${t('stalled_tag')}</span>`
+            : ''}
+          ${it.unblocks > 0
+            ? html`<span class="tag tag--unblocks"
+                >${t('unblocks_n')} ${it.unblocks}</span
+              >`
+            : ''}
           <span class="card__age">${age}</span>
           ${who
             ? html`<span class="avatar" title=${who} aria-label=${who}
@@ -107,8 +121,81 @@ export function createBoardView(
               >`
             : ''}
         </div>
+        ${who && claimed
+          ? html`<div class="card__claim">
+              ${who} · ${t('claimed')} ${claimed}
+            </div>`
+          : ''}
+        ${blockers.length > 0
+          ? html`<div class="card__blockers">
+              ${t('blocked_by')}
+              ${blockers.map(
+                (/** @type {any} */ b, /** @type {number} */ i) =>
+                  html`${i ? ', ' : ''}<span
+                      class="blocker"
+                      data-blocker=${b.id}
+                      >${b.id}${b.assignee ? ` (${b.assignee})` : ''}</span
+                    >`
+              )}
+            </div>`
+          : ''}
       </a>
     `;
+  }
+
+  /**
+   * Stalled: the server's flag, unless the URL sets its own threshold
+   * (`?stall=N` hours), which is recomputed here from `updated_at`.
+   *
+   * @param {any} it
+   */
+  function isStalled(it) {
+    const qs = window.location.search;
+    if (!/[?&]stall=/.test(qs)) {
+      return Boolean(it.stalled);
+    }
+    return (
+      it.status === 'in_progress' &&
+      Number.isFinite(it.updated_at) &&
+      Date.now() - it.updated_at > stallHoursFromQuery(qs) * 3_600_000
+    );
+  }
+
+  /** One line: how many are stalled, and which bead unblocks the most. */
+  function insightsTemplate() {
+    if (!loaded) {
+      return html``;
+    }
+    const items = facet_items;
+    const stalled = items.filter(isStalled).length;
+    let top = null;
+    for (const it of items) {
+      if (it && it.unblocks > 0 && (!top || it.unblocks > top.unblocks)) {
+        top = it;
+      }
+    }
+    if (!stalled && !top) {
+      return html``;
+    }
+    return html`<div class="insights" id="board-insights">
+      ${stalled
+        ? html`<span class="insights__stalled"
+            >${stalled} ${t('stalled_n')}</span
+          >`
+        : ''}
+      ${top
+        ? html`<span class="insights__top"
+            >${t('top_unblocker')}:
+            <a
+              href=${'#/issues?issue=' + encodeURIComponent(top.id)}
+              @click=${(/** @type {MouseEvent} */ ev) =>
+                onCardClick(ev, top.id)}
+              >${top.id}</a
+            >
+            (${top.unblocks})</span
+          >`
+        : ''}
+    </div>`;
   }
 
   /**
@@ -252,7 +339,7 @@ export function createBoardView(
       return html``;
     }
     const f = filter.get();
-    const { types, labels } = facets(facet_items);
+    const { types, labels, assignees } = facets(facet_items);
     /**
      * @param {string} key
      * @param {boolean} on
@@ -268,7 +355,7 @@ export function createBoardView(
         ${t(key)}
       </button>`;
     /**
-     * @param {'type'|'label'} name
+     * @param {'type'|'label'|'assignee'|'prio'} name
      * @param {string[]} values
      */
     const menu = (name, values) =>
@@ -295,8 +382,17 @@ export function createBoardView(
         </select>
       </label>`;
     return html`<div class="chips" role="group" aria-label="Filters">
-      ${chip('chip_all', f.chip === 'all' && !f.type && !f.label, () =>
-        filter.set({ chip: 'all', type: '', label: '' })
+      ${chip(
+        'chip_all',
+        f.chip === 'all' && !f.type && !f.label && !f.assignee && f.prio === '',
+        () =>
+          filter.set({
+            chip: 'all',
+            type: '',
+            label: '',
+            assignee: '',
+            prio: ''
+          })
       )}
       ${chip('chip_mine', f.chip === 'mine', () =>
         filter.set({ chip: f.chip === 'mine' ? 'all' : 'mine' })
@@ -305,6 +401,7 @@ export function createBoardView(
         filter.set({ chip: f.chip === 'p01' ? 'all' : 'p01' })
       )}
       ${menu('type', types)} ${menu('label', labels)}
+      ${menu('assignee', assignees)} ${menu('prio', ['0', '1', '2', '3', '4'])}
       ${f.search.trim()
         ? html`<span class="chips__q" dir="auto">“${field(f.search)}”</span>`
         : ''}
@@ -313,7 +410,7 @@ export function createBoardView(
 
   function template() {
     return html`
-      ${chipsTemplate()}
+      ${chipsTemplate()} ${insightsTemplate()}
       <div class="board" id="board-root-inner">
         ${COLUMNS.map((c) => columnTemplate(c, columns[c.id] || []))}
         ${other.length > 0 ? columnTemplate(OTHER_COLUMN, other) : ''}

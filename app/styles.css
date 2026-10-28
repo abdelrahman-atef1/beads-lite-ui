@@ -2918,3 +2918,29 @@ body {
     width: calc(100vw - 24px);
   }
 }
+
+/* P1: who/when, stalled, blocked chains, insights */
+.card__claim,
+.card__blockers {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+.tag--stalled {
+  background: #b45309;
+  color: #fff;
+}
+.tag--unblocks {
+  background: #1d4ed8;
+  color: #fff;
+}
+.insights {
+  display: flex;
+  gap: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.insights__stalled {
+  color: #b45309;
+  font-weight: 600;
+}
