@@ -196,22 +196,24 @@ export function createIssueRowRenderer(options) {
         ${editableText(it.id, 'assignee', it.assignee || '', 'Unassigned')}
       </td>
       <td role="gridcell">
-        ${createPriorityBadge(Number(cur_prio))}
-        <select
-          class="badge-select badge--priority ${'is-p' + cur_prio}"
-          .value=${cur_prio}
-          @change=${makeSelectChange(it.id, 'priority')}
-        >
-          ${priority_levels.map(
-            (p, i) =>
-              html`<option
-                value=${String(i)}
-                ?selected=${cur_prio === String(i)}
-              >
-                ${p}
-              </option>`
-          )}
-        </select>
+        <div class="pri-cell">
+          ${createPriorityBadge(Number(cur_prio))}
+          <select
+            class="badge-select badge--priority ${'is-p' + cur_prio}"
+            .value=${cur_prio}
+            @change=${makeSelectChange(it.id, 'priority')}
+          >
+            ${priority_levels.map(
+              (p, i) =>
+                html`<option
+                  value=${String(i)}
+                  ?selected=${cur_prio === String(i)}
+                >
+                  ${p}
+                </option>`
+            )}
+          </select>
+        </div>
       </td>
       <td role="gridcell" class="deps-col">
         ${(it.dependency_count || 0) > 0 || (it.dependent_count || 0) > 0
