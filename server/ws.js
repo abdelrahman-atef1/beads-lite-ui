@@ -14,6 +14,7 @@ import {
 } from '../app/protocol.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
+import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
@@ -640,13 +641,15 @@ export function attachWsServer(http_server, options = {}) {
   CURRENT_WSS = wss;
 
   // Heartbeat: track if client answered the last ping
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, upgrade_req) => {
     log('client connected');
     // @ts-expect-error add marker property
     ws.isAlive = true;
     // Reached only after verifyClient passed (Origin + token).
     // @ts-expect-error marker
     ws.guarded = true;
+    // @ts-expect-error marker
+    ws.hostHeader = upgrade_req?.headers?.host;
     // @ts-expect-error marker
     ws.authed = true;
 
@@ -1218,15 +1221,21 @@ export async function handleMessage(ws, data) {
       args.push('-d', description);
     }
     clearDetailCaches();
-    const res = await runBd(args, bd_options);
+    // D6: a board-created task is marked and wakes CoS (agents never pass here).
+    const res = await runBd([...args, ...BOARD_TASK_ARGS], bd_options);
     if (res.code !== 0) {
       ws.send(
         JSON.stringify(makeError(req, 'bd_error', res.stderr || 'bd failed'))
       );
       return;
     }
+    const wake = await afterBoardTask(
+      bd_options.cwd,
+      res.stdout,
+      /** @type {any} */ (ws).hostHeader
+    );
     // Reply with a minimal ack
-    ws.send(JSON.stringify(makeOk(req, { created: true })));
+    ws.send(JSON.stringify(makeOk(req, { created: true, wake })));
     // Refresh active subscriptions once (watcher or timeout)
     try {
       triggerMutationRefreshOnce();
