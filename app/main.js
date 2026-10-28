@@ -7,12 +7,13 @@ import { createListSelectors } from './data/list-selectors.js';
 import { createDataLayer } from './data/providers.js';
 import { createSubscriptionIssueStores } from './data/subscription-issue-stores.js';
 import { createSubscriptionStore } from './data/subscriptions-store.js';
-import { resolveIssueWorkspace } from './issue-workspace.js';
+import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
 import { createStore } from './state.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
 import { createFilterState } from './utils/board-filter.js';
 import { applyLang, t, toggleLang } from './utils/i18n.js';
+import { setKnownIdFilter } from './utils/linkify-ids.js';
 import { debug } from './utils/logging.js';
 import { normalizeStatusFilters } from './utils/status.js';
 import { showToast } from './utils/toast.js';
@@ -372,6 +373,7 @@ export function bootstrap(root_element) {
               }
             : null;
           store.setState({ workspace: { current, available } });
+          setKnownIdFilter((id) => !!matchWorkspace(id, available));
           await ensureIssueWorkspace(store.getState().selected_id);
 
           // Check if we have a saved preference that differs from current
@@ -661,6 +663,12 @@ export function bootstrap(root_element) {
     const dialog = createIssueDialog(detail_mount, store, () => {
       // Close: clear selection and return to current view
       const s = store.getState();
+      // Back-first: if this app opened the issue from something (a list, or
+      // another bead), step back to it; Back then never reopens a closed bead.
+      if (router.canGoBack()) {
+        router.back();
+        return;
+      }
       store.setState({ selected_id: null });
       try {
         /** @type {'issues'|'epics'|'board'|'decisions'} */
