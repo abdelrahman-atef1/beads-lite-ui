@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Direction A - Jira-classic</title>
+<style>
+:root{--bg:#f4f5f7;--surface:#fff;--surface-2:#fafbfc;--fg:#172b4d;--muted:#5e6c84;--border:#dfe1e6;--hover:#ebecf0;--soft:#deebff;
+--primary:#0052cc;--primary-fg:#fff;--danger:#de350b;--warn:#b35c00;--ok:#00875a;--purple:#6554c0;--r:3px;--s4:16px;--s3:12px;
+--shadow:0 1px 1px rgba(9,30,66,.25),0 0 1px rgba(9,30,66,.31);--font:system-ui,"Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif}
+[data-theme=dark]{--bg:#161a1d;--surface:#22272b;--surface-2:#1d2125;--fg:#b6c2cf;--muted:#8c9bab;--border:#38414a;--hover:#2c333a;--soft:#1c2b41;
+--primary:#579dff;--primary-fg:#0c1b33;--danger:#f87168;--warn:#f5cd47;--ok:#4bce97;--purple:#9f8fef;--shadow:0 1px 1px rgba(3,4,4,.5)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:var(--fs,14px)/1.45 var(--font)}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.btn{border:1px solid transparent;background:var(--hover);padding:5px 12px;border-radius:var(--r);min-height:32px;font-weight:500}
+.btn:hover{filter:brightness(.95)}.btn.p{background:var(--primary);color:var(--primary-fg)}
+.lnk{background:none;border:0;padding:2px 0;color:var(--primary);text-decoration:underline;min-height:24px}
+.spacer{flex:1}.hide{display:none!important}
+.ava{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;flex:none}
+.id{font-variant-numeric:tabular-nums;color:var(--muted)}
+.pill{font-size:12px;min-width:22px;text-align:center;padding:0 6px;border-radius:10px;background:var(--hover);color:var(--muted);font-weight:600;display:inline-block}
+.pill.dec{background:var(--purple);color:#fff}.pill.blk{background:var(--danger);color:#fff}
+.lbl{font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;background:var(--hover)}.lbl.blk{background:var(--danger);color:#fff}
+.pri{font-weight:700}.pri.p0{color:var(--danger)}.pri.p1{color:var(--warn)}
+.ico{width:16px;height:16px;border-radius:3px;display:inline-grid;place-items:center;color:#fff;font-size:10px;font-weight:700;flex:none}
+.ty-task{background:#4bade8}.ty-bug{background:#e5493a}.ty-story{background:#4ea02b}.ty-epic{background:#6554c0}.ty-decision{background:#8777d9}
+/* decision card (shared structure; direction css adds skin) */
+.dcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:var(--s4,16px);margin-block-end:var(--s3,12px);border-inline-start:3px solid var(--purple)}
+.dcard.done{opacity:.8;border-inline-start-color:var(--ok)}
+.dhead{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-block-end:8px}
+.dproj{margin-inline-start:auto}
+.dq{font-size:1.15em;font-weight:600;margin:0 0 12px;line-height:1.5}
+.part{margin-inline-end:4px}
+.ask{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;line-height:1;padding:0;margin-inline-start:4px;vertical-align:middle;flex:none}
+.ask:hover{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+@media (pointer:coarse){.ask{width:32px;height:32px}}
+.opts{display:flex;flex-direction:column;gap:8px}
+.optrow{display:flex;align-items:center;gap:8px}
+.opt{flex:1;text-align:start;border:1px solid var(--border);background:var(--surface-2,var(--surface));border-radius:var(--r);padding:10px 12px;min-height:44px;display:flex;flex-direction:column;gap:2px}
+.opt:hover:not(:disabled){border-color:var(--primary);background:var(--soft)}
+.opt small{color:var(--muted)}
+.optrow.sel .opt{border-color:var(--ok);background:var(--soft)}
+.opt:disabled{cursor:default}
+.res{margin:12px 0 0;color:var(--ok)}.res .lnk{margin-inline-start:8px}
+.thread{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:8px}
+.msg{padding:8px 12px;border-radius:var(--r);max-width:92%;background:var(--hover)}
+.msg.owner{align-self:flex-end;background:var(--soft)}.msg.agent{align-self:flex-start;border-inline-start:3px solid var(--purple)}
+.msg p{margin:2px 0}.msg small{color:var(--muted)}
+.about{display:block;font-size:12px;color:var(--muted);margin-block-end:2px}
+.pend{color:var(--muted);font-style:italic}.pend::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--purple);margin-inline-end:6px;animation:pulse 1s infinite alternate}
+@keyframes pulse{to{opacity:.2}}
+.composer{margin-block-start:12px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--hover);border-radius:var(--r)}
+.composer textarea{width:100%;border:2px solid var(--border);background:var(--surface);border-radius:var(--r);padding:8px;resize:vertical}
+.crow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.crow small{flex:1;color:var(--muted);min-width:160px}
+.dfoot{margin-block-start:12px}
+.desc{margin:0 0 12px}.act{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.act li{display:flex;gap:8px;align-items:flex-start}.act small{color:var(--muted)}
+h4{margin:16px 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.blkrow{padding:8px;border-radius:var(--r);background:var(--hover)}
+.blkrow a{color:var(--primary)}
+.inl .dcard{margin:0}
+.rep{max-width:560px;display:flex;flex-direction:column;gap:12px}.rep h2{margin:0;font-size:1.3em}
+.fl{display:flex;flex-direction:column;gap:4px;font-weight:600}
+.rep select,.rep textarea{border:2px solid var(--border);background:var(--surface);border-radius:var(--r);padding:10px;min-height:44px;font-weight:400;width:100%}
+.seg{display:flex;gap:8px}.seg button{border:1px solid var(--border);background:var(--surface);border-radius:var(--r);min-height:44px;flex:1;font-weight:600}
+.seg button[aria-pressed=true]{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.tools{display:flex;gap:8px;align-items:center}.tools .sw{flex:none;width:44px;height:44px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--border)}.tools .sw[aria-pressed=true]{box-shadow:0 0 0 3px var(--fg)}
+#rc{width:100%;height:auto;border-radius:var(--r);border:1px solid var(--border);touch-action:none;cursor:crosshair;background:var(--hover)}
+.drop{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:28px 16px;border:2px dashed var(--border);border-radius:var(--r);cursor:pointer;background:var(--surface)}
+.drop:hover,.drop:focus-within{border-color:var(--primary);background:var(--soft)}.drop small,.mut{color:var(--muted);font-size:.9em}
+.big{min-height:48px;font-size:1.05em}
+.rsent{padding:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);display:flex;flex-direction:column;gap:6px}.rsent img{max-width:100%;border-radius:var(--r)}
+.attach{max-width:100%;border-radius:var(--r);border:1px solid var(--border);margin-block-end:12px}
+/* phone: decision inbox answers live here (no Telegram) */
+@media (max-width:600px){.dcard{padding:14px}.opt{min-height:56px}.ask{width:36px;height:36px;font-size:14px}.crow .btn{flex:1;min-height:44px}.lnk{min-height:44px;display:inline-flex;align-items:center}.msg{max-width:100%}.composer textarea{font-size:16px}}
+.fab{display:none}
+@media (max-width:760px){.fab{display:flex;position:fixed;inset-block-end:16px;inset-inline-end:16px;z-index:8;align-items:center;min-height:52px;padding:0 20px;border-radius:26px;background:var(--primary);color:var(--primary-fg);font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}.fab::after{content:"+ Report a bug"}html:lang(ar) .fab::after{content:"+ أبلغ عن خطأ"}}
+
+.top{display:flex;align-items:center;gap:12px;padding:0 16px;height:48px;background:var(--surface);border-block-end:1px solid var(--border);position:sticky;top:0;z-index:5}
+.logo{font-weight:700;color:var(--primary)}.top .btn{white-space:nowrap;padding:5px 8px}
+.proj{position:relative}.proj>button{display:flex;gap:8px;align-items:center;background:var(--hover);border:0;border-radius:var(--r);padding:6px 12px;min-height:32px}
+.menu{display:none;position:absolute;inset-inline-start:0;top:38px;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 16px rgba(9,30,66,.25);padding:8px;z-index:9}
+.proj.open .menu{display:block}
+.menu button.row{display:flex;width:100%;align-items:center;gap:8px;padding:8px;border:0;background:none;border-radius:var(--r);text-align:start}
+.menu .row:hover,.menu .row.cur{background:var(--hover)}.menu .nm{flex:1}.cnts{display:flex;gap:4px}
+.note{color:var(--muted);font-size:12px;padding:4px 8px}
+.tabs{display:flex;gap:4px;padding:0 16px;background:var(--surface);border-block-end:1px solid var(--border);overflow-x:auto}
+.tabs a{padding:12px;color:var(--muted);text-decoration:none;border-block-end:2px solid transparent;font-weight:500;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tabs a[aria-current=page]{color:var(--primary);border-color:var(--primary)}
+main{padding:16px 24px}h1{font-size:20px;font-weight:600;margin:0 0 12px}.crumb{color:var(--muted);font-size:12px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-block-end:16px}
+.filters input,.top input{border:2px solid var(--border);background:var(--surface-2);border-radius:var(--r);padding:5px 12px;min-height:32px;width:200px}
+.chip{border:0;background:var(--hover);border-radius:var(--r);padding:5px 12px;min-height:32px;font-weight:500}
+.chip[aria-pressed=true]{background:var(--primary);color:var(--primary-fg)}
+.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:8px;overflow-x:auto;align-items:start}
+.col{background:var(--hover);border-radius:var(--r);padding:8px;min-height:80px}
+[data-theme=dark] .col{background:var(--surface-2)}
+.col h3{margin:0 0 8px;padding:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between}
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:12px;margin-block-end:8px;display:block;width:100%;text-align:start;border:0;border-inline-start:3px solid transparent}
+.card:hover{background:var(--surface-2)}.card .t{margin:0 0 8px}.card .m{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.card .m .ava{margin-inline-start:auto}
+.card.dec{border-inline-start-color:var(--purple)}.card.blk{border-inline-start-color:var(--danger)}
+table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow)}
+th{font-size:12px;color:var(--muted);text-align:start;padding:8px 12px;border-block-end:1px solid var(--border)}
+td{padding:8px 12px;border-block-end:1px solid var(--border)}tr.r{cursor:pointer}tr.r:hover td{background:var(--hover)}
+.tw{overflow-x:auto}
+.inbox{max-width:760px}
+#scrim{display:none;position:fixed;inset:0;background:rgba(9,30,66,.45);z-index:10}#scrim.on{display:block}
+#panel{position:fixed;top:0;bottom:0;inset-inline-end:0;width:min(520px,100%);background:var(--surface);z-index:11;box-shadow:-4px 0 16px rgba(9,30,66,.3);transform:translateX(105%);transition:transform .15s;overflow:auto;padding:16px 24px}
+[dir=rtl] #panel{transform:translateX(-105%);box-shadow:4px 0 16px rgba(9,30,66,.3)}#panel.on{transform:none}
+#panel h2{font-size:18px;margin:8px 0 12px}.pgrid{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin-block-end:16px}.pgrid dt{color:var(--muted)}.pgrid dd{margin:0}
+.x{float:inline-end;border:0;background:var(--hover);border-radius:var(--r);min-height:32px;min-width:32px}
+@media (max-width:700px){.top{gap:6px;padding:0 8px}#pbtn{padding:6px 8px}main{padding:12px}.top input{display:none}.board{grid-template-columns:repeat(5,82vw)}}
+</style>
+</head>
+<body>
+<header class="top">
+ <span class="logo">Beads</span>
+ <div class="proj"><button id="pbtn" aria-haspopup="true" aria-expanded="false"></button><div class="menu" id="pmenu" role="menu"></div></div>
+ <span class="spacer"></span>
+ <input type="search" id="gs" aria-label="Search">
+ <button class="btn" id="theme" aria-label="Dark mode"></button><button class="btn" id="dir" aria-label="RTL">AR / EN</button>
+</header>
+<nav class="tabs" id="tabs" aria-label="Views"></nav>
+<main id="main"></main>
+<div id="scrim"></div><aside id="panel" role="dialog" aria-modal="true" aria-label="Issue detail"></aside>
+<a class="fab" href="#report" aria-label="Report a bug"></a>
+<script>
+/* shared mock data + decision/clarification logic (mock only, no network) */
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],H=document.documentElement;
+const L=(en,ar)=>H.lang==='ar'?ar:en;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ST={open:['Open','مفتوح'],progress:['In progress','قيد التنفيذ'],waiting:['Waiting for QA','بانتظار الاختبار'],blocked:['Blocked','محجوب'],done:['Done','تم']};
+const TY={task:'T',bug:'B',story:'S',epic:'E',decision:'D'};
+const PROJ=[{n:'rayeh',o:24,d:3,b:1},{n:'fatura',o:17,d:1,b:0},{n:'company',o:52,d:2,b:4},{n:'abduu-tasks',o:9,d:0,b:0},{n:'whisper-flow',o:0,d:0,b:0}];
+const AG={swe:['SW','#0b6e99'],qa:['QA','#00875a'],ux:['UX','#c9372c'],cto:['CT','#6554c0'],pm:['PM','#b35c00'],sre:['SR','#42526e']};
+const ISS=[
+{id:'r-101',t:['Fix login timeout on slow networks','إصلاح انتهاء مهلة الدخول على الشبكات البطيئة'],ty:'bug',st:'progress',p:0,a:'swe',ep:'Auth',age:'12m'},
+{id:'r-102',t:['Offline queue for sync','قائمة انتظار للمزامنة بدون إنترنت'],ty:'story',st:'open',p:1,a:'swe',ep:'Sync'},
+{id:'r-103',t:['First-run onboarding in under 60s','شاشة البداية الأولى في أقل من 60 ثانية'],ty:'story',st:'progress',p:1,a:'ux',ep:'Onboarding',age:'1h'},
+{id:'r-104',t:['Choose push notification provider','اختيار مزوّد الإشعارات'],ty:'decision',st:'blocked',p:1,a:'cto',ep:'Sync',dec:'d1'},
+{id:'r-105',t:['Arabic RTL audit of settings','مراجعة RTL العربية للإعدادات'],ty:'task',st:'waiting',p:2,a:'qa',ep:'Onboarding'},
+{id:'r-106',t:['Compress profile photo before upload','ضغط صورة الملف قبل الرفع'],ty:'task',st:'open',p:2,a:'swe',ep:'Sync'},
+{id:'r-107',t:['Release build 15 to test track','نشر النسخة 15 على المسار التجريبي'],ty:'task',st:'blocked',p:1,a:'swe',ep:'Release',blk:'r-104'},
+{id:'r-108',t:['Quota banner copy','نص تنبيه الحصة'],ty:'task',st:'done',p:2,a:'ux',ep:'Onboarding'},
+{id:'r-109',t:['Stale cache after account switch','ذاكرة مؤقتة قديمة بعد تبديل الحساب'],ty:'bug',st:'waiting',p:1,a:'qa',ep:'Auth'},
+{id:'r-110',t:['Settings screen','شاشة الإعدادات'],ty:'story',st:'open',p:2,a:'ux',ep:'Onboarding'},
+{id:'r-111',t:['Crash on Android 8 low memory','انهيار على أندرويد 8 عند نقص الذاكرة'],ty:'bug',st:'open',p:0,a:'swe',ep:'Auth'},
+{id:'r-112',t:['Export data as CSV','تصدير البيانات CSV'],ty:'task',st:'open',p:3,a:'swe',ep:'Sync'},
+{id:'r-115',t:['What happens at the free item limit?','ماذا يحدث عند حد العناصر المجاني؟'],ty:'decision',st:'blocked',p:1,a:'pm',ep:'Quota',dec:'d2'},
+{id:'r-118',t:['Backup frequency for user data','تكرار النسخ الاحتياطي لبيانات المستخدم'],ty:'decision',st:'blocked',p:2,a:'sre',ep:'Quota',dec:'d3'}];
+const DEC=[
+{id:'d1',bead:'r-104',proj:'rayeh',ag:'cto',
+ q:[['The app needs push notifications.','التطبيق يحتاج إشعارات.'],['Free providers cap at 10k devices/month.','المزوّدون المجانيون يحدّدون 10 آلاف جهاز شهرياً.'],['Which one do we build on?','على أيهما نبني؟']],
+ opts:[{k:'a',l:['Firebase Cloud Messaging','Firebase Cloud Messaging'],e:['Free, unlimited. Locks us to Google.','مجاني بلا حد. يربطنا بجوجل.']},
+       {k:'b',l:['Self-hosted ntfy','ntfy مستضاف ذاتياً'],e:['Costs a server. Easy to leave.','يكلف سيرفر. سهل الخروج منه.']},
+       {k:'c',l:['Skip push for now','تأجيل الإشعارات'],e:['Zero cost. Users must open the app.','بلا تكلفة. على المستخدم فتح التطبيق.']}],
+ th:[],rep:{q:['The decision is about who delivers messages when the app is closed. Option A is the only one that costs nothing at any scale.','القرار عن الجهة التي توصل الرسائل والتطبيق مغلق. الخيار أ هو الوحيد بلا تكلفة عند أي حجم.'],
+ p1:['The cap is per provider plan, not per app, so at 10k users we would need to switch.','الحد على خطة المزوّد لا التطبيق، وعند 10 آلاف مستخدم سنضطر للتبديل.'],
+ oa:['Lock-in means rewriting delivery if Google changes terms. About 2 days of work to leave.','الارتباط يعني إعادة كتابة التسليم إن غيّرت جوجل شروطها. الخروج حوالي يومين.'],
+ ob:['A small VPS, about $4/month, paid even with zero users, which breaks our idle-cost rule.','سيرفر صغير حوالي 4 دولارات شهرياً حتى بلا مستخدمين، وهذا يخالف قاعدة التكلفة الصفرية.'],
+ oc:['Nothing is built. Re-engagement drops, but cost stays at zero.','لن نبني شيئاً. ينخفض عودة المستخدمين لكن التكلفة تبقى صفراً.']}},
+{id:'d2',bead:'r-115',proj:'rayeh',ag:'pm',
+ q:[['Users can store 50 items for free.','يمكن للمستخدم تخزين 50 عنصراً مجاناً.'],['At the limit, what do they see?','عند الحد، ماذا يرون؟']],
+ opts:[{k:'a',l:['Read-only, nothing deleted','قراءة فقط دون حذف'],e:['Safest. Users can still export.','الأكثر أماناً. يمكنهم التصدير.']},
+       {k:'b',l:['Oldest items archived','أرشفة الأقدم'],e:['Keeps adding work. Needs undo.','يتيح الإضافة. يحتاج تراجعاً.']}],
+ th:[],rep:{q:['This decides what the free tier feels like once someone succeeds.','هذا يحدد شكل الخدمة المجانية عندما ينجح المستخدم.']}},
+{id:'d3',bead:'r-118',proj:'rayeh',ag:'sre',
+ q:[['Back up user data how often?','كل كم نأخذ نسخة احتياطية لبيانات المستخدم؟']],
+ opts:[{k:'a',l:['Daily','يومياً'],e:['About 3% of free quota.','حوالي 3% من الحصة المجانية.']},
+       {k:'b',l:['Weekly','أسبوعياً'],e:['Under 1%. Up to 7 days lost.','أقل من 1%. قد نفقد 7 أيام.']}],th:[],rep:{}}];
+const AGENTS=[
+{a:'swe',w:['Working on r-101','يعمل على r-101'],s:'work',t:'12m',l:['Pushed fix to login retry','دفع إصلاح إعادة محاولة الدخول']},
+{a:'ux',w:['Working on r-103','يعمل على r-103'],s:'work',t:'1h',l:['Posted 3 directions','نشر 3 اتجاهات']},
+{a:'cto',w:['Waiting for you on r-104','ينتظرك في r-104'],s:'wait',t:'2h',l:['Asked: which push provider','سأل: أي مزوّد إشعارات']},
+{a:'qa',w:['Waiting: r-105 test run','ينتظر: اختبار r-105'],s:'wait',t:'30m',l:['Started RTL checks','بدأ فحوصات RTL']},
+{a:'pm',w:['Waiting for you on r-115','ينتظرك في r-115'],s:'wait',t:'4h',l:['Asked: free limit behaviour','سأل: سلوك الحد المجاني']},
+{a:'sre',w:['Idle','خامل'],s:'idle',t:'1d',l:['Quota report filed','سلّم تقرير الحصص']}];
+const av=(a,sz)=>`<span class="ava" title="${a}" style="background:${AG[a][1]}${sz?`;width:${sz}px;height:${sz}px`:''}">${AG[a][0]}</span>`;
+const byId=id=>ISS.find(i=>i.id===id);
+const tl=x=>L(x[0],x[1]);
+const it=i=>tl(i.t);
+/* ---- decision cards with clarification thread ---- */
+function tgtLabel(d,t){if(t==='q')return L('The whole question','السؤال كله');
+ if(t[0]==='p')return '“'+tl(d.q[+t.slice(1)])+'”';
+ const o=d.opts.find(o=>o.k===t.slice(2));return L('Option: ','الخيار: ')+tl(o.l);}
+function decHTML(d){const tg=d.target||'q',n=d.th.filter(m=>m.who==='owner').length;
+ const aq=L('Ask about this part','اسأل عن هذا الجزء'),ao=L('Ask about this option','اسأل عن هذا الخيار');
+ return `<article class="dcard${d.pick?' done':''}" data-d="${d.id}">
+ <header class="dhead"><span class="id">${d.bead}</span>${av(d.ag,22)}<span class="dwho">${d.ag} ${L('asks','يسأل')}</span><span class="dproj">${d.proj}</span></header>
+ <h3 class="dq">${d.q.map((p,i)=>`<span class="part">${esc(tl(p))}<button class="ask" data-ask="p${i}" title="${aq}" aria-label="${aq}">?</button></span>`).join(' ')}</h3>
+ <div class="opts" role="group" aria-label="${L('Options','الخيارات')}">${d.opts.map(o=>`<div class="optrow${d.pick===o.k?' sel':''}"><button class="opt" data-pick="${o.k}" ${d.pick?'disabled':''}><b>${esc(tl(o.l))}</b><small>${esc(tl(o.e))}</small></button><button class="ask" data-ask="o:${o.k}" title="${ao}" aria-label="${ao}">?</button></div>`).join('')}</div>
+ ${d.pick?`<p class="res" role="status">${L('You chose','اخترت')} <b>${esc(tl(d.opts.find(o=>o.k===d.pick).l))}</b>. ${L('Recorded on the bead.','سُجّل على المهمة.')} <button class="lnk" data-undo>${L('Undo','تراجع')}</button></p>`:''}
+ ${d.th.length?`<ol class="thread" aria-label="${L('Clarification thread','نقاش التوضيح')}">${d.th.map(m=>`<li class="msg ${m.who}"><span class="about">${L('About','بخصوص')}: ${esc(tgtLabel(d,m.tg))}</span><p>${m.pend?`<span class="pend">${L('Agent woken, replying…','تم إيقاظ الوكيل، يجهّز الرد…')}</span>`:esc(m.who==='owner'?m.x:tl(m.x))}</p><small>${m.who==='owner'?L('You','أنت'):d.ag}</small></li>`).join('')}</ol>`:''}
+ ${d.open?`<div class="composer"><div class="about">${L('Asking about','تسأل عن')}: <b>${esc(tgtLabel(d,tg))}</b> <button class="lnk" data-ask="q">${L('whole question instead','السؤال كله بدلاً من ذلك')}</button></div>
+ <textarea rows="2" data-draft placeholder="${L('What is unclear? The agent will answer here.','ما غير الواضح؟ سيرد الوكيل هنا.')}">${esc(d.draft||'')}</textarea>
+ <div class="crow"><small>${L('Offline? Your question is kept and sent when you are back.','بلا إنترنت؟ يُحفظ سؤالك ويُرسل عند عودتك.')}</small><button class="btn" data-close>${L('Cancel','إلغاء')}</button><button class="btn p" data-send>${L('Ask','اسأل')}</button></div></div>`
+ :`<footer class="dfoot"><button class="lnk" data-ask="q">${L('Not clear? Ask the agent','غير واضح؟ اسأل الوكيل')}${n?` (${n})`:''}</button></footer>`}
+ </article>`;}
+function wireDec(root,rerender){
+ root.onclick=e=>{const c=e.target.closest('.dcard');if(!c)return;const d=DEC.find(x=>x.id===c.dataset.d),b=e.target.closest('button');if(!b)return;
+  if(b.dataset.pick){d.pick=b.dataset.pick;rerender();}
+  else if('undo' in b.dataset){d.pick=null;rerender();}
+  else if(b.dataset.ask){d.open=true;d.target=b.dataset.ask;rerender();const t=$(`[data-d=${d.id}] textarea`,root);t&&t.focus();}
+  else if('close' in b.dataset){d.open=false;rerender();}
+  else if('send' in b.dataset){const v=(d.draft||'').trim();if(!v)return;const tg=d.target||'q';
+   d.th.push({who:'owner',tg,x:v});const m={who:'agent',tg,pend:1,x:null};d.th.push(m);d.draft='';d.open=false;rerender();
+   setTimeout(()=>{const k=tg==='q'?'q':tg[0]==='p'?tg:'o'+tg.slice(2);m.x=d.rep[k]||d.rep.q||['Good question. I added the detail to the bead.','سؤال جيد. أضفت التفاصيل إلى المهمة.'];m.pend=0;rerender();},1400);}};
+ root.oninput=e=>{if(e.target.matches('[data-draft]')){DEC.find(x=>x.id===e.target.closest('.dcard').dataset.d).draft=e.target.value;}};}
+const pendingCount=()=>DEC.filter(d=>!d.pick).length;
+/* ---- issue detail body (shared) ---- */
+function detailBody(i){const d=i.dec&&DEC.find(x=>x.id===i.dec);
+ return `<p class="desc">${L('Users on slow connections lose their session before the first screen loads. Target: usable in 60 seconds on a 3G phone, no account needed.','يفقد المستخدمون على الشبكات البطيئة جلستهم قبل ظهور أول شاشة. الهدف: استخدام فعلي خلال 60 ثانية على هاتف 3G دون حساب.')}</p>
+ ${i.img?`<img class="attach" src="${i.img}" alt="">`:""}
+ ${i.blk?`<p class="blkrow"><span class="lbl blk">${L('Blocked by','محجوب بواسطة')}</span> <a href="#" data-open="${i.blk}">${i.blk}</a> ${esc(it(byId(i.blk)))}</p>`:''}
+ ${d?`<div class="inl" data-decwrap>${decHTML(d)}</div>`:''}
+ <h4>${L('Activity','النشاط')}</h4>
+ <ul class="act"><li>${av('swe',20)}<span><b>swe</b> ${L('pushed a fix, tests pass','دفع إصلاحاً والاختبارات ناجحة')} <small>12m</small></span></li>
+ <li>${av('qa',20)}<span><b>qa</b> ${L('reproduced on a throttled 3G profile','أعاد الخطأ على شبكة 3G مبطّأة')} <small>2h</small></span></li>
+ <li>${av('pm',20)}<span><b>pm</b> ${L('set priority P1','حدّد الأولوية P1')} <small>1d</small></span></li></ul>`;}
+const fields=i=>[[L('Status','الحالة'),tl(ST[i.st])],[L('Assignee','المسند إليه'),i.a],[L('Priority','الأولوية'),'P'+i.p],[L('Epic','الملحمة'),i.ep],[L('Type','النوع'),i.ty],[L('Project','المشروع'),'rayeh']];
+/* ---- phone report: screenshot + markup + text + project -> new bead (mock) ---- */
+const REPS=[];let rp={img:null,proj:'rayeh',kind:'bug',text:'',col:'#e5322d',strokes:[],cur:null};
+const COLS=[['#e5322d','Red pen','قلم أحمر'],['#f5c400','Yellow pen','قلم أصفر'],['#1e88e5','Blue pen','قلم أزرق']];
+function reportHTML(){
+ return `<section class="rep" id="rep"><h2>${L('Report a bug or note','أبلغ عن خطأ أو اترك ملاحظة')}</h2>
+ <label class="fl">${L('Project','المشروع')}<select data-rp="proj">${PROJ.map(p=>`<option ${p.n===rp.proj?'selected':''}>${p.n}</option>`).join('')}</select></label>
+ <div class="seg" role="group" aria-label="${L('Type','النوع')}"><button data-rk="bug" aria-pressed="${rp.kind==='bug'}">${L('Bug','خطأ')}</button><button data-rk="note" aria-pressed="${rp.kind==='note'}">${L('Note','ملاحظة')}</button></div>
+ ${rp.img?`<div class="tools">${COLS.map(c=>`<button data-rcol="${c[0]}" aria-pressed="${rp.col===c[0]}" aria-label="${L(c[1],c[2])}" style="--c:${c[0]}" class="sw"></button>`).join('')}<span class="spacer"></span><button class="btn" data-rundo>${L('Undo','تراجع')}</button><button class="btn" data-rdrop>${L('Remove','حذف')}</button></div><canvas id="rc" aria-label="${L('Screenshot, draw on it to mark','لقطة الشاشة، ارسم عليها للتأشير')}"></canvas><small class="mut">${L('Draw with your finger to mark the problem.','ارسم بإصبعك لتحديد المشكلة.')}</small>`
+ :`<label class="drop"><input type="file" accept="image/*" data-rfile hidden><b>${L('Add a screenshot','أضف لقطة شاشة')}</b><small>${L('Choose from gallery or take a photo, or paste (Ctrl+V). Optional.','اختر من المعرض أو صوّر، أو الصق (Ctrl+V). اختياري.')}</small></label>`}
+ <label class="fl">${L('What happened?','ماذا حدث؟')}<textarea rows="4" data-rp="text" placeholder="${L('Write in Arabic or English','اكتب بالعربية أو الإنجليزية')}">${esc(rp.text)}</textarea></label>
+ <small class="mut">${L('The image is shrunk on your phone before sending (about 100 KB). Offline? It is kept and sent later.','تُصغَّر الصورة على هاتفك قبل الإرسال (حوالي 100 كيلوبايت). بلا إنترنت؟ تُحفظ وتُرسل لاحقاً.')}</small>
+ <button class="btn p big" data-rsend>${L('Send as a bead','أرسل كمهمة')}</button>
+ ${REPS.length?`<h4>${L('Just sent','أُرسل الآن')}</h4>${REPS.map(r=>`<div class="rsent"><span><b class="id">${r.id}</b> <span class="lbl">${r.proj}</span> ${esc(r.text||'')}</span>${r.img?`<img src="${r.img}" alt="${L('attached screenshot','لقطة مرفقة')}">`:''}<small class="mut">${L('Created as a bead, assigned for triage.','أُنشئت كمهمة وأُسندت للفرز.')}</small></div>`).join('')}`:''}</section>`;}
+function loadImg(file){if(!file||!file.type.startsWith('image/'))return;const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{const s=Math.min(1,1280/im.width),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);rp.img=c;rp.strokes=[];URL.revokeObjectURL(u);rp.cb();};im.src=u;}
+function paintReport(){const c=$('#rc');if(!c||!rp.img)return;if(c.width!==rp.img.width){c.width=rp.img.width;c.height=rp.img.height;}const x=c.getContext('2d');x.drawImage(rp.img,0,0);x.lineCap=x.lineJoin='round';x.lineWidth=Math.max(4,c.width/140);
+ [...rp.strokes,...(rp.cur?[rp.cur]:[])].forEach(s=>{x.strokeStyle=s.c;x.beginPath();s.p.forEach((q,n)=>n?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]));if(s.p.length===1)x.lineTo(s.p[0][0]+.1,s.p[0][1]);x.stroke();});}
+const ptr=(c,e)=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height];};
+function wireReport(root,rerender){rp.cb=()=>{rerender();paintReport();};
+ root.addEventListener('click',e=>{const b=e.target.closest('#rep button');if(!b)return;const d=b.dataset;
+  if(d.rk){rp.kind=d.rk;rerender();}else if(d.rcol){rp.col=d.rcol;rerender();}else if('rundo' in d){rp.strokes.pop();rerender();}else if('rdrop' in d){rp.img=null;rp.strokes=[];rerender();}
+  else if('rsend' in d){if(!rp.text.trim()&&!rp.img)return;const id='r-'+(120+REPS.length);let img=null;const cv=$('#rc');if(cv)img=cv.toDataURL('image/jpeg',.7);
+   const r={id,proj:rp.proj,kind:rp.kind,text:rp.text.trim(),img};REPS.unshift(r);
+   if(rp.proj==='rayeh')ISS.unshift({id,t:[r.text||'Screenshot report',r.text||'بلاغ بلقطة شاشة'],ty:rp.kind==='bug'?'bug':'task',st:'open',p:2,a:'pm',ep:'Reports',img});
+   rp.img=null;rp.strokes=[];rp.text='';rerender();}});
+ root.addEventListener('input',e=>{const t=e.target;if(t.dataset.rp)rp[t.dataset.rp]=t.value;});
+ root.addEventListener('change',e=>{if(e.target.matches('[data-rfile]'))loadImg(e.target.files[0]);});
+ root.addEventListener('pointerdown',e=>{if(e.target.id!=='rc')return;e.target.setPointerCapture(e.pointerId);rp.cur={c:rp.col,p:[ptr(e.target,e)]};paintReport();});
+ root.addEventListener('pointermove',e=>{if(rp.cur&&e.target.id==='rc'){rp.cur.p.push(ptr(e.target,e));paintReport();}});
+ const end=()=>{if(rp.cur){rp.strokes.push(rp.cur);rp.cur=null;paintReport();}};root.addEventListener('pointerup',end);root.addEventListener('pointercancel',end);
+ document.addEventListener('paste',e=>{const f=[...((e.clipboardData&&e.clipboardData.files)||[])][0];if(f&&$('#rep'))loadImg(f);});}
+
+let view=location.hash.slice(1)||'board',cur=null,pm=false,flt={dec:false,blk:false,p01:false};
+const T={board:['Board','اللوحة'],backlog:['Backlog','الباكلوج'],inbox:['Owner decisions','قرارات المالك'],report:['Report','بلاغ']};
+function card(i){return `<button class="card${i.dec?' dec':''}${i.st==='blocked'&&!i.dec?' blk':''}" data-open="${i.id}"><p class="t">${esc(it(i))}</p><div class="m"><span class="ico ty-${i.ty}">${TY[i.ty]}</span><span class="id">${i.id}</span><span class="pri p${i.p}">P${i.p}</span>${i.dec?`<span class="lbl" style="background:var(--purple);color:#fff">${L('Needs you','يحتاجك')}</span>`:''}${i.blk?`<span class="lbl blk">${L('Blocked by','محجوب')} ${i.blk}</span>`:''}${av(i.a)}</div></button>`;}
+function flist(){return ISS.filter(i=>(!flt.dec||i.dec)&&(!flt.blk||i.st==='blocked')&&(!flt.p01||i.p<2));}
+function render(){
+ $('#pbtn').innerHTML=`${L('Project:','مشروع:')} <b>rayeh</b> <span class="pill dec">${pendingCount()}</span> &#9662;`;
+ $('#pbtn').setAttribute('aria-expanded',pm);$('.proj').classList.toggle('open',pm);
+ $('#pmenu').innerHTML=PROJ.map(p=>`<button class="row${p.n==='rayeh'?' cur':''}" role="menuitem"><span class="nm">${p.n}</span><span class="cnts"><span class="pill" title="${L('open','مفتوح')}">${p.o}</span><span class="pill${p.d?' dec':''}" title="${L('decisions','قرارات')}">${p.d}</span><span class="pill${p.b?' blk':''}" title="${L('blocked','محجوب')}">${p.b}</span></span></button>`).join('')+`<div class="note">${L('Counts: open / decisions / blocked','الأرقام: مفتوح / قرارات / محجوب')}</div>`;
+ $('#gs').placeholder=L('Search','بحث');$('#theme').innerHTML='&#9680; '+L('Dark','داكن');
+ $('#tabs').innerHTML=Object.keys(T).map(k=>`<a href="#${k}" ${view===k?'aria-current="page"':''}>${tl(T[k])}${k==='inbox'?` <span class="pill dec">${pendingCount()}</span>`:''}</a>`).join('');
+ const chips=`<div class="filters"><input type="search" placeholder="${L('Filter','تصفية')}" aria-label="Filter"><button class="chip" data-f="dec" aria-pressed="${flt.dec}">${L('Needs decision','بانتظار قرار')}</button><button class="chip" data-f="blk" aria-pressed="${flt.blk}">${L('Blocked','محجوبة')}</button><button class="chip" data-f="p01" aria-pressed="${flt.p01}">P0 / P1</button></div>`;
+ let h=`<div class="crumb">rayeh / ${tl(T[view])}</div><h1>${view==='inbox'?L('Owner decisions','قرارات المالك'):view==='board'?L('rayeh board','لوحة rayeh'):view==='report'?'':L('Backlog','الباكلوج')}</h1>`;
+ if(view==='board'){const l=flist();h+=chips+`<div class="board">${Object.keys(ST).map(s=>{const c=l.filter(i=>i.st===s);return `<section class="col"><h3><span>${tl(ST[s])}</span><span>${c.length}</span></h3>${c.map(card).join('')||`<p class="note">${L('Nothing here','لا شيء هنا')}</p>`}</section>`}).join('')}</div>`;}
+ if(view==='backlog'){h+=chips+`<div class="tw"><table><thead><tr><th>${L('Key','المعرّف')}</th><th>${L('Summary','الملخص')}</th><th>${L('Status','الحالة')}</th><th>${L('Epic','الملحمة')}</th><th>P</th><th>${L('Assignee','المسند')}</th></tr></thead><tbody>${flist().sort((a,b)=>a.p-b.p).map(i=>`<tr class="r" data-open="${i.id}" tabindex="0"><td><span class="ico ty-${i.ty}">${TY[i.ty]}</span> <span class="id">${i.id}</span></td><td>${esc(it(i))}${i.dec?` <span class="lbl" style="background:var(--purple);color:#fff">${L('Needs you','يحتاجك')}</span>`:''}</td><td>${tl(ST[i.st])}</td><td>${i.ep}</td><td><span class="pri p${i.p}">P${i.p}</span></td><td>${av(i.a)}</td></tr>`).join('')}</tbody></table></div>`;}
+ if(view==='report'){h+=reportHTML();}
+ if(view==='inbox'){h+=`<div class="inbox" id="decs">${DEC.map(decHTML).join('')}</div>`;}
+ $('#main').innerHTML=h;paintReport();
+ if(cur){const i=byId(cur);$('#panel').innerHTML=`<button class="x" aria-label="${L('Close','إغلاق')}">&times;</button><div class="crumb">rayeh / ${i.id}</div><h2>${esc(it(i))}</h2><dl class="pgrid">${fields(i).map(f=>`<dt>${f[0]}</dt><dd>${esc(f[1])}</dd>`).join('')}</dl>${detailBody(i)}`;}
+ $('#panel').classList.toggle('on',!!cur);$('#scrim').classList.toggle('on',!!cur);
+}
+document.addEventListener('click',e=>{const o=e.target.closest('[data-open]');if(o&&!e.target.closest('.dcard')){e.preventDefault();cur=o.dataset.open;render();$('#panel .x').focus();return;}
+ if(e.target.closest('.x')||e.target.id==='scrim'){cur=null;render();}
+ const f=e.target.closest('[data-f]');if(f){flt[f.dataset.f]=!flt[f.dataset.f];render();}
+ if(e.target.closest('#pbtn')){pm=!pm;render();}else if(!e.target.closest('.menu')&&pm){pm=false;render();}
+ if(e.target.closest('#theme')){H.dataset.theme=H.dataset.theme==='dark'?'light':'dark';}
+ if(e.target.closest('#dir')){const ar=H.lang!=='ar';H.lang=ar?'ar':'en';H.dir=ar?'rtl':'ltr';render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){cur=null;pm=false;render();}if(e.key==='Enter'&&e.target.matches('tr.r')){cur=e.target.dataset.open;render();}});
+addEventListener('hashchange',()=>{view=location.hash.slice(1)||'board';render();});
+const rr=()=>{const y=scrollY;render();};
+wireDec(document.body,rr);wireReport(document.body,rr);
+render();
+</script>
+</body></html>

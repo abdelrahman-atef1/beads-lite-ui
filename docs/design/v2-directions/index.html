@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beads board: 3 design directions</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1d2326;--muted:#5b666b;--card:#fff;--border:#ddd;--a:#0052cc}
+@media (prefers-color-scheme:dark){:root{--bg:#141719;--fg:#dde3e6;--muted:#97a3a8;--card:#1d2224;--border:#333b3f;--a:#6ea8ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;padding:24px;max-width:1100px;margin-inline:auto}
+h1{margin:0 0 4px}.sub{color:var(--muted);margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.c{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.c h2{margin:0;font-size:18px}.tag{color:var(--muted);font-size:13px}
+.c a.go{display:inline-block;background:var(--a);color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:600;margin-block-start:auto;align-self:flex-start}
+.links{font-size:13px;color:var(--muted)}.links a{color:var(--a)}
+table{width:100%;border-collapse:collapse;margin-block-start:24px;background:var(--card);border:1px solid var(--border)}
+th,td{padding:8px 12px;border-block-end:1px solid var(--border);text-align:start;vertical-align:top}th{font-size:13px;color:var(--muted)}
+.tw{overflow-x:auto}ul{padding-inline-start:18px;margin:0}
+</style></head>
+<body>
+<h1>Beads board: 3 design directions</h1>
+<p class="sub">Each file is self-contained (open it directly). Every one has Board, Backlog, Decision inbox with option buttons and the clarification thread, project switcher with counts, issue detail, a phone report screen, Arabic RTL and dark mode. Try: Inbox, press the ? beside a part of the question or an option, send, and watch the agent reply on the card.</p>
+<div class="grid">
+<div class="c"><h2>A. Jira-classic</h2><span class="tag">Familiar, safe, roomy</span>
+<ul><li>Top bar, tabs, five status columns</li><li>Project dropdown with counts</li><li>Detail slides in as a side panel</li></ul>
+<div class="links">Open: <a href="a.html#board">board</a> · <a href="a.html#backlog">backlog</a> · <a href="a.html#inbox">decisions</a> · <a href="a.html#report">report</a></div><a class="go" href="a.html#board">Open A</a></div>
+<div class="c"><h2>B. Linear-style</h2><span class="tag">Dense, keyboard-first</span>
+<ul><li>Sidebar with all projects and counts always visible</li><li>j/k, Enter, g+key, Cmd/Ctrl+K palette</li><li>Decisions: press 1-9 to choose, ? to ask</li></ul>
+<div class="links">Open: <a href="b.html#board">board</a> · <a href="b.html#backlog">backlog</a> · <a href="b.html#inbox">decisions</a> · <a href="b.html#report">report</a></div><a class="go" href="b.html#board">Open B</a></div>
+<div class="c"><h2>C. Decisions first</h2><span class="tag">Built for running AI agents</span>
+<ul><li>Home is what needs you, plus live agent rail</li><li>Board columns show who holds the next move</li><li>Backlog by epic with progress</li></ul>
+<div class="links">Open: <a href="c.html#inbox">decisions</a> · <a href="c.html#board">board</a> · <a href="c.html#backlog">backlog</a> · <a href="c.html#report">report</a></div><a class="go" href="c.html#inbox">Open C</a></div>
+</div>
+<div class="tw"><table><thead><tr><th></th><th>A Jira-classic</th><th>B Linear-style</th><th>C Decisions first</th></tr></thead><tbody>
+<tr><th>Best for</th><td>Zero learning curve</td><td>Daily power use at a desk</td><td>Owner who mostly answers agents</td></tr>
+<tr><th>First screen</th><td>Board</td><td>Board (Inbox one key away)</td><td>Decisions + agent activity</td></tr>
+<tr><th>Phone</th><td>Tabs scroll; Report tab and button</td><td>Drawer menu; floating Report button</td><td>Best: single column, big tap targets</td></tr>
+<tr><th>Density</th><td>Medium</td><td>High</td><td>Low, large type</td></tr>
+<tr><th>Weakness</th><td>Decisions are one tab among many</td><td>Keyboard shortcuts mean little on a phone</td><td>Board is secondary, fewer power filters</td></tr>
+</tbody></table></div>
+<p class="sub" style="margin-block-start:16px">Cost note: all mock data is local; no server calls. The report image is shrunk to about 1280 px JPEG on the phone before upload. The clarification reply is simulated here (1.4 s); in production the agent is woken and answers on the card.</p>
+</body></html>
