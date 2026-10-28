@@ -1,1 +1,25 @@
-/* priority: filled by its own task (board v2). Empty on purpose; one owner per file. */
+/* Priority icon (createPriorityBadge). Colour per level from tokens --p0..--p4;
+   shape carries the meaning too (square !, 3/2/1 bars, dashed). */
+.priority-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  vertical-align: middle;
+  color: var(--p2);
+}
+.priority-icon.is-p0 {
+  color: var(--p0);
+}
+.priority-icon.is-p1 {
+  color: var(--p1);
+}
+.priority-icon.is-p2 {
+  color: var(--p2);
+}
+.priority-icon.is-p3 {
+  color: var(--p3);
+}
+.priority-icon.is-p4 {
+  color: var(--p4);
+}
