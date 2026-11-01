@@ -15,6 +15,7 @@ import {
   getAvailableWorkspaces,
   registerWorkspace
 } from './registry-watcher.js';
+import { renderServiceWorker } from './sw.js';
 import { prewarmCounts } from './workspace-counts.js';
 
 /**
@@ -159,6 +160,19 @@ export function createApp(config, door = 'pc') {
     res.type('html').send(html);
   };
   app.get(['/', '/index.html'], sendIndex);
+
+  // Service worker (installable board). Generated per request so its bytes
+  // change with every build; never kept by the browser's HTTP cache.
+  /**
+   * @param {Request} _req
+   * @param {Response} res
+   */
+  app.get('/sw.js', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res
+      .type('application/javascript')
+      .send(renderServiceWorker(config.app_dir));
+  });
 
   // Static assets from /app
   app.use(express.static(config.app_dir));

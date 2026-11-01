@@ -9,6 +9,7 @@ import { createSubscriptionIssueStores } from './data/subscription-issue-stores.
 import { createSubscriptionStore } from './data/subscriptions-store.js';
 import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
+import { registerServiceWorker } from './sw-register.js';
 import { createStore } from './state.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
 import { createFilterState } from './utils/board-filter.js';
@@ -1309,6 +1310,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const app_root = document.getElementById('app');
     if (app_root) {
       bootstrap(app_root);
+      registerServiceWorker();
     }
   });
 }
