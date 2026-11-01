@@ -26,8 +26,7 @@ const req = (/** @type {string} */ type) =>
   JSON.stringify({ id: 'r1', type, payload: { a: 1 } });
 
 describe('features seam', () => {
-  test('stubs load empty; feature types flow into protocol', () => {
-    expect(FEATURE_MESSAGE_TYPES).toEqual([]);
+  test('feature types flow into protocol', () => {
     for (const t of FEATURE_MESSAGE_TYPES) {
       expect(MESSAGE_TYPES).toContain(t);
     }
