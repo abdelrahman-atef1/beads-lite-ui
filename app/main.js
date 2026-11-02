@@ -527,13 +527,10 @@ export function bootstrap(root_element) {
      * @param {string} type
      * @param {unknown} payload
      */
-    const transport = async (type, payload) => {
-      try {
-        return await tracked_send(/** @type {MessageType} */ (type), payload);
-      } catch {
-        return [];
-      }
-    };
+    const transport = (type, payload) =>
+      // Reject on failure: callers (detail saves, answers, drag) show the
+      // server's reason. Swallowing it here hid every failed save.
+      tracked_send(/** @type {MessageType} */ (type), payload);
     // Top navigation (optional mount)
     if (nav_mount) {
       createTopNav(nav_mount, store, router, sub_issue_stores);
