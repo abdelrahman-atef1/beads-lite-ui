@@ -59,12 +59,11 @@ describe('views/decisions', () => {
     ).toEqual(['D-1', 'T-1']);
   });
 
-  test('a desk card shows the PC-only strip and no buttons', async () => {
+  test('a former desk card has no PC-only strip and shows its real title', async () => {
     const { mount, view } = setup([DESK]);
     await view.load();
-    expect(mount.querySelector('.qcard__desk')).not.toBeNull();
-    expect(mount.querySelectorAll('.opts button').length).toBe(0);
-    expect(mount.textContent).not.toContain('Accept the risk');
+    expect(mount.querySelector('.qcard__desk')).toBeNull();
+    expect(mount.textContent).toContain('Accept the risk');
   });
 
   test('empty queue says so instead of showing a zero', async () => {

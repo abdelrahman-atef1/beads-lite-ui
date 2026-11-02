@@ -112,7 +112,7 @@ describe('notifications bell', () => {
     expect(rows[1].textContent).toContain('Answer to your question: Provider');
   });
 
-  test('desk item shows pointer only and does not navigate', async () => {
+  test('desk item shows the server pointer text but opens the bead', async () => {
     const c = fakeClient();
     mountBell(el, { client: c });
     await tick();
@@ -122,7 +122,7 @@ describe('notifications bell', () => {
     expect(desk?.textContent).toContain('A decision waits at the PC (company)');
     expect(desk?.textContent).not.toContain('Tax');
     /** @type {HTMLElement} */ (desk).click();
-    expect(location.hash).toBe('');
+    expect(location.hash).toContain('#/issues?issue=');
     expect(c.sent.some(([t]) => t === T_READ)).toBe(true);
   });
 

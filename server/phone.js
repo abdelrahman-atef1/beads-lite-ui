@@ -1,6 +1,13 @@
 /**
  * Phone door rules (ADR 0001 section 2; SEC B3, B4).
  *
+ * FULL CONTROL (owner 2026-11-02, company-1bo5.6.38): the phone door does
+ * everything the PC door does. The request allowlist, the desk gate and desk
+ * redaction are retired. What stays: the owner-identity/Host/Origin/token
+ * checks in guard.js, and error scrubbing (no paths or bd output) on outbound
+ * frames. The text below describes the retired rules; the helpers remain
+ * exported (isDeskIssue is still used by the notifier push titles).
+ *
  * B3: the phone door accepts an allowlist of request types; anything else is
  *     refused. Types that read or write ONE bead (get-comments, add-comment)
  *     first look the bead up and are refused when it is a desk bead.
@@ -12,7 +19,6 @@
  * one of the R18 labels, card_class=desk, or created by / assigned to sec or
  * legal. Fail closed: an unreadable bead is treated as desk.
  */
-import { runBdJson } from './bd.js';
 
 /** R18 label names, matched exactly (knowledge/decision-card.md). */
 export const DESK_LABELS = new Set([
@@ -31,23 +37,9 @@ export const DESK_LABELS = new Set([
 const DESK_ACTORS = new Set(['sec', 'legal']);
 const POINTER_TITLE = 'قرار ينتظرك';
 const POINTER_NOTE = 'جاوب من الكمبيوتر';
-const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 
-/** Request types a phone socket may send (B3). */
-export const PHONE_REQUEST_TYPES = new Set([
-  'ping',
-  'subscribe-list',
-  'unsubscribe-list',
-  'get-comments',
-  'add-comment',
-  'create-issue',
-  'list-workspaces',
-  'get-workspace'
-]);
-/** Feature-seam types that opted in with registerHandler(..., {phone:true}). */
+/** Feature types that registered with {phone:true} (informational only: the phone door allows all). */
 const PHONE_FEATURE_TYPES = new Set();
-/** Request types that name one bead and are refused on a desk bead. */
-const PER_BEAD_TYPES = new Set(['get-comments', 'add-comment']);
 
 /** @param {string} type */
 export function allowPhoneFeatureType(type) {
@@ -174,6 +166,16 @@ function redactNested(x) {
  * @returns {any}
  */
 export function redactIssue(issue) {
+  return issue;
+}
+
+/**
+ * The retired desk redaction, kept for reference and tests.
+ *
+ * @param {any} issue
+ * @returns {any}
+ */
+export function redactIssueDesk(issue) {
   if (!issue || typeof issue !== 'object') {
     return issue;
   }
@@ -203,28 +205,13 @@ const ERROR_TEXT = {
   pc_only: 'Answer at the PC'
 };
 
-// Reply/event types a phone socket may receive, with how each is scrubbed.
-const OK_PASS = new Set([
-  'ping',
-  'subscribe-list',
-  'unsubscribe-list',
-  'add-comment',
-  'create-issue',
-  'list-workspaces',
-  'get-workspace',
-  'delete' // subscription delete envelope: ids only
-]);
-const PHONE_FEATURE_REPLY_TYPES = PHONE_FEATURE_TYPES;
-
 /**
  * The one redact chokepoint (B4). Returns the string to send, or null to drop.
- * `clean_comment_ids` holds request ids whose bead the gate proved non-desk.
  *
  * @param {string} raw  JSON text of the frame.
- * @param {Set<string>} clean_comment_ids
  * @returns {string | null}
  */
-export function redactFrame(raw, clean_comment_ids) {
+export function redactFrame(raw) {
   /** @type {any} */
   let msg;
   try {
@@ -237,43 +224,34 @@ export function redactFrame(raw, clean_comment_ids) {
   }
   const { id, type } = msg;
   if (msg.ok === false) {
+    // Errors keep their code and a short message, but never a path, stack or
+    // bd output (those stay in the server log).
+    const raw_code = msg.error?.code;
     const code =
-      typeof msg.error?.code === 'string' && msg.error.code in ERROR_TEXT
-        ? msg.error.code
+      typeof raw_code === 'string' && /^[a-z_]{1,32}$/.test(raw_code)
+        ? raw_code
         : 'bd_error';
+    const raw_msg = msg.error?.message;
+    const safe =
+      typeof raw_msg === 'string' &&
+      raw_msg.length <= 160 &&
+      !/[\\/\n]|[A-Za-z]:/.test(raw_msg);
     return JSON.stringify({
       id,
       ok: false,
       type,
       error: {
         code,
-        message: ERROR_TEXT[/** @type {keyof typeof ERROR_TEXT} */ (code)]
+        message: safe
+          ? raw_msg
+          : ERROR_TEXT[/** @type {keyof typeof ERROR_TEXT} */ (code)] ||
+            ERROR_TEXT.bd_error
       }
     });
   }
-  if (type === 'snapshot' && Array.isArray(msg.payload?.issues)) {
-    return JSON.stringify({
-      ...msg,
-      payload: { ...msg.payload, issues: msg.payload.issues.map(redactIssue) }
-    });
-  }
-  if (type === 'upsert' && msg.payload?.issue) {
-    return JSON.stringify({
-      ...msg,
-      payload: { ...msg.payload, issue: redactIssue(msg.payload.issue) }
-    });
-  }
-  if (type === 'get-comments') {
-    // Comments carry no labels: pass only when the gate looked the bead up.
-    if (!clean_comment_ids.delete(id)) {
-      return null;
-    }
-    return JSON.stringify(msg);
-  }
-  if (OK_PASS.has(type) || PHONE_FEATURE_REPLY_TYPES.has(type)) {
-    return JSON.stringify(msg);
-  }
-  return null;
+  // Full control: every other frame (snapshots, upserts, comments, feature
+  // replies and pushed events) passes unchanged.
+  return JSON.stringify(msg);
 }
 
 /**
@@ -284,72 +262,10 @@ export function redactFrame(raw, clean_comment_ids) {
 export function installPhoneSocket(ws) {
   const raw_send = ws.send.bind(ws);
   ws.door = 'phone';
-  ws.cleanComments = new Set();
   ws.send = (/** @type {any} */ data, /** @type {any[]} */ ...rest) => {
-    const out = redactFrame(String(data), ws.cleanComments);
+    const out = redactFrame(String(data));
     if (out !== null) {
       raw_send(out, ...rest);
     }
   };
-}
-
-/**
- * Gate a request on a phone socket. Returns null when allowed, else an error
- * code to reply with.
- *
- * @param {any} ws
- * @param {{ id: string, type: string, payload?: any }} req
- * @param {{ cwd?: string }} bd_options
- * @returns {Promise<string | null>}
- */
-export async function phoneGate(ws, req, bd_options) {
-  if (
-    !PHONE_REQUEST_TYPES.has(req.type) &&
-    !PHONE_FEATURE_TYPES.has(req.type)
-  ) {
-    return 'forbidden';
-  }
-  if (req.type === 'create-issue') {
-    // The phone files plain tasks only; no labels or assignee are passed on.
-    return null;
-  }
-  if (PER_BEAD_TYPES.has(req.type)) {
-    const bead = req.payload?.id;
-    if (
-      typeof bead !== 'string' ||
-      !BEAD_ID_RE.test(bead) ||
-      bead.length > 64
-    ) {
-      return 'bad_request';
-    }
-    const desk = await beadIsDesk(bead, bd_options);
-    if (desk) {
-      return 'pc_only';
-    }
-    if (req.type === 'get-comments') {
-      ws.cleanComments.add(req.id);
-    }
-  }
-  return null;
-}
-
-/**
- * True unless the bead was read and is not desk (fail closed).
- *
- * @param {string} bead
- * @param {{ cwd?: string }} bd_options
- * @returns {Promise<boolean>}
- */
-export async function beadIsDesk(bead, bd_options) {
-  try {
-    const r = await runBdJson(['show', bead, '--json'], bd_options);
-    if (r.code !== 0) {
-      return true;
-    }
-    const j = /** @type {any} */ (r.stdoutJson);
-    const issue = Array.isArray(j) ? j[0] : j;
-    return !issue || issue.id !== bead || isDeskIssue(issue);
-  } catch {
-    return true;
-  }
 }

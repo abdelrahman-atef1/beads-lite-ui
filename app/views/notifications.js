@@ -216,7 +216,7 @@ export function mountBell(el, opts = {}) {
   /** @param {Item} it */
   function openItem(it) {
     markRead([it.key]);
-    if (it.desk || !it.bead) return; // pointer only: the bead is handled at the PC
+    if (!it.bead) return;
     close();
     location.hash = '#/issues?issue=' + encodeURIComponent(it.bead);
   }

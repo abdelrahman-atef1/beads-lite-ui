@@ -168,13 +168,25 @@ export function meta(it, key) {
   return '';
 }
 
+const DESK_RETIRED = true;
+
 /**
- * Whether the card is a desk (PC-only) decision.
+ * Whether the card is a desk (PC-only) decision. Always false now.
  *
  * @param {BoardIssue} it
  * @returns {boolean}
  */
 export function isDesk(it) {
+  // Desk class retired (owner 2026-11-02, company-1bo5.6.38): every decision
+  // can be answered from the phone. Kept so callers need no change.
+  if (!DESK_RETIRED) {
+    return deskByRules(it);
+  }
+  return false;
+}
+
+/** @param {BoardIssue} it */
+function deskByRules(it) {
   if (meta(it, 'card_class') === 'desk') {
     return true;
   }

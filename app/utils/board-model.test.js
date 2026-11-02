@@ -26,14 +26,14 @@ describe('utils/board-model', () => {
     expect(other.map((i) => i.id).sort()).toEqual(['c', 'e']);
   });
 
-  test('isDesk by card_class or by an exact never-by-phone label', () => {
-    expect(isDesk({ id: 'x', metadata: { card_class: 'desk' } })).toBe(true);
-    expect(isDesk({ id: 'x', labels: ['security'] })).toBe(true);
+  test('isDesk is retired: no card is PC-only (company-1bo5.6.38)', () => {
+    expect(isDesk({ id: 'x', metadata: { card_class: 'desk' } })).toBe(false);
+    expect(isDesk({ id: 'x', labels: ['security'] })).toBe(false);
     expect(isDesk({ id: 'x', labels: ['sec'] })).toBe(false);
     expect(isDesk({ id: 'x', metadata: { card_class: 'tap' } })).toBe(false);
   });
 
-  test('displayTitle: Arabic first, neutral title on desk cards', () => {
+  test('displayTitle: Arabic first, real title also on former desk cards', () => {
     expect(
       displayTitle({ id: 'x', title: 'Eng', metadata: { title_ar: 'عربي' } })
     ).toEqual({ primary: 'عربي', secondary: 'Eng' });
@@ -51,7 +51,7 @@ describe('utils/board-model', () => {
           title_ar: 'يكشف الضعف'
         }
       })
-    ).toEqual({ primary: 'قرار قانوني', secondary: '' });
+    ).toEqual({ primary: 'يكشف الضعف', secondary: 'Secret weakness' });
   });
 
   test('cardOptions parses, bounds and survives bad JSON', () => {
