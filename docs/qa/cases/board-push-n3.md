@@ -67,3 +67,15 @@ delivery to a real phone / FCM (needs deploy + owner's subscribe tap).
 - W6 Lost phone: Settings on the PC door lists subscriptions (label, created, last ok) with Remove; removal stops pushes to that phone.
 - W9 Caps fail closed: unreadable counter file = no push; 5xx tried once, no loop, subscription kept.
 - K6 Lost key (ADR: "re-subscribe once"): after the board's VAPID key changes, "Turn on" on a phone holding an old-key subscription must subscribe again.
+
+## Mapping (added after the cases; scripts in tools/e2e/push-n3/, run command in the bead verdict)
+unit.mjs = in-process, real web-push + decrypt, fake clock. board.e2e.mjs = real board, copy stores. sw.e2e.mjs = served sw.js in vm + headless Chrome.
+- B1 board.e2e B1 | B2 same as B1 (cwd project) | B3 board.e2e B3, B3p | B4 board.e2e B4 (+FIX-* checks the fixtures with the real card core) | B5 board.e2e B5 | B6 board.e2e B6, B6a, B6p
+- S1 unit S1, board.e2e S1 | S2 unit S2, board.e2e S2e | S3 unit S3, S3b, board.e2e S3e | S4 unit S4, S4b-d, board.e2e S4e | S5 unit S5 | S6 board.e2e S6 | S7 sw.e2e R5 (row visible, no overflow); denied/unsupported wording covered by swe's app test only
+- C1 unit C1, board.e2e C1e | C2 unit C2a-e, board.e2e C2e2, C2f | C3 unit C3, board.e2e C3e | C4 unit C4a-d | C5 unit C5, board.e2e C5e | C6 unit C6, C6b | C7 unit C7, board.e2e C7e | C8 board.e2e B5 | C9 NOT COVERED (answer event: needs a card_state=explained fixture; swe's notifier test covers it) | C10 board.e2e C10, B6
+- P1 unit P1, board.e2e P1e | P2 unit P2, board.e2e P2e | P3 unit P3, board.e2e P3e, W3b, sw.e2e P3s | P4 unit P4a, sw.e2e P4, T4 | P5 unit P5, P5b, board.e2e P5e
+- K1 board.e2e K1, K1b | K2 unit K2, K2b, K2c, board.e2e K2e | K3 board.e2e K3a-d | K4 unit K4, K4b | K5 board.e2e K5
+- T1 sw.e2e T1, T1e | T2 sw.e2e T2, T2b, T2c | T3 sw.e2e T3, T3b | T4 sw.e2e T4, T4b, T4c
+- R1 `vitest run` of the 7 affected files alone (44/45; the 1 failure is notifier W3 desk-class test, fails on base 59470c7 too); full suite queued behind the heavy key, NOT YET EXERCISED | R2 sw.e2e R2, R2b | R3 sw.e2e R3, R3b, T5 | R4 sw.e2e R4 | R5 sw.e2e R5
+- Addendum: W1 unit W1a-c | W3 board.e2e W3b, W3c (NOT EXERCISED: card-core gate retired) | W6 unit W6 | W9 unit W9, W9b, W9c | K6 unit K6
+- Not covered, with reason: real phone delivery (needs deploy + owner's subscribe tap); real FCM; iOS; slow-3G throttle of the bell panel (no network-bound step added: push row is local); C9.

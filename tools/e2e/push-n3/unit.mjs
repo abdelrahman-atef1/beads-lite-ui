@@ -291,4 +291,10 @@ function newPushes(subs) {
   R.check('C6b', 'a hung push service (no answer) leaves other sends unaffected; web-push timeout (10 s) bounds it', secondStarted);
 }
 R.check('F1', 'atomic file writes (tmp + rename) never fail with EPERM on this PC', epermCount === 0, 'EPERM on rename: ' + epermCount + ' times during the run (harness retried)');
+{
+  // W6: is there any way on the PC board to see / remove a phone's subscription?
+  const src = [path.join(ROOT, 'server/features/push.js'), path.join(ROOT, 'app/views/notifications.js'), path.join(ROOT, 'app/push-client.js')].map((f) => fs.readFileSync(f, 'utf8')).join(' ');
+  const hasList = /push-(list|remove)/.test(src);
+  R.check('W6', 'SEC W6 (blocking): PC board lists push subscriptions (label, created, last ok) with Remove, so a lost phone can be cut off', hasList, hasList ? '' : 'no push-list / push-remove handler and no Settings list in the code: only the phone itself can unsubscribe (push-unsubscribe needs the endpoint, which no UI shows)');
+}
 R.save();

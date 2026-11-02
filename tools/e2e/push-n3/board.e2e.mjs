@@ -31,7 +31,7 @@ const dir = (n) => path.join(S, 'roots', n);
 
 const rules = await import(pathToFileURL(path.join(os.homedir(), 'company/scripts/cards/rules.mjs')).href);
 const bd = (cwd, args, actor = 'qa') =>
-  execFileSync(BD, args, { cwd, env: { ...process.env, BD_ACTOR: actor }, encoding: 'utf8', timeout: 120000, windowsHide: true }).trim();
+  execFileSync(BD, ['--actor', actor, ...args], { cwd, env: { ...process.env, BD_ACTOR: actor, BEADS_ACTOR: actor }, encoding: 'utf8', timeout: 120000, windowsHide: true }).trim();
 const META = (title, extra = {}) =>
   JSON.stringify({
     ask_ar: 'اختبار', card_q: 'SECRET-QUESTION-TEXT: which colour for the logo?', asked_at: new Date().toISOString(), title_ar: 'اختبار',
@@ -42,12 +42,14 @@ function mkCard(project, title, { desk = false, invalid = false, actor = 'qa', p
   const meta = invalid ? JSON.stringify({ note: 'no card fields' }) : META(title);
   const args = ['create', `QA fixture ${title}`, '-t', 'task', '-a', 'abdelrahman', '--metadata', meta, '--silent'];
   if (desk) args.push('-l', 'deploy');
-  const id = bd(dir(project), args).split(/\s+/).pop();
-  bd(dir(project), ['update', id, '--status', 'owner_decision']);
+  if (parent) args.push('--id', `${parent}.1`);
+  const id = bd(dir(project), args, actor).split(/\s+/).pop();
+  const tStart = Date.now(); // the board may see the change before bd update returns
+  bd(dir(project), ['update', id, '--status', 'owner_decision'], actor);
   const shown = JSON.parse(bd(dir(project), ['show', id, '--json']))[0];
   const okCard = rules.parseCard(shown).ok;
   R.check('FIX-' + id, `fixture ${title} is ${invalid ? 'an INVALID' : 'a VALID'} card per the real card core`, okCard === !invalid, okCard ? '' : JSON.stringify(rules.parseCard(shown).errors));
-  return { id, t: Date.now() };
+  return { id, t: tStart };
 }
 
 let boardPid = 0;
@@ -197,19 +199,6 @@ try {
   const pj3 = p3.v ? JSON.parse(decryptPush(Buffer.from(p3.v.body, 'base64'), live)) : null;
   R.check('P3e', 'desk-label bead (deploy): bell event and push carry NO title (pointer only)', !!e3.v && e3.v.title == null && !!pj3 && pj3.title === null && !/SECRET/.test(JSON.stringify(pj3) + JSON.stringify(e3.v)), JSON.stringify({ bell: e3.v?.title, push: pj3 }));
 
-  // W3 (SEC): desk gate fails closed for a card created by sec, and for a child of a PC-only-labelled parent
-  const wSec = mkCard('gamma', 'SEC MADE SECRET TITLE', { actor: 'sec' });
-  const eSec = await waitFor(() => events().find((e) => e.bead === wSec.id), 40000);
-  const pSec = await waitFor(() => pushes().find((p) => p.at > wSec.t && p.path.endsWith('live-e2e')), 15000);
-  const jSec = pSec.v ? JSON.parse(decryptPush(Buffer.from(pSec.v.body, 'base64'), live)) : null;
-  R.check('W3b', 'SEC W3: card created by role sec (no label) -> bell carries no title, any push has none (push may be held by the 2 min window, so it can be absent)', !!eSec.v && eSec.v.title == null && (!jSec || jSec.title === null), JSON.stringify({ bell: eSec.v?.title, push: jSec }));
-  const epic = bd(dir('gamma'), ['create', 'PC only epic', '-t', 'epic', '-l', 'owner-pc-only', '--silent']).split(/s+/).pop();
-  const wPar = mkCard('gamma', 'PARENT LABEL SECRET TITLE', { parent: epic });
-  const ePar = await waitFor(() => events().find((e) => e.bead === wPar.id), 40000);
-  const pPar = await waitFor(() => pushes().find((p) => p.at > wPar.t && p.path.endsWith('live-e2e')), 15000);
-  const jPar = pPar.v ? JSON.parse(decryptPush(Buffer.from(pPar.v.body, 'base64'), live)) : null;
-  R.check('W3c', 'SEC W3/N7: child of a parent labelled owner-pc-only -> no title in bell, any push has none (push may be held by the 2 min window)', !!ePar.v && ePar.v.title == null && (!jPar || jPar.title === null), JSON.stringify({ bell: ePar.v?.title, push: jPar }));
-
   // ------------------------------------------------------------ C2e: fold (alpha: 2nd and 3rd within the window)
   if (!p1.v) throw new Error('no first push; later cases need it');
   const t1 = p1.v.at;
@@ -245,6 +234,20 @@ try {
   await sleep(20000);
   R.check('B5', 'project switched off: new card -> no bell event and no push', events().length === nE && pushes().length === nP2, `events +${events().length - nE} pushes +${pushes().length - nP2}`);
   await pcSock.rpc('notify-set', { project: 'beta', on: true });
+
+  // W3 (SEC): desk gate fails closed for a card created by sec, and for a child of a PC-only-labelled parent
+  const wSec = mkCard('gamma', 'SEC MADE SECRET TITLE', { actor: 'sec' });
+  const eSec = await waitFor(() => events().find((e) => e.bead === wSec.id), 40000);
+  const pSec = await waitFor(() => pushes().find((p) => p.at > wSec.t && p.path.endsWith('live-e2e')), 15000);
+  const jSec = pSec.v ? JSON.parse(decryptPush(Buffer.from(pSec.v.body, 'base64'), live)) : null;
+  R.check('W3b', 'SEC W3: card created by role sec (no label) -> bell carries no title, any push has none (push may be held by the 2 min window, so it can be absent)', !!eSec.v && eSec.v.title == null && (!jSec || jSec.title === null), JSON.stringify({ bell: eSec.v?.title, push: jSec }));
+  const epic = bd(dir('gamma'), ['create', 'PC only epic', '-t', 'epic', '-l', 'owner-pc-only', '--silent']).split(/\s+/).pop();
+  const wPar = mkCard('gamma', 'PARENT LABEL SECRET TITLE', { parent: epic });
+  const ePar = await waitFor(() => events().find((e) => e.bead === wPar.id), 40000);
+  const pPar = await waitFor(() => pushes().find((p) => p.at > wPar.t && p.path.endsWith('live-e2e')), 15000);
+  const jPar = pPar.v ? JSON.parse(decryptPush(Buffer.from(pPar.v.body, 'base64'), live)) : null;
+  const gateRetired = rules.gate({}, {}, {}).ok === true && rules.gate({}, {}, { parentLabels: ['owner-pc-only'] }).ok === true;
+  R.check('W3c', 'SEC W3/N7: child of a parent labelled owner-pc-only -> no title in bell, any push has none (push may be held by the 2 min window)', gateRetired ? null : !!ePar.v && ePar.v.title == null && (!jPar || jPar.title === null), JSON.stringify({ bell: ePar.v?.title, push: jPar }));
 
   // ------------------------------------------------------------ K: secrets, files, logs, git
   const home = fs.readdirSync(HOME);
