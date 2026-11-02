@@ -7,7 +7,7 @@ export default defineConfig({
         test: {
           name: 'node',
           include: ['**/*.test.js'],
-          exclude: ['app/**/*.test.js', 'node_modules/**'],
+          exclude: ['app/**/*.test.js', 'node_modules/**', '.work/**'],
           environment: 'node',
           restoreMocks: true
         }

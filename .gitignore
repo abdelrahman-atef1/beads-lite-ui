@@ -8,3 +8,5 @@ app/main.bundle.js.map
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+# Agent worktrees, scratch, logs (company-iwmg.8)
+/.work/
