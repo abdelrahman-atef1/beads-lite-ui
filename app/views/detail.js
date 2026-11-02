@@ -13,6 +13,16 @@ import {
   statusOptions
 } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
+
+/**
+ * Build a failure message that includes the server reason.
+ * @param {string} base
+ * @param {any} err
+ */
+function failMsg(base, err) {
+  const reason = String(err?.message || err || '').trim();
+  return reason ? `${base}: ${reason}` : base;
+}
 import { createTypeBadge } from '../utils/type-badge.js';
 
 /**
@@ -292,7 +302,7 @@ export function createDetailView(
       }
     } catch (err) {
       log('delete failed: %o', err);
-      showToast('Failed to delete issue', 'error');
+      showToast(failMsg('Failed to delete issue', err), 'error', 8000);
     }
   }
 
@@ -632,7 +642,7 @@ export function createDetailView(
       current.assignee = prev;
       edit_assignee = false;
       doRender();
-      showToast('Failed to update assignee', 'error');
+      showToast(failMsg('Failed to update assignee', err), 'error', 8000);
     } finally {
       pending = false;
     }
@@ -681,7 +691,7 @@ export function createDetailView(
       }
     } catch (err) {
       log('add label failed %s %o', String(current.id), err);
-      showToast('Failed to add label', 'error');
+      showToast(failMsg('Failed to add label', err), 'error', 8000);
     } finally {
       pending = false;
     }
@@ -706,7 +716,7 @@ export function createDetailView(
       }
     } catch (err) {
       log('remove label failed %s %o', String(current?.id || ''), err);
-      showToast('Failed to remove label', 'error');
+      showToast(failMsg('Failed to remove label', err), 'error', 8000);
     } finally {
       pending = false;
     }
@@ -742,7 +752,7 @@ export function createDetailView(
       log('update status failed %s %o', String(current.id), err);
       current.status = prev;
       doRender();
-      showToast('Failed to update status', 'error');
+      showToast(failMsg('Failed to update status', err), 'error', 8000);
     } finally {
       pending = false;
     }
@@ -778,7 +788,7 @@ export function createDetailView(
       log('update priority failed %s %o', String(current.id), err);
       current.priority = prev;
       doRender();
-      showToast('Failed to update priority', 'error');
+      showToast(failMsg('Failed to update priority', err), 'error', 8000);
     } finally {
       pending = false;
     }
@@ -1738,7 +1748,7 @@ export function createDetailView(
         }
       } catch (err) {
         log('dep-add failed %o', err);
-        showToast('Failed to add dependency', 'error');
+        showToast(failMsg('Failed to add dependency', err), 'error', 8000);
       } finally {
         pending = false;
       }

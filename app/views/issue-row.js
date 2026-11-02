@@ -11,6 +11,7 @@ import {
   statusLabel,
   statusOptions
 } from '../utils/status.js';
+import { showToast } from '../utils/toast.js';
 
 /**
  * @typedef {{ id: string, title?: string, status?: string, priority?: number, issue_type?: string, assignee?: string, dependency_count?: number, dependent_count?: number }} IssueRowData
@@ -31,7 +32,32 @@ import {
  */
 export function createIssueRowRenderer(options) {
   const navigate = options.navigate;
-  const on_update = options.onUpdate;
+  const raw_update = options.onUpdate;
+  /**
+   * Run an update; on failure toast the server's reason and report false so
+   * the caller keeps the user's input / reverts the optimistic control.
+   *
+   * @param {string} id
+   * @param {{ [k:string]: any }} patch
+   * @returns {Promise<boolean>}
+   */
+  async function on_update(id, patch) {
+    try {
+      await raw_update(id, patch);
+      return true;
+    } catch (err) {
+      const what = Object.keys(patch)[0] || 'change';
+      const reason = String(
+        /** @type {any} */ (err)?.message || err || ''
+      ).trim();
+      showToast(
+        reason ? `Failed to save ${what}: ${reason}` : `Failed to save ${what}`,
+        'error',
+        8000
+      );
+      return false;
+    }
+  }
   const request_render = options.requestRender;
   const get_selected_id = options.getSelectedId || (() => null);
   const row_class = options.row_class || 'issue-row';
@@ -62,8 +88,8 @@ export function createIssueRowRenderer(options) {
               } else if (e.key === 'Enter') {
                 const el = /** @type {HTMLInputElement} */ (e.currentTarget);
                 const next = el.value || '';
-                if (next !== value) {
-                  await on_update(id, { [key]: next });
+                if (next !== value && !(await on_update(id, { [key]: next }))) {
+                  return; // failed: stay in edit mode with the typed text
                 }
                 editing.delete(k);
                 request_render();
@@ -74,8 +100,8 @@ export function createIssueRowRenderer(options) {
             /** @param {Event} ev */ async (ev) => {
               const el = /** @type {HTMLInputElement} */ (ev.currentTarget);
               const next = el.value || '';
-              if (next !== value) {
-                await on_update(id, { [key]: next });
+              if (next !== value && !(await on_update(id, { [key]: next }))) {
+                return; // failed: stay in edit mode with the typed text
               }
               editing.delete(k);
               request_render();
@@ -114,16 +140,20 @@ export function createIssueRowRenderer(options) {
   /**
    * @param {string} id
    * @param {'priority'|'status'|'issue_type'} key
+   * @param {string} current - value shown now, restored if the save fails
    * @returns {(ev: Event) => Promise<void>}
    */
-  function makeSelectChange(id, key) {
+  function makeSelectChange(id, key, current) {
     return async (ev) => {
       const sel = /** @type {HTMLSelectElement} */ (ev.currentTarget);
       const val = sel.value || '';
       /** @type {{ [k:string]: any }} */
       const patch = {};
       patch[key] = key === 'priority' ? Number(val) : val;
-      await on_update(id, patch);
+      if (!(await on_update(id, patch))) {
+        sel.value = current; // revert the optimistic selection
+        request_render();
+      }
     };
   }
 
@@ -160,7 +190,7 @@ export function createIssueRowRenderer(options) {
         <select
           class="badge-select badge--type type-badge--${cur_type || 'neutral'}"
           .value=${cur_type}
-          @change=${makeSelectChange(it.id, 'issue_type')}
+          @change=${makeSelectChange(it.id, 'issue_type', cur_type)}
         >
           ${ISSUE_TYPES.map(
             (t) =>
@@ -175,7 +205,7 @@ export function createIssueRowRenderer(options) {
         <select
           class="badge-select badge--status is-${cur_status}"
           .value=${cur_status}
-          @change=${makeSelectChange(it.id, 'status')}
+          @change=${makeSelectChange(it.id, 'status', cur_status)}
         >
           ${statusOptions(cur_status).map(
             (s) =>
@@ -201,7 +231,7 @@ export function createIssueRowRenderer(options) {
           <select
             class="badge-select badge--priority ${'is-p' + cur_prio}"
             .value=${cur_prio}
-            @change=${makeSelectChange(it.id, 'priority')}
+            @change=${makeSelectChange(it.id, 'priority', cur_prio)}
           >
             ${priority_levels.map(
               (p, i) =>

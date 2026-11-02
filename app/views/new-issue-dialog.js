@@ -230,9 +230,12 @@ export function createNewIssueDialog(mount_element, sendFn, router, store) {
     setBusy(true);
     try {
       await sendFn('create-issue', payload);
-    } catch {
+    } catch (err) {
       setBusy(false);
-      setError('Failed to create issue');
+      const reason = String(/** @type {any} */ (err)?.message || '').trim();
+      setError(
+        reason ? `Failed to create issue: ${reason}` : 'Failed to create issue'
+      );
       return;
     }
 

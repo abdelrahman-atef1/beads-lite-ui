@@ -415,8 +415,9 @@ export function createListView(
    * @param {{ [k: string]: any }} patch
    */
   async function updateInline(id, patch) {
-    try {
+    {
       log('updateInline %s %o', id, Object.keys(patch));
+      // Failures propagate: the row renderer toasts the reason and reverts.
       // Dispatch specific mutations based on provided keys
       if (typeof patch.title === 'string') {
         await sendFn('edit-text', { id, field: 'title', value: patch.title });
@@ -433,8 +434,6 @@ export function createListView(
       if (typeof patch.issue_type === 'string') {
         await sendFn('update-type', { id, type: patch.issue_type });
       }
-    } catch {
-      // ignore failures; UI state remains as-is
     }
   }
 

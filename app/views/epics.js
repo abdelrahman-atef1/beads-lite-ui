@@ -172,13 +172,10 @@ export function createEpicsView(
    * @param {{ [k: string]: any }} patch
    */
   async function updateInline(id, patch) {
-    try {
-      await data.updateIssue({ id, ...patch });
-      // Re-render; view will update on subsequent push
-      doRender();
-    } catch {
-      // swallow; UI remains
-    }
+    // Failures propagate: the row renderer toasts the reason and reverts.
+    await data.updateIssue({ id, ...patch });
+    // Re-render; view will update on subsequent push
+    doRender();
   }
 
   /**
