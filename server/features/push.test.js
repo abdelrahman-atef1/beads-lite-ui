@@ -181,7 +181,7 @@ describe('subscription validation', () => {
     ]);
   });
 
-  test('W6: push-list / push-remove are PC-only handlers, subscribe/unsubscribe stay phone', async () => {
+  test('W6: push-list / push-remove have no phone flag, subscribe/unsubscribe keep it', async () => {
     const { register } = await import('./push.js');
     /** @type {Record<string, any>} */
     const seen = {};
