@@ -8,6 +8,40 @@
 export const T_KEY = 'push-key';
 export const T_SUB = 'push-subscribe';
 export const T_UNSUB = 'push-unsubscribe';
+export const T_PUSH_LIST = 'push-list';
+export const T_PUSH_REMOVE = 'push-remove';
+
+/** Same bytes? A subscription made with another VAPID key is not usable. */
+function sameKey(/** @type {any} */ buf, /** @type {Uint8Array} */ want) {
+  if (!buf) return false;
+  const a = new Uint8Array(buf);
+  return a.length === want.length && a.every((v, i) => v === want[i]);
+}
+
+/** Short device label for the PC list, e.g. "Android Chrome". */
+export function deviceLabel(ua = globalThis.navigator?.userAgent || '') {
+  const os = /Android/i.test(ua)
+    ? 'Android'
+    : /iPhone|iPad/i.test(ua)
+      ? 'iOS'
+      : /Windows/i.test(ua)
+        ? 'Windows'
+        : /Mac/i.test(ua)
+          ? 'Mac'
+          : /Linux/i.test(ua)
+            ? 'Linux'
+            : '';
+  const br = /Edg\//.test(ua)
+    ? 'Edge'
+    : /Firefox\//.test(ua)
+      ? 'Firefox'
+      : /Chrome\//.test(ua)
+        ? 'Chrome'
+        : /Safari\//.test(ua)
+          ? 'Safari'
+          : '';
+  return [os, br].filter(Boolean).join(' ');
+}
 
 /** @param {string} b64 */
 export function keyToBytes(b64) {
@@ -31,10 +65,13 @@ function realEnv() {
 
 /**
  * Push state of this browser: unsupported, denied, off or on. Never throws.
+ * With a client it also checks the subscription was made with the board's
+ * CURRENT key; a stale one reads as off so "Turn on" re-subscribes.
  *
  * @param {Env} [env]
+ * @param {{ send: (type: string, payload?: unknown) => Promise<any> }} [client]
  */
-export async function pushStatus(env = realEnv()) {
+export async function pushStatus(env = realEnv(), client) {
   try {
     if (!env.serviceWorker || !env.Notification || !env.PushManager) {
       return 'unsupported';
@@ -42,7 +79,14 @@ export async function pushStatus(env = realEnv()) {
     if (env.Notification.permission === 'denied') return 'denied';
     const reg = await env.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
-    return sub && env.Notification.permission === 'granted' ? 'on' : 'off';
+    if (!sub || env.Notification.permission !== 'granted') return 'off';
+    if (client) {
+      const { key } = await client.send(T_KEY, {});
+      if (!sameKey(sub.options?.applicationServerKey, keyToBytes(key))) {
+        return 'off';
+      }
+    }
+    return 'on';
   } catch {
     return 'unsupported';
   }
@@ -62,13 +106,28 @@ export async function enablePush(client, env = realEnv()) {
     if (perm !== 'granted') return perm === 'denied' ? 'denied' : 'error';
     const reg = await env.serviceWorker.ready;
     const { key } = await client.send(T_KEY, {});
-    const sub =
-      (await reg.pushManager.getSubscription()) ||
-      (await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: keyToBytes(key)
-      }));
-    await client.send(T_SUB, { subscription: sub.toJSON() });
+    const want = keyToBytes(key);
+    let sub = await reg.pushManager.getSubscription();
+    // K6: a subscription bound to an older board key is refused by the push
+    // service forever; drop it (and its record on the PC) and subscribe again.
+    if (sub && !sameKey(sub.options?.applicationServerKey, want)) {
+      const stale = sub.endpoint;
+      await sub.unsubscribe();
+      sub = null;
+      try {
+        await client.send(T_UNSUB, { endpoint: stale });
+      } catch {
+        // the PC prunes it on the first 404/410 anyway
+      }
+    }
+    sub ||= await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: want
+    });
+    await client.send(T_SUB, {
+      subscription: sub.toJSON(),
+      label: deviceLabel()
+    });
     return 'on';
   } catch {
     return 'error';

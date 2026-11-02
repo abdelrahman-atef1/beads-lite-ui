@@ -73,6 +73,52 @@ describe('push client', () => {
     expect(c.send.mock.calls[1][1].subscription.endpoint).toMatch(/^https:/);
   });
 
+  test('K6: a subscription made with an older board key is dropped and re-made', async () => {
+    const old = {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/old',
+      options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer },
+      unsubscribe: vi.fn(async () => undefined),
+      toJSON: () => ({})
+    };
+    const e = env({ sub: old, permission: 'granted' });
+    const c = client();
+    expect(await enablePush(c, e.env)).toBe('on');
+    expect(old.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(e.subscribe).toHaveBeenCalledTimes(1);
+    expect([...e.subscribe.mock.calls[0][0].applicationServerKey]).toEqual([
+      1, 0, 1
+    ]);
+    const sent = c.send.mock.calls.map((x) => [x[0], x[1]]);
+    expect(sent[1]).toEqual([T_UNSUB, { endpoint: old.endpoint }]);
+    expect(sent[2][0]).toBe(T_SUB);
+  });
+
+  test('K6: a subscription with the current key is reused, not re-made', async () => {
+    const cur = {
+      endpoint: EP,
+      options: { applicationServerKey: new Uint8Array([1, 0, 1]).buffer },
+      unsubscribe: vi.fn(),
+      toJSON: () => ({ endpoint: EP, keys: {} })
+    };
+    const e = env({ sub: cur, permission: 'granted' });
+    expect(await enablePush(client(), e.env)).toBe('on');
+    expect(cur.unsubscribe).not.toHaveBeenCalled();
+    expect(e.subscribe).not.toHaveBeenCalled();
+  });
+
+  test('K6: status reads off when the stored key is not the board key', async () => {
+    const mk = (/** @type {number[]} */ k) =>
+      env({
+        permission: 'granted',
+        sub: {
+          endpoint: EP,
+          options: { applicationServerKey: new Uint8Array(k).buffer }
+        }
+      }).env;
+    expect(await pushStatus(mk([1, 0, 1]), client())).toBe('on');
+    expect(await pushStatus(mk([7]), client())).toBe('off');
+  });
+
   test('permission refused -> nothing subscribed or sent', async () => {
     const e = env({ answer: 'denied' });
     const c = client();
