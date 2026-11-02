@@ -60,3 +60,10 @@ delivery to a real phone / FCM (needs deploy + owner's subscribe tap).
 - R3 SW update replaces the worker; push handlers present in the served /sw.js.
 - R4 Payload size of the new client code (bytes added to main bundle / sw.js).
 - R5 Degraded: 390x844 bell panel with push row has no overflow; slow link: push row does not block the bell.
+
+## Addendum (from SEC's blocking conditions W1-W9 on company-1bo5.6.15, read after the first list; still written before any mapping)
+- W1 Subscription: https only, allow-listed push hosts, no userinfo/port, <=1 KB, p256dh exactly 65 bytes and auth exactly 16 bytes base64url, max 5 (junk must not evict a real phone), re-checked on load.
+- W3 Desk gate fails closed for both kinds: label-desk bead, card created by role sec, child of a parent labelled owner-pc-only: no title in bell or push.
+- W6 Lost phone: Settings on the PC door lists subscriptions (label, created, last ok) with Remove; removal stops pushes to that phone.
+- W9 Caps fail closed: unreadable counter file = no push; 5xx tried once, no loop, subscription kept.
+- K6 Lost key (ADR: "re-subscribe once"): after the board's VAPID key changes, "Turn on" on a phone holding an old-key subscription must subscribe again.
