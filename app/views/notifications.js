@@ -13,6 +13,7 @@
  * Ev = { id, kind: decision|answer|digest|degraded, project, bead|null,
  *        title|null, desk, count, at, read }. The server owns read state.
  */
+import { disablePush, enablePush, pushStatus } from '../push-client.js';
 import { t } from '../utils/i18n.js';
 import { createWsClient } from '../ws.js';
 
@@ -121,7 +122,7 @@ export function itemText(it) {
 
 /**
  * @param {HTMLElement} el
- * @param {{ client?: any }} [opts] test seam: a fake ws client
+ * @param {{ client?: any, pushEnv?: any }} [opts] test seam: a fake ws client and browser push objects
  */
 export function mountBell(el, opts = {}) {
   const client = opts.client ?? createWsClient();
@@ -134,6 +135,8 @@ export function mountBell(el, opts = {}) {
   let open = false;
   let failed = false;
   let switchErr = '';
+  /** @type {'unsupported'|'denied'|'off'|'on'|'error'|'busy'} */
+  let pushState = 'unsupported';
   /** @type {HTMLElement | null} */
   let panel = null;
 
@@ -241,6 +244,43 @@ export function mountBell(el, opts = {}) {
     paint();
   }
 
+  async function loadPush() {
+    pushState = await pushStatus(opts.pushEnv);
+    paint();
+  }
+
+  /** Turn push on/off for this phone (ADR 0007 N3). */
+  function pushRow() {
+    const row = h('div', { class: 'nt-push' });
+    if (pushState === 'unsupported') {
+      row.append(h('p', { class: 'nt-note' }, [tr('nt_push_unsupported')]));
+      return row;
+    }
+    if (pushState === 'denied') {
+      row.append(h('p', { class: 'nt-note' }, [tr('nt_push_denied')]));
+      return row;
+    }
+    const on = pushState === 'on';
+    const b = h('button', { type: 'button', class: 'nt-lnk nt-push-btn' }, [
+      on ? tr('nt_push_off') : tr('nt_push_on')
+    ]);
+    b.toggleAttribute('disabled', pushState === 'busy');
+    b.addEventListener('click', async () => {
+      pushState = 'busy';
+      paint();
+      if (on) pushState = await disablePush(client, opts.pushEnv);
+      else pushState = await enablePush(client, opts.pushEnv);
+      paint();
+    });
+    row.append(b);
+    if (pushState === 'error') {
+      row.append(
+        h('p', { class: 'nt-note', role: 'alert' }, [tr('nt_push_err')])
+      );
+    }
+    return row;
+  }
+
   function buildPanel() {
     const all = h('button', { type: 'button', class: 'nt-lnk' }, [
       tr('nt_mark_all')
@@ -311,6 +351,7 @@ export function mountBell(el, opts = {}) {
     if (switchErr) {
       sw.append(h('p', { class: 'nt-note', role: 'alert' }, [switchErr]));
     }
+    sw.append(pushRow());
     const mute = h('button', { type: 'button', class: 'nt-lnk nt-mute' }, [
       muteUntil ? tr('nt_unmute') : tr('nt_mute')
     ]);
@@ -358,6 +399,7 @@ export function mountBell(el, opts = {}) {
     open = true;
     paint();
     void refresh();
+    void loadPush();
     panel?.querySelector('button')?.focus();
   });
   document.addEventListener('keydown', (e) => {

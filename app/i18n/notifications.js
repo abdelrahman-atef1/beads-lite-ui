@@ -55,5 +55,25 @@ export const strings =
     nt_now: { en: 'now', ar: 'الآن' },
     nt_min: { en: '{n}m', ar: '{n}د' },
     nt_hour: { en: '{n}h', ar: '{n}س' },
-    nt_day: { en: '{n}d', ar: '{n}ي' }
+    nt_day: { en: '{n}d', ar: '{n}ي' },
+    nt_push_on: {
+      en: 'Turn on for this phone',
+      ar: 'تفعيل التنبيهات على هذا الهاتف'
+    },
+    nt_push_off: {
+      en: 'Turn off for this phone',
+      ar: 'إيقاف التنبيهات على هذا الهاتف'
+    },
+    nt_push_denied: {
+      en: 'Notifications are blocked for this site. Allow them in the browser settings.',
+      ar: 'التنبيهات محظورة لهذا الموقع. اسمح بها من إعدادات المتصفح.'
+    },
+    nt_push_unsupported: {
+      en: 'This browser cannot receive alerts. Install the board from the browser menu first.',
+      ar: 'هذا المتصفح لا يستقبل التنبيهات. ثبّت اللوحة من قائمة المتصفح أولاً.'
+    },
+    nt_push_err: {
+      en: 'Could not change the phone alerts. Try again.',
+      ar: 'تعذر تغيير تنبيهات الهاتف. حاول مرة أخرى.'
+    }
   });

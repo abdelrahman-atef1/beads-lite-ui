@@ -8,7 +8,7 @@
  *   decision: owner_decision + assignee abdelrahman + a card the card core accepts
  *   answer:   such a card whose card_state is "explained" (key includes the round)
  * Events go to the bell store (notified.json, 30 days) and to every socket as a
- * `notify-event` frame. Push (N3) is another task and reads the same events.
+ * `notify-event` frame. Push (N3, push.js) reads the same events through onEvent.
  *
  * Bell data contract is on the bead company-1bo5.6.14. Desk and unreadable-gate
  * beads never carry a title (W3, fails closed).
@@ -23,6 +23,7 @@ import { debug } from '../logging.js';
 import { allowPhoneFeatureType, isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { watchDb } from '../watcher.js';
+import { getPush } from './push.js';
 
 const log = debug('notifier');
 
@@ -46,9 +47,7 @@ export function projectKey(p) {
 }
 
 export function boardHome(env = process.env) {
-  return (
-    env.BDUI_BOARD_HOME || path.join(os.homedir(), '.codesters', 'board')
-  );
+  return env.BDUI_BOARD_HOME || path.join(os.homedir(), '.codesters', 'board');
 }
 
 /** Card core by full path (ADR 0006 D1); CARDS_DIR overrides for tests. */
@@ -88,6 +87,7 @@ const sha = (/** @type {string} */ s) =>
  *   rules?: { parseCard: Function, gate: Function, scanText: Function },
  *   watch?: (root: string, cb: () => void) => { close: () => void },
  *   broadcast?: (type: string, payload?: unknown) => void,
+ *   onEvent?: (ev: any, ctx: { muted: boolean }) => unknown,
  *   now?: () => number,
  *   rescan_ms?: number
  * }} [opts]
@@ -128,6 +128,7 @@ export function createNotifier(opts = {}) {
     ((/** @type {string} */ root, /** @type {() => void} */ cb) =>
       watchDb(root, cb, { debounce_ms: DEBOUNCE_MS }));
   const broadcast = opts.broadcast || (() => {});
+  const onEvent = opts.onEvent || null;
   const rescan_ms = opts.rescan_ms ?? RESCAN_MS;
 
   /** @type {any} */
@@ -235,6 +236,14 @@ export function createNotifier(opts = {}) {
     } catch (e) {
       log('broadcast failed %o', e);
     }
+    // Web Push (N3): another reader of the same event; never blocks or throws.
+    try {
+      void Promise.resolve(
+        onEvent?.(ev, { muted: validMute(prefs.mute_until) !== null })
+      ).catch((e) => log('push failed %o', e));
+    } catch (e) {
+      log('push failed %o', e);
+    }
   }
 
   /** Title for a non-desk card only: <=80, no bidi/control, passes the scan. */
@@ -325,7 +334,10 @@ export function createNotifier(opts = {}) {
         beads = await listParked(cwd);
       } catch (e) {
         const msg = String(/** @type {any} */ (e)?.message || e);
-        if (SPAWN_FAIL_RE.test(msg) || /** @type {any} */ (e)?.code === 'EPERM') {
+        if (
+          SPAWN_FAIL_RE.test(msg) ||
+          /** @type {any} */ (e)?.code === 'EPERM'
+        ) {
           // refused program start: stop this project's watcher, show it, no retry
           stopProject(key);
           degrade(key);
@@ -475,7 +487,9 @@ export function createNotifier(opts = {}) {
       if (p.all === true) {
         for (const e of store.events) e.read = true;
       } else if (Array.isArray(p.ids) && p.ids.length <= MAX_EVENTS) {
-        const ids = new Set(p.ids.filter((/** @type {any} */ x) => typeof x === 'string'));
+        const ids = new Set(
+          p.ids.filter((/** @type {any} */ x) => typeof x === 'string')
+        );
         for (const e of store.events) if (ids.has(e.id)) e.read = true;
       } else {
         throw bad('payload requires { ids: string[] } or { all: true }');
@@ -491,7 +505,9 @@ export function createNotifier(opts = {}) {
         typeof p.on !== 'boolean' ||
         !known().has(p.project)
       ) {
-        throw bad('payload requires { project: <registered key>, on: boolean }');
+        throw bad(
+          'payload requires { project: <registered key>, on: boolean }'
+        );
       }
       prefs.projects[p.project] = { on: p.on };
       savePrefs();
@@ -525,7 +541,10 @@ let live = null;
  */
 export function startNotifier(o) {
   if (live) live.stop();
-  live = createNotifier({ broadcast: o.broadcast });
+  live = createNotifier({
+    broadcast: o.broadcast,
+    onEvent: (ev, ctx) => getPush().send(ev, ctx)
+  });
   live.sync();
   return live;
 }

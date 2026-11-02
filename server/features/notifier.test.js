@@ -129,7 +129,10 @@ describe('notifier', () => {
       'decision'
     ]);
     const ex = (/** @type {number} */ round) =>
-      bead('alpha-1', card({ ...q2, card_state: 'explained', card_round: round }));
+      bead(
+        'alpha-1',
+        card({ ...q2, card_state: 'explained', card_round: round })
+      );
     r.parked.alpha = [ex(1)];
     await r.n.scan('alpha', A);
     await r.n.scan('alpha', A);
@@ -154,8 +157,10 @@ describe('notifier', () => {
 
   test('W3: desk, sec, legal, declared-desk and unreadable-parent beads carry no title', async () => {
     const r = rig({
-      readBeadLabels: async (/** @type {string} */ _c, /** @type {string} */ id) =>
-        id === 'alpha-9' ? null : []
+      readBeadLabels: async (
+        /** @type {string} */ _c,
+        /** @type {string} */ id
+      ) => (id === 'alpha-9' ? null : [])
     });
     r.n.sync();
     await settle(); // first sight done (empty); now runtime single events
@@ -295,11 +300,37 @@ describe('notifier', () => {
     const id = r.n.snapshot().events[0].id;
     expect(r.n.markRead({ ids: [id] }).unread).toBe(0);
     expect(() => r.n.markRead({})).toThrow();
-    const ok = new Date(Date.parse('2026-11-01T10:00:00Z') + 3600e3).toISOString();
+    const ok = new Date(
+      Date.parse('2026-11-01T10:00:00Z') + 3600e3
+    ).toISOString();
     expect(r.n.mute({ until: ok }).mute_until).toBe(ok);
     expect(() => r.n.mute({ until: '2027-01-01T00:00:00Z' })).toThrow();
     expect(r.n.mute({ until: null }).mute_until).toBeNull();
     r.tick(31 * 24 * 3600e3);
     expect(r.n.snapshot().events).toHaveLength(0);
+  });
+
+  test('every new event goes to onEvent (push) with the mute flag; a throwing sender never breaks the bell', async () => {
+    /** @type {any[]} */
+    const seen = [];
+    const r = rig({
+      onEvent: (/** @type {any} */ ev, /** @type {any} */ ctx) => {
+        seen.push({ ev, ctx });
+        throw new Error('push down');
+      }
+    });
+    r.parked.alpha = [bead('alpha-1', card())];
+    r.n.sync();
+    await settle();
+    expect(seen).toHaveLength(1);
+    expect(seen[0].ev).toMatchObject({ kind: 'decision', bead: 'alpha-1' });
+    expect(seen[0].ctx).toEqual({ muted: false });
+    expect(r.n.snapshot().events).toHaveLength(1);
+    r.n.mute({
+      until: new Date(Date.parse('2026-11-01T10:00:00Z') + 3600e3).toISOString()
+    });
+    r.parked.alpha = [bead('alpha-2', card())];
+    await r.n.scan('alpha', A);
+    expect(seen[1].ctx).toEqual({ muted: true });
   });
 });
