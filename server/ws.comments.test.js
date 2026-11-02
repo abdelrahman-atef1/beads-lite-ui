@@ -263,3 +263,27 @@ describe('add-comment handler', () => {
     expect(reply.error.code).toBe('bd_error');
   });
 });
+
+describe('handleMessage never rejects', () => {
+  test('a throwing bd call answers internal_error', async () => {
+    const rb = /** @type {import('vitest').Mock} */ (runBd);
+    rb.mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    const ws = makeStubSocket();
+    await handleMessage(
+      /** @type {any} */ (ws),
+      Buffer.from(
+        JSON.stringify({
+          id: 'r1',
+          type: 'edit-text',
+          payload: { id: 'X-1', field: 'description', value: 'v' }
+        })
+      )
+    );
+    const reply = JSON.parse(ws.sent[0]);
+    expect(reply.ok).toBe(false);
+    expect(reply.id).toBe('r1');
+    expect(reply.error.code).toBe('internal_error');
+  });
+});

@@ -258,6 +258,9 @@ export function scheduleListRefresh() {
 /** @type {WeakMap<WebSocket, any>} */
 const SUBS = new WeakMap();
 
+/** Biggest inbound frame accepted on either door (the ws default is 100 MiB). */
+const MAX_WS_PAYLOAD = 256 * 1024;
+
 /** @type {WebSocketServer | null} */
 let CURRENT_WSS = null;
 /** Phone-door socket servers (second listener, ADR 0001 section 2). @type {Set<WebSocketServer>} */
@@ -638,6 +641,7 @@ export function attachWsServer(http_server, options = {}) {
 
   const wss = new WebSocketServer({
     server: http_server,
+    maxPayload: MAX_WS_PAYLOAD,
     path: ws_path,
     // D8: foreign/missing Origin, unknown Host or bad token never upgrade.
     verifyClient: (info, cb) => {
@@ -792,6 +796,7 @@ export function attachWsServer(http_server, options = {}) {
 export function attachPhoneDoor(http_server, options = {}) {
   const wss = new WebSocketServer({
     server: http_server,
+    maxPayload: MAX_WS_PAYLOAD,
     path: options.path || '/ws',
     verifyClient: (info, cb) => {
       const r = checkUpgrade(info.req, 'phone');
@@ -858,6 +863,41 @@ export function attachPhoneDoor(http_server, options = {}) {
  * @param {RawData} data
  */
 export async function handleMessage(ws, data) {
+  try {
+    await handleMessageUnsafe(ws, data);
+  } catch (err) {
+    // Last line of defence: a throwing handler answers with an error and the
+    // server stays up (an unhandled rejection would exit the process).
+    log('handler threw: %o', err);
+    try {
+      let id = 'unknown';
+      let type = 'internal-error';
+      try {
+        const j = JSON.parse(data.toString());
+        if (j && typeof j.id === 'string') id = j.id;
+        if (j && typeof j.type === 'string') type = j.type;
+      } catch {
+        // keep defaults
+      }
+      ws.send(
+        JSON.stringify({
+          id,
+          ok: false,
+          type,
+          error: { code: 'internal_error', message: 'Request failed' }
+        })
+      );
+    } catch {
+      // socket gone
+    }
+  }
+}
+
+/**
+ * @param {WebSocket} ws
+ * @param {RawData} data
+ */
+async function handleMessageUnsafe(ws, data) {
   /** @type {unknown} */
   let json;
   try {

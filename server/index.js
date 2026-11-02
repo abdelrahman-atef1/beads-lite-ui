@@ -71,6 +71,14 @@ watchRegistry(
 // Board notifier: one watcher per switched-on project (company-1bo5.6.14)
 startNotifier({ broadcast });
 
+// Last resort: log and stay up. One bad request must never end the board.
+process.on('uncaughtException', (err) => {
+  log('uncaughtException: %o', err);
+});
+process.on('unhandledRejection', (err) => {
+  log('unhandledRejection: %o', err);
+});
+
 server.listen(config.port, config.host, () => {
   printServerUrl();
 });

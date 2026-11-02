@@ -115,6 +115,23 @@ describe('runBd', () => {
     expect(args.slice(1)).toEqual(['list', '--json']);
   });
 
+  test('oversize args answer "too long" without spawning', async () => {
+    mockedSpawn.mockClear();
+    const res = await runBd(['update', 'X-1', '--description', 'y'.repeat(40000)]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('too long');
+    expect(mockedSpawn).not.toHaveBeenCalled();
+  });
+
+  test('a throwing spawn becomes a non-zero result, not a crash', async () => {
+    mockedSpawn.mockImplementationOnce(() => {
+      throw new Error('spawn ENAMETOOLONG');
+    });
+    const res = await runBd(['list']);
+    expect(res.code).toBe(127);
+    expect(res.stderr).toContain('ENAMETOOLONG');
+  });
+
   test('does not duplicate --sandbox when caller already provides it', async () => {
     mockedSpawn.mockReturnValueOnce(makeFakeProc('ok', '', 0));
     await runBd(['--sandbox', 'list', '--json']);
@@ -365,7 +382,7 @@ describe('runBd', () => {
     const failed = runBd(['list', 'first'], { priority: 'background' });
     const succeeded = runBd(['show', 'second']);
 
-    await expect(failed).rejects.toThrow('spawn failed');
+    await expect(failed).resolves.toMatchObject({ code: 127 });
     await expect(succeeded).resolves.toMatchObject({ code: 0 });
   });
 });

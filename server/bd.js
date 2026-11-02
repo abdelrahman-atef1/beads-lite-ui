@@ -78,6 +78,9 @@ export function runBd(args, options = {}) {
   );
 }
 
+/** Total argument text allowed per bd call (Windows limit is ~32K chars). */
+export const MAX_BD_ARGS_CHARS = 24000;
+
 /**
  * Run the `bd` CLI with provided arguments without queueing.
  *
@@ -110,8 +113,27 @@ function runBdUnlocked(args, options = {}) {
   /** @type {string[]} */
   const final_args = buildBdArgs(args);
 
+  // One bad request must not take the board down: an argument list past the
+  // OS command-line limit makes spawn throw (ENAMETOOLONG), so refuse it here.
+  const args_len = final_args.reduce((n, a) => n + String(a).length + 1, 0);
+  if (args_len > MAX_BD_ARGS_CHARS) {
+    return Promise.resolve({
+      code: 1,
+      stdout: '',
+      stderr: `text too long (${args_len} chars, limit ${MAX_BD_ARGS_CHARS})`
+    });
+  }
+
   return new Promise((resolve) => {
-    const child = spawn(bin, final_args, spawn_opts);
+    /** @type {import('node:child_process').ChildProcess} */
+    let child;
+    try {
+      child = spawn(bin, final_args, spawn_opts);
+    } catch (err) {
+      log('spawn threw running %s %o', bin, err);
+      resolve({ code: 127, stdout: '', stderr: String(err?.message || err) });
+      return;
+    }
 
     /** @type {string[]} */
     const out_chunks = [];
