@@ -17,10 +17,10 @@ function base(path) {
 }
 
 /**
- * Longest workspace folder name that is a prefix of the id (followed by "-").
+ * Longest workspace prefix (db issue_prefix, else folder name) that starts of the id (followed by "-").
  *
  * @param {string} id
- * @param {Array<{ path: string }>} workspaces
+ * @param {Array<{ path: string, prefix?: string }>} workspaces
  * @returns {{ path: string } | null}
  */
 export function matchWorkspace(id, workspaces) {
@@ -28,7 +28,8 @@ export function matchWorkspace(id, workspaces) {
   let best = null;
   let best_len = 0;
   for (const ws of workspaces || []) {
-    const name = base(ws.path);
+    // The db's own issue_prefix wins; the folder name is only a fallback.
+    const name = ws.prefix ? String(ws.prefix).toLowerCase() : base(ws.path);
     if (name && lower.startsWith(name + '-') && name.length > best_len) {
       best = ws;
       best_len = name.length;

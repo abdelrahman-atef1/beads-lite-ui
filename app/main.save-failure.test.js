@@ -49,11 +49,23 @@ vi.mock('./ws.js', () => {
 describe('failed save through main.js transport', () => {
   test('notes save: server reason toasted, editor stays open with text', async () => {
     window.location.hash = '#/issue/UI-2';
+    calls.length = 0;
     document.body.innerHTML = '<main id="app"></main>';
     const root = /** @type {HTMLElement} */ (document.getElementById('app'));
     const client = /** @type {any} */ (createWsClient());
     bootstrap(root);
-    await Promise.resolve();
+    // The detail subscribes after list-workspaces and the moved-id lookup
+    // (company-8ce8.14.3); a snapshot sent earlier would be dropped.
+    await vi.waitFor(() => {
+      if (
+        !calls.some(
+          (c) =>
+            c.type === 'subscribe-list' &&
+            JSON.stringify(c.payload).includes('issue-detail')
+        )
+      )
+        throw new Error('detail not subscribed yet');
+    });
     client._trigger('snapshot', {
       type: 'snapshot',
       id: 'detail:UI-2',

@@ -20,11 +20,13 @@ import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
+import { allMovedIds, resolveMovedId } from './moved-alias.js';
 import { installPhoneSocket } from './phone.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
 import { keyOf, registry } from './subscriptions.js';
 import { validateSubscribeListPayload } from './validators.js';
 import { withCounts } from './workspace-counts.js';
+import { withPrefixes } from './workspace-prefix.js';
 
 const log = debug('ws');
 
@@ -1685,7 +1687,14 @@ async function handleMessageUnsafe(ws, data) {
   // list-workspaces: returns all available workspaces from the registry
   if (req.type === 'list-workspaces') {
     log('list-workspaces');
-    const workspaces = await withCounts(getAvailableWorkspaces());
+    const base = getAvailableWorkspaces();
+    const [counted, prefixed] = await Promise.all([
+      withCounts(base),
+      withPrefixes(base)
+    ]);
+    const workspaces = counted.map((w, i) =>
+      prefixed[i]?.prefix ? { ...w, prefix: prefixed[i].prefix } : w
+    );
     ws.send(
       JSON.stringify(
         makeOk(req, {
@@ -1694,6 +1703,18 @@ async function handleMessageUnsafe(ws, data) {
         })
       )
     );
+    return;
+  }
+
+  // resolve-moved-id: payload { id } -> { moved: { id, repo } | null }. Read-only.
+  if (req.type === 'resolve-moved-id') {
+    const id = /** @type {any} */ (req.payload || {}).id;
+    if (id === undefined) {
+      // no id: the whole table, loaded once by the browser
+      ws.send(JSON.stringify(makeOk(req, { all: allMovedIds() })));
+      return;
+    }
+    ws.send(JSON.stringify(makeOk(req, { moved: resolveMovedId(id) })));
     return;
   }
 

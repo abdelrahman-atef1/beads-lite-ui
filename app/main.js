@@ -9,8 +9,8 @@ import { createSubscriptionIssueStores } from './data/subscription-issue-stores.
 import { createSubscriptionStore } from './data/subscriptions-store.js';
 import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
-import { registerServiceWorker } from './sw-register.js';
 import { createStore } from './state.js';
+import { registerServiceWorker } from './sw-register.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
 import { createFilterState } from './utils/board-filter.js';
 import { applyLang, t, toggleLang } from './utils/i18n.js';
@@ -293,13 +293,24 @@ export function bootstrap(root_element) {
     let workspaces_ready = false;
     /** @type {string | null} */
     let held_detail_id = null;
+    /** Old id -> new id table, loaded once (company-8ce8.14.3). */
+    /** @type {Record<string, string> | null} */
+    let moved_table = null;
+    const moved_ready = client
+      .send('resolve-moved-id', {})
+      .then((res) => {
+        moved_table = (res && res.all) || {};
+      })
+      .catch(() => {
+        moved_table = {};
+      });
 
     /**
      * @param {string} id
      * @returns {boolean}
      */
     function shouldHoldDetail(id) {
-      if (!workspaces_ready) return true;
+      if (!workspaces_ready || moved_table === null) return true;
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) return false;
       return (
@@ -313,7 +324,9 @@ export function bootstrap(root_element) {
      * @param {string} id
      */
     function releaseHeldDetail(id) {
-      if (held_detail_id !== id) return;
+      // Before list-workspaces answered, shouldHoldDetail() holds again and the
+      // re-select would loop forever; the loader finally releases (14.3).
+      if (!workspaces_ready || held_detail_id !== id) return;
       held_detail_id = null;
       if (store.getState().selected_id === id) {
         store.setState({ selected_id: null });
@@ -329,6 +342,18 @@ export function bootstrap(root_element) {
      */
     async function ensureIssueWorkspace(id) {
       if (!id) return;
+      // An old id of a moved bead still matches its old prefix, so look it up
+      // in the alias table first; a hit replaces the address-bar entry (Back
+      // must not land on the dead old id) and opens the new id. Every open
+      // redirects, not just the first.
+      await moved_ready;
+      const moved_id = moved_table && moved_table[id.toLowerCase()];
+      if (moved_id && moved_id !== id) {
+        if (store.getState().selected_id === id) {
+          router.gotoIssue(moved_id, { replace: true });
+        }
+        return;
+      }
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) {
         releaseHeldDetail(id);
@@ -364,6 +389,7 @@ export function bootstrap(root_element) {
             database: ws.database,
             pid: ws.pid,
             version: ws.version,
+            prefix: ws.prefix,
             // Optional per-project counts (contracts/board-data.md)
             counts: ws.counts
           }));
