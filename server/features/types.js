@@ -5,4 +5,11 @@
  *
  * @type {string[]}
  */
-export const FEATURE_MESSAGE_TYPES = [];
+export const FEATURE_MESSAGE_TYPES = [
+  // notifier (company-1bo5.6.14)
+  'notify-list',
+  'notify-mark-read',
+  'notify-set',
+  'notify-mute',
+  'notify-event'
+];

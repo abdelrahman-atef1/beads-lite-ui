@@ -4,6 +4,7 @@ import { printServerUrl } from './cli/daemon.js';
 import { getConfig } from './config.js';
 import { resolveWorkspaceDatabase } from './db.js';
 import { debug, enableAllDebug } from './logging.js';
+import { startNotifier, syncNotifier } from './features/notifier.js';
 import { registerWorkspace, watchRegistry } from './registry-watcher.js';
 import { watchDb } from './watcher.js';
 import { attachPhoneDoor, attachWsServer } from './ws.js';
@@ -45,7 +46,7 @@ const db_watcher = watchDb(config.root_dir, () => {
   // v2: all updates flow via subscription push envelopes only
 });
 
-const { scheduleListRefresh } = attachWsServer(server, {
+const { scheduleListRefresh, broadcast } = attachWsServer(server, {
   path: '/ws',
   heartbeat_ms: 30000,
   // Coalesce DB change bursts into one refresh run
@@ -59,12 +60,16 @@ const { scheduleListRefresh } = attachWsServer(server, {
 watchRegistry(
   (entries) => {
     log('registry changed: %d entries', entries.length);
+    syncNotifier();
     // Find if there's a newer workspace that matches our initial root
     // For now, we just log the change - users can switch via set-workspace
     // Future: could auto-switch if a workspace was started in a parent/child dir
   },
   { debounce_ms: 500 }
 );
+
+// Board notifier: one watcher per switched-on project (company-1bo5.6.14)
+startNotifier({ broadcast });
 
 server.listen(config.port, config.host, () => {
   printServerUrl();
