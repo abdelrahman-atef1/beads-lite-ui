@@ -5,6 +5,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { mountFeatureRoutes } from './features/index.js';
+import { syncNotifier } from './features/notifier.js';
 import {
   getBoardToken,
   isAllowedHost,
@@ -91,6 +92,7 @@ export function createApp(config, door = 'pc') {
       return;
     }
     registerWorkspace({ path: workspace_path, database });
+    syncNotifier(); // a project registered after start gets its watcher now (1bo5.6.14)
     prewarmCounts(workspace_path);
     res.status(200).json({ ok: true, registered: workspace_path });
   });
