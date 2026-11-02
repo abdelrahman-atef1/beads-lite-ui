@@ -9,8 +9,8 @@ import { createSubscriptionIssueStores } from './data/subscription-issue-stores.
 import { createSubscriptionStore } from './data/subscriptions-store.js';
 import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
-import { registerServiceWorker } from './sw-register.js';
 import { createStore } from './state.js';
+import { registerServiceWorker } from './sw-register.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
 import { createFilterState } from './utils/board-filter.js';
 import { applyLang, t, toggleLang } from './utils/i18n.js';
@@ -293,13 +293,15 @@ export function bootstrap(root_element) {
     let workspaces_ready = false;
     /** @type {string | null} */
     let held_detail_id = null;
+    /** Ids already looked up in the moved-beads alias (company-8ce8.14.3). */
+    const alias_checked = new Set();
 
     /**
      * @param {string} id
      * @returns {boolean}
      */
     function shouldHoldDetail(id) {
-      if (!workspaces_ready) return true;
+      if (!workspaces_ready || !alias_checked.has(id)) return true;
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) return false;
       return (
@@ -329,6 +331,27 @@ export function bootstrap(root_element) {
      */
     async function ensureIssueWorkspace(id) {
       if (!id) return;
+      if (!alias_checked.has(id)) {
+        // An old id of a moved bead still matches its old prefix, so ask the
+        // alias file first; a hit opens the new id instead.
+        /** @type {string | null} */
+        let moved_id = null;
+        try {
+          const res = await client.send('resolve-moved-id', { id });
+          moved_id = (res && res.moved && res.moved.id) || null;
+        } catch {
+          // no alias: carry on with the id as given
+        }
+        alias_checked.add(id);
+        if (moved_id && moved_id !== id) {
+          if (store.getState().selected_id === id) {
+            // via the hash, so the address bar shows the new id too
+            router.gotoIssue(moved_id);
+          }
+          return;
+        }
+        releaseHeldDetail(id);
+      }
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) {
         releaseHeldDetail(id);
@@ -364,6 +387,7 @@ export function bootstrap(root_element) {
             database: ws.database,
             pid: ws.pid,
             version: ws.version,
+            prefix: ws.prefix,
             // Optional per-project counts (contracts/board-data.md)
             counts: ws.counts
           }));
