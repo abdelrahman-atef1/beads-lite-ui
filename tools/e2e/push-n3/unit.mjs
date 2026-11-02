@@ -85,9 +85,11 @@ function newPushes(subs) {
 }
 {
   const r = rig();
-  const subs = mkSubs(r.p, 7, 'cap');
-  R.check('S5', 'subscriptions bounded (7 subscribed -> at most 5 kept)', r.p.subscribers() <= 5, `kept ${r.p.subscribers()}`);
-  const s0 = subs[6];
+  const subs = mkSubs(r.p, 5, 'cap');
+  let sixth = null; try { r.p.subscribe(makeSub('https://fcm.googleapis.com/fcm/send/cap5').subscription); } catch (e) { sixth = e.code; }
+  const filed = JSON.parse(fs.readFileSync(path.join(r.home, 'push-subs.json'), 'utf8')).map((x) => x.endpoint);
+  R.check('S5', 'subscriptions bounded at 5: the sixth phone is REFUSED (too_many) and the first five stay (no eviction)', r.p.subscribers() === 5 && sixth === 'too_many' && subs.every((x) => filed.includes(x.subscription.endpoint)), `kept ${r.p.subscribers()}, sixth -> ${sixth}`);
+  const s0 = subs[4];
   const before = r.p.subscribers();
   r.p.subscribe(s0.subscription);
   R.check('S2', 'same endpoint twice does not duplicate', r.p.subscribers() === before);
@@ -227,8 +229,24 @@ function newPushes(subs) {
   // junk evicts a real subscription?
   const r = rig(); const real = mkSubs(r.p, 1, 'real')[0];
   for (let i = 0; i < 5; i++) { try { r.p.subscribe({ endpoint: 'https://fcm.googleapis.com/fcm/send/junk' + i, keys: { p256dh: g(5), auth: g(3) } }); } catch { /* refused: good */ } }
-  const stillThere = JSON.parse(fs.readFileSync(path.join(r.home, 'push-subs.json'), 'utf8')).some((x) => x.endpoint === real.subscription.endpoint);
-  R.check('W1b', 'five junk subscriptions do not evict the real phone', stillThere, stillThere ? '' : 'real subscription evicted by 5 junk ones');
+  const onDisk = () => JSON.parse(fs.readFileSync(path.join(r.home, 'push-subs.json'), 'utf8'));
+  const stillThere = onDisk().some((x) => x.endpoint === real.subscription.endpoint);
+  R.check('W1b', 'five junk (short-key) subscriptions: none stored, the real phone stays', stillThere && r.p.subscribers() === 1, stillThere ? 'kept ' + r.p.subscribers() : 'real subscription evicted by 5 junk ones');
+  // 65/16-byte keys exactly; 64/66 and 15/17 refused
+  const mk = (a, b) => cleanSubscription({ endpoint: ep, keys: { p256dh: g(a), auth: g(b) } });
+  R.check('W1d', 'key sizes are exact: 65/16 accepted; 64/16, 66/16, 65/15, 65/17 refused', !!mk(65, 16) && !mk(64, 16) && !mk(66, 16) && !mk(65, 15) && !mk(65, 17), [mk(65, 16), mk(64, 16), mk(66, 16), mk(65, 15), mk(65, 17)].map((x) => !!x).join(','));
+  // exactly ONE FCM host: other google hosts and look-alikes refused
+  const hosts = ['https://storage.googleapis.com/b/x', 'https://www.googleapis.com/x', 'https://googleapis.com/x', 'https://fcm.googleapis.com.evil.com/x', 'https://evilfcm.googleapis.com/x', 'https://sub.fcm.googleapis.com/x', 'https://FCM.GOOGLEAPIS.COM@evil.com/x', 'https://android.googleapis.com/gcm/send/x'];
+  const leakedHosts = hosts.filter((h) => cleanSubscription({ endpoint: h, keys: { p256dh: g(65), auth: g(16) } }));
+  R.check('W1e', 'only fcm.googleapis.com is accepted of the Google hosts (storage / www / bare / sub / look-alikes refused)', leakedHosts.length === 0, leakedHosts.join(','));
+  // the sixth phone: refused, five real ones kept, no eviction even for valid-shaped junk
+  const r6 = rig(); const five = mkSubs(r6.p, 5, 'five');
+  let code6 = null; try { r6.p.subscribe({ endpoint: 'https://fcm.googleapis.com/fcm/send/junk-valid', keys: { p256dh: g(65), auth: g(16) } }); } catch (e) { code6 = e.code; }
+  const ep6 = JSON.parse(fs.readFileSync(path.join(r6.home, 'push-subs.json'), 'utf8')).map((x) => x.endpoint);
+  R.check('W1f', 'sixth phone with valid-shaped keys is refused (too_many) and NONE of the five is evicted', code6 === 'too_many' && five.every((x) => ep6.includes(x.subscription.endpoint)) && ep6.length === 5, 'code ' + code6 + ', kept ' + ep6.length);
+  // the owner can still re-subscribe an EXISTING phone while full (same endpoint is not a sixth)
+  let again = true; try { r6.p.subscribe(five[0].subscription); } catch { again = false; }
+  R.check('W1g', 'a full list still accepts a repeat of an existing phone (no lock-out of the real one)', again && r6.p.subscribers() === 5);
   // tampered file: evil endpoint on disk is not loaded
   const home = tmp('tamper');
   fs.mkdirSync(home, { recursive: true });
@@ -239,13 +257,30 @@ function newPushes(subs) {
   const home2 = tmp('corrupt-subs'); fs.writeFileSync(path.join(home2, 'push-subs.json'), '{{{ not json');
   let okc = true; try { rig({ home: home2 }).p.subscribers(); } catch { okc = false; }
   R.check('W9c', 'corrupt push-subs.json does not crash the board (no subscribers)', okc);
-  // W9: counter unreadable -> no push
+  // W9: counter unreadable -> no push, file untouched, resumes next local day
   const home3 = tmp('corrupt-state');
   const r3 = rig({ home: home3 }); const subs3 = mkSubs(r3.p, 1, 'w9'); cursor = logRows().length;
   fs.writeFileSync(path.join(home3, 'push-state.json'), '{{{ corrupt');
   const r3b = rig({ home: home3 }); // restart with an unreadable counter file
   const out3 = await r3b.p.send(ev({ id: 'w9' }));
-  R.check('W9', 'SEC W9 fail closed: unreadable push-state.json (counter) -> NO push, bell only', out3 !== 'sent' && newPushes(subs3).length === 0, 'send result: ' + out3 + (out3 === 'sent' ? ' (pushed with a reset counter: fails OPEN, the 50/day cap and the 2 min window are lost)' : ''));
+  const out3b = await r3b.p.send(ev({ id: 'w9b', project: 'other' }));
+  const keptRaw = fs.readFileSync(path.join(home3, 'push-state.json'), 'utf8');
+  R.check('W9', 'SEC W9 fail closed: unreadable push-state.json -> NO push (two projects, same day), bell only', out3 !== 'sent' && out3b !== 'sent' && newPushes(subs3).length === 0, 'send results: ' + out3 + ' / ' + out3b);
+  R.check('W9d', 'the unreadable push-state.json is NOT overwritten while it fails closed (evidence kept)', keptRaw === '{{{ corrupt', JSON.stringify(keptRaw.slice(0, 40)));
+  r3b.tick(26 * 3600 * 1000);
+  const out3c = await r3b.p.send(ev({ id: 'w9c' }));
+  R.check('W9e', 'next local day pushes resume with a fresh counter (state file rewritten as valid json)', out3c === 'sent' && newPushes(subs3).length === 1 && (() => { try { JSON.parse(fs.readFileSync(path.join(home3, 'push-state.json'), 'utf8')); return true; } catch { return false; } })(), 'result ' + out3c);
+  // wrong-shape (valid json, not an object) is also unreadable, not a reset
+  for (const [n, raw] of [['array', '[]'], ['null', 'null'], ['string', '"x"']]) {
+    const h = tmp('shape-' + n); const rA = rig({ home: h }); const sA = mkSubs(rA.p, 1, 'shape' + n); cursor = logRows().length;
+    fs.writeFileSync(path.join(h, 'push-state.json'), raw);
+    const rB = rig({ home: h }); const o = await rB.p.send(ev({ id: 'sh' + n }));
+    R.check('W9f-' + n, 'push-state.json holding ' + raw + ' fails closed (no push)', o !== 'sent' && newPushes(sA).length === 0, 'result ' + o);
+  }
+  // a missing state file is a normal first run, NOT broken
+  const h0 = tmp('nostate'); const r0 = rig({ home: h0 }); const s0x = mkSubs(r0.p, 1, 'nostate'); cursor = logRows().length;
+  const o0 = await r0.p.send(ev({ id: 'ns' }));
+  R.check('W9g', 'no push-state.json at all (first run) still pushes', o0 === 'sent' && newPushes(s0x).length === 1, 'result ' + o0);
   // 429 / 5xx: no loop, no delete
   const rr = rig(); mkSubs(rr.p, 1, 'err500'); const before = logRows().length;
   await rr.p.send(ev({ id: 'e5' })); await settle();
@@ -253,15 +288,33 @@ function newPushes(subs) {
 }
 {
   // lost key: ADR N3 "Lost key = re-subscribe once". Client side, real app/push-client.js with a fake browser.
-  const { enablePush } = await import(pathToFileURL(path.join(ROOT, 'app/push-client.js')).href);
-  const oldKey = Buffer.alloc(65, 1).toString('base64url');
-  const newKey = Buffer.alloc(65, 2).toString('base64url');
-  let subscribed = 0, unsubscribed = 0;
-  const existing = { endpoint: 'https://fcm.googleapis.com/fcm/send/old', options: { applicationServerKey: Buffer.alloc(65, 1).buffer }, unsubscribe: async () => { unsubscribed++; return true; }, toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/old', keys: { p256dh: 'a', auth: 'b' } }) };
-  const env = { Notification: { requestPermission: async () => 'granted', permission: 'granted' }, PushManager: {}, serviceWorker: { ready: Promise.resolve({ pushManager: { getSubscription: async () => existing, subscribe: async () => { subscribed++; return existing; } } }) } };
-  const sent = [];
-  const res = await enablePush({ send: async (t, p) => { sent.push([t, p]); return t === 'push-key' ? { key: newKey } : {}; } }, env);
-  R.check('K6', 'lost key: board has a NEW VAPID key; "Turn on" on a phone holding a subscription made with the OLD key must subscribe again with the new key', subscribed + unsubscribed > 0, `result ${res}; subscribe() called ${subscribed}x, unsubscribe ${unsubscribed}x: the old subscription is re-sent as is, every later push is refused by FCM (VAPID mismatch, not 404/410, so never cleaned) and the UI says "on"`);
+  const { enablePush, pushStatus } = await import(pathToFileURL(path.join(ROOT, 'app/push-client.js')).href);
+  const oldKey = Buffer.alloc(65, 1), newKey = Buffer.alloc(65, 2);
+  const scenario = (subKeyBytes, { failUnsub = false } = {}) => {
+    const calls = { subscribe: [], unsubscribe: 0 };
+    const mk = (ep, kb) => ({ endpoint: ep, options: { applicationServerKey: new Uint8Array(kb).buffer }, unsubscribe: async () => { calls.unsubscribe++; return true; }, toJSON: () => ({ endpoint: ep, keys: { p256dh: 'a', auth: 'b' } }) });
+    let current = subKeyBytes ? mk('https://fcm.googleapis.com/fcm/send/old', subKeyBytes) : null;
+    const env = { Notification: { requestPermission: async () => 'granted', permission: 'granted' }, PushManager: {}, serviceWorker: { ready: Promise.resolve({ pushManager: { getSubscription: async () => current, subscribe: async (o) => { calls.subscribe.push(Buffer.from(o.applicationServerKey).equals(newKey)); current = mk('https://fcm.googleapis.com/fcm/send/new', o.applicationServerKey); return current; } } }) } };
+    const sent = [];
+    const client = { send: async (t, p) => { sent.push([t, p]); if (t === 'push-key') return { key: newKey.toString('base64url') }; if (failUnsub && t === 'push-unsubscribe') throw new Error('board offline'); return {}; } };
+    return { env, client, calls, sent };
+  };
+  const a = scenario(oldKey);
+  const st0 = await pushStatus(a.env, a.client);
+  const res = await enablePush(a.client, a.env);
+  const subSent = a.sent.find((x) => x[0] === 'push-subscribe');
+  R.check('K6', 'lost key: phone holds a subscription made with the OLD key; "Turn on" drops it and subscribes again with the NEW key', res === 'on' && a.calls.unsubscribe === 1 && a.calls.subscribe.length === 1 && a.calls.subscribe[0] === true && !!subSent?.[1]?.subscription?.endpoint.endsWith('/new'), `result ${res}; unsubscribe ${a.calls.unsubscribe}x; subscribe ${a.calls.subscribe.length}x (new key: ${a.calls.subscribe[0]}); sent ${a.sent.map((x) => x[0]).join(',')}`);
+  R.check('K6b', 'the stale endpoint is also told to the board (push-unsubscribe with the old endpoint) so it stops being tried', a.sent.some((x) => x[0] === 'push-unsubscribe' && x[1]?.endpoint?.endsWith('/old')), JSON.stringify(a.sent.map((x) => x[0])));
+  R.check('K6c', 'panel status reads off (not on) while the phone holds an old-key subscription, on after Turn on', st0 === 'off' && (await pushStatus(a.env, a.client)) === 'on', 'before ' + st0);
+  const b = scenario(newKey);
+  const res2 = await enablePush(b.client, b.env);
+  R.check('K6d', 'same key: Turn on does NOT drop and re-create the subscription (no churn)', res2 === 'on' && b.calls.unsubscribe === 0 && b.calls.subscribe.length === 0, `unsubscribe ${b.calls.unsubscribe}x subscribe ${b.calls.subscribe.length}x`);
+  const c = scenario(oldKey, { failUnsub: true });
+  const res3 = await enablePush(c.client, c.env);
+  R.check('K6e', 'old-key drop while the board answers an error on push-unsubscribe: still re-subscribes and says on', res3 === 'on' && c.calls.subscribe.length === 1, 'result ' + res3);
+  const d = scenario(null);
+  const res4 = await enablePush(d.client, d.env);
+  R.check('K6f', 'no subscription at all (first Turn on): subscribes once with the board key', res4 === 'on' && d.calls.subscribe.length === 1 && d.calls.subscribe[0] === true && d.calls.unsubscribe === 0);
 }
 // ---- 404 / 410 / 500
 {
@@ -292,9 +345,50 @@ function newPushes(subs) {
 }
 R.check('F1', 'atomic file writes (tmp + rename) never fail with EPERM on this PC', epermCount === 0, 'EPERM on rename: ' + epermCount + ' times during the run (harness retried)');
 {
-  // W6: is there any way on the PC board to see / remove a phone's subscription?
-  const src = [path.join(ROOT, 'server/features/push.js'), path.join(ROOT, 'app/views/notifications.js'), path.join(ROOT, 'app/push-client.js')].map((f) => fs.readFileSync(f, 'utf8')).join(' ');
-  const hasList = /push-(list|remove)/.test(src);
-  R.check('W6', 'SEC W6 (blocking): PC board lists push subscriptions (label, created, last ok) with Remove, so a lost phone can be cut off', hasList, hasList ? '' : 'no push-list / push-remove handler and no Settings list in the code: only the phone itself can unsubscribe (push-unsubscribe needs the endpoint, which no UI shows)');
+  // W6: PC list + Remove (unit level: the push core).
+  const r = rig();
+  const labelled = ['Android Chrome', 'Windows Edge'].map((label, i) => { const m = makeSub('https://fcm.googleapis.com/fcm/send/w6-' + i); retry(() => r.p.subscribe(m.subscription, label)); return m; });
+  const hostile = makeSub('https://fcm.googleapis.com/fcm/send/w6-h'); retry(() => r.p.subscribe(hostile.subscription, '<img src=x onerror=alert(1)>' + 'L'.repeat(500)));
+  const lst = r.p.list();
+  const dump = JSON.stringify(lst);
+  const shapeOk = lst.length === 3 && lst.every((x) => JSON.stringify(Object.keys(x).sort()) === '["created","id","label","last_ok"]');
+  R.check('W6a', 'list() returns id / label / created / last_ok per phone and nothing else', shapeOk, JSON.stringify(Object.keys(lst[0] || {})));
+  R.check('W6b', 'list() never carries an endpoint, p256dh or auth value (a lost phone list must not leak them)', !labelled.some((m) => dump.includes(new URL(m.subscription.endpoint).pathname) || dump.includes(m.subscription.keys.p256dh) || dump.includes(m.subscription.keys.auth)) && !/https:|fcm\.googleapis/.test(dump), dump.slice(0, 160));
+  R.check('W6c', 'labels are kept for good names and sanitised for hostile ones (no < or >, <= 200 chars)', lst[0].label === 'Android Chrome' && lst[1].label === 'Windows Edge' && !/[<>]/.test(lst[2].label) && lst[2].label.length <= 200, lst[2].label.slice(0, 40));
+  R.check('W6d', 'created is an ISO time; last_ok is null before any delivery', lst.every((x) => !Number.isNaN(Date.parse(x.created)) && x.last_ok === null));
+  cursor = logRows().length;
+  await r.p.send(ev({ id: 'w6-send' })); await settle();
+  const lst2 = r.p.list();
+  R.check('W6e', 'after a delivery every phone shows last_ok (ISO time)', lst2.length === 3 && lst2.every((x) => x.last_ok && !Number.isNaN(Date.parse(x.last_ok))), JSON.stringify(lst2.map((x) => x.last_ok)));
+  const lostId = lst2[0].id;
+  r.p.remove(lostId);
+  const left = r.p.list();
+  const fileLeft = JSON.parse(fs.readFileSync(path.join(r.home, 'push-subs.json'), 'utf8')).map((x) => x.endpoint);
+  R.check('W6f', 'remove(id) deletes exactly that phone, in memory and on disk', left.length === 2 && !left.some((x) => x.id === lostId) && fileLeft.length === 2, JSON.stringify(fileLeft.map((e) => e.slice(-4))));
+  r.tick(10 * 60 * 1000); cursor = logRows().length;
+  await r.p.send(ev({ id: 'w6-after', project: 'zeta' })); await settle();
+  const after = newPushes([...labelled, hostile]);
+  const removedPath = new URL(fileLeft.length ? [labelled[0], labelled[1], hostile].map((m) => m.subscription.endpoint).find((e) => !fileLeft.includes(e)) : 'https://x/').pathname;
+  R.check('W6g', 'after Remove no push reaches the removed phone; the two others still get it', after.length === 2 && !after.some((p) => p.path === removedPath), after.map((p) => p.path.slice(-4)).join(',') + ' removed ' + removedPath.slice(-4));
+  let bad1 = null, bad2 = null, bad3 = null;
+  try { r.p.remove(123); } catch (e) { bad1 = e.code; }
+  try { r.p.remove('x'.repeat(100)); } catch (e) { bad2 = e.code; }
+  let unk = true; try { r.p.remove('0000000000000000'); } catch { unk = false; }
+  try { r.p.remove(undefined); } catch (e) { bad3 = e.code; }
+  R.check('W6h', 'remove: non-string / over-long / missing id -> clean bad_payload error; unknown id harmless; list intact', bad1 === 'bad_payload' && bad2 === 'bad_payload' && bad3 === 'bad_payload' && unk && r.p.list().length === 2, JSON.stringify([bad1, bad2, bad3, unk]));
+  // a removed phone can subscribe again (it is not blocklisted) and a full list frees a slot
+  const removedSub = [labelled[0], labelled[1], hostile].find((m) => !fileLeft.includes(m.subscription.endpoint));
+  retry(() => r.p.subscribe(removedSub.subscription, 'back'));
+  R.check('W6i', 'a removed phone can Turn on again later (slot freed, not blocklisted)', r.p.list().length === 3 && r.p.list().some((x) => x.label === 'back'));
+  const r2 = rig({ home: r.home });
+  R.check('W6j', 'labels + created survive a board restart', r2.p.list().length === 3 && r2.p.list().some((x) => x.label === 'back'));
+}
+{
+  // WIRE: the browser's own ws client refuses any request type that is not in MESSAGE_TYPES ("unknown message type"),
+  // so every push type the bell sends must be listed there. The app tests use a fake client and cannot see this.
+  const { MESSAGE_TYPES } = await import(pathToFileURL(path.join(ROOT, 'app/protocol.js')).href);
+  const need = ['push-key', 'push-subscribe', 'push-unsubscribe', 'push-list', 'push-remove'];
+  const missing = need.filter((t) => !MESSAGE_TYPES.includes(t));
+  R.check('WIRE', 'the browser ws client can send every push type (push-key / subscribe / unsubscribe / list / remove are in app/protocol.js MESSAGE_TYPES)', missing.length === 0, missing.length ? 'NOT in MESSAGE_TYPES: ' + missing.join(', ') + ' -> createWsClient().send() rejects "unknown message type", so Turn on and the Phones list can never reach the board from a real browser' : '');
 }
 R.save();

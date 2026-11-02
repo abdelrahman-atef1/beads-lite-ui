@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 const OUT = process.env.QA_OUT;
-const parts = ['unit', 'sw', 'board'].filter((p) => fs.existsSync(path.join(OUT, `${p}.json`))).map((p) => JSON.parse(fs.readFileSync(path.join(OUT, `${p}.json`), 'utf8')));
+const parts = ['unit', 'phones-ui', 'sw', 'board'].filter((p) => fs.existsSync(path.join(OUT, `${p}.json`))).map((p) => JSON.parse(fs.readFileSync(path.join(OUT, `${p}.json`), 'utf8')));
 const lines = ['# QA summary: board Web Push N3 (company-1bo5.6.16)', ''];
 const tally = { PASS: 0, FAIL: 0, 'NOT EXERCISED': 0 };
 for (const p of parts) {

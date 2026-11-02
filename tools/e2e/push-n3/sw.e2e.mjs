@@ -173,6 +173,36 @@ try {
   R.check('R5', 'bell panel at 390x844 shows the push row and nothing overflows horizontally', bellOpen.result?.result?.value === 'clicked' && !!pv?.has && pv.sw <= pv.cw, JSON.stringify({ bellOpen: bellOpen.result?.result?.value, pv }));
   const shot = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid);
   if (shot.result?.data) fs.writeFileSync(path.join(process.env.QA_OUT, 'bell-panel-390x844.png'), Buffer.from(shot.result.data, 'base64'));
+  // W6 UI (PC door, real Chrome 390x844): Phones list with a label and Remove; Remove cuts the phone off.
+  {
+    const html = await (await fetch(origin + '/')).text();
+    const token = html.match(/name="board-token"[^>]*content="([^"]*)"/)?.[1];
+    const sock = new WebSocket(`ws://127.0.0.1:${PORT}/ws?t=${encodeURIComponent(token)}`, { headers: { Origin: origin } });
+    await new Promise((res, rej) => { sock.on('open', res); sock.on('error', rej); });
+    const { makeSub } = await import('./lib.mjs');
+    const sub = makeSub('https://fcm.googleapis.com/fcm/send/w6-ui');
+    sock.send(JSON.stringify({ id: 'w6', type: 'push-subscribe', payload: { subscription: sub.subscription, label: 'Android Chrome' } }));
+    await sleep(1500);
+    const subsPath = path.join(HOME, 'push-subs.json');
+    const subsNow = () => { try { return JSON.parse(fs.readFileSync(subsPath, 'utf8')); } catch { return []; } };
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__ws=[];const S=WebSocket.prototype.send;WebSocket.prototype.send=function(d){window.__ws.push('>'+String(d).slice(0,120));this.addEventListener('message',(m)=>window.__ws.push('<'+String(m.data).slice(0,200)));return S.apply(this,arguments)}` }, sid);
+    await cdp.send('Page.navigate', { url: origin + '/' }, sid); await sleep(3000);
+    await ev(`(()=>{const b=document.querySelector('[aria-label^="Notifications"],button.bell,#notify-bell,.notify-bell');if(b)b.click()})()`);
+    await sleep(4000);
+    const ph = await ev(`(()=>{const rows=[...document.querySelectorAll('.nt-phone')].map((r)=>r.innerText.replace(/\\s+/g,' ').trim());const rm=[...document.querySelectorAll('.nt-phone-rm')];const r=rm[0]&&rm[0].getBoundingClientRect();return {rows,removeText:rm.map((b)=>b.innerText),heading:/Phones|phones/.test(document.body.innerText),tap:r?{w:Math.round(r.width),h:Math.round(r.height),inView:r.right<=innerWidth&&r.left>=0}:null,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,leak:/fcm\\.googleapis|p256dh/.test(document.body.innerText)}})()`);
+    const probe = await ev(`(async()=>{const t=(p,n)=>Promise.race([p.then((v)=>n+':ok:'+(v?'sub':'null'),(e)=>n+':err:'+e),new Promise((r)=>setTimeout(()=>r(n+':HANG'),3000))]);const reg=await navigator.serviceWorker.ready;return [await t(reg.pushManager.getSubscription(),'getSubscription'),Notification.permission]})()`);
+    fs.writeFileSync(path.join(process.env.QA_OUT, 'w6-probe.json'), JSON.stringify(probe.result?.result?.value));
+    const pvv = ph.result?.result?.value;
+    fs.writeFileSync(path.join(process.env.QA_OUT, 'w6-ws-frames.json'), JSON.stringify((await ev('window.__ws')).result?.result?.value || [], null, 1));
+    R.check('W6u', 'PC door, 390x844: bell panel lists the subscribed phone (label + date) with a Remove button, no overflow, no endpoint text on screen', !!pvv && pvv.rows.length === 1 && /Android Chrome/.test(pvv.rows[0]) && pvv.removeText.length === 1 && pvv.sw <= pvv.cw && !pvv.leak && pvv.tap?.inView, JSON.stringify(pvv));
+    const shot2 = await cdp.send('Page.captureScreenshot', { format: 'png' }, sid);
+    if (shot2.result?.data) fs.writeFileSync(path.join(process.env.QA_OUT, 'bell-phones-390x844.png'), Buffer.from(shot2.result.data, 'base64'));
+    await ev(`document.querySelector('.nt-phone-rm').click()`);
+    await sleep(2500);
+    const after = await ev(`document.querySelectorAll('.nt-phone').length`);
+    R.check('W6v', 'tap Remove: the row disappears and push-subs.json no longer holds the phone', after.result?.result?.value === 0 && subsNow().length === 0, `rows ${after.result?.result?.value}, subs file ${subsNow().length}`);
+    sock.close();
+  }
   // install piece still fine
   const inst = await cdp.send('Page.getInstallabilityErrors', {}, sid);
   R.check('R2', 'install piece intact after the SW gained push handlers: Page.getInstallabilityErrors is empty', Array.isArray(inst.result?.installabilityErrors) && inst.result.installabilityErrors.length === 0, JSON.stringify(inst.result));

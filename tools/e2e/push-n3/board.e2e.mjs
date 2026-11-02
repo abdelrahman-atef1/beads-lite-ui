@@ -152,6 +152,27 @@ try {
   const u0 = await pcSock.rpc('push-unsubscribe', { endpoint: live.subscription.endpoint });
   const u1 = await pcSock.rpc('push-unsubscribe', { endpoint: live.subscription.endpoint });
   R.check('S3e', 'unsubscribe removes it; second unsubscribe is harmless', u0.ok && u1.ok && subsFile().length === 0);
+  // ------------------------------------------------------------ W6 (PC list + Remove, phone door refused), W1 sixth phone, over the real sockets
+  const five = [1, 2, 3, 4, 5].map((i) => makeSub('https://fcm.googleapis.com/fcm/send/w6-e2e-' + i));
+  for (const [i, m] of five.entries()) await phone.rpc('push-subscribe', { subscription: m.subscription, label: i === 0 ? 'Android Chrome' : 'Phone ' + i });
+  const sixth = await phone.rpc('push-subscribe', { subscription: makeSub('https://fcm.googleapis.com/fcm/send/w6-e2e-6').subscription, label: 'sixth' });
+  R.check('W1h', 'real socket, phone door: five phones stored, the sixth is refused (too_many) and nothing is evicted', five.every((m, i) => i < 5 && subsFile().some((x) => x.endpoint === m.subscription.endpoint)) && subsFile().length === 5 && !sixth.ok && /too_many/.test(JSON.stringify(sixth)), JSON.stringify([subsFile().length, sixth.error]));
+  const lPc = await pcSock.rpc('push-list', {});
+  const lPhone = await phone.rpc('push-list', {});
+  // NOTE: since company-1bo5.6.38 (owner 2026-11-02) the phone door has FULL control, so push-list is NOT refused there.
+  // The case therefore checks that both doors answer with ids only (nothing that could cut a different phone off by endpoint).
+  const idsOnly = (r) => r.ok && Array.isArray(r.payload?.subscriptions) && r.payload.subscriptions.length === 5 && r.payload.subscriptions.every((x) => JSON.stringify(Object.keys(x).sort()) === '["created","id","label","last_ok"]');
+  R.check('W6k', 'push-list answers on the PC door with 5 phones (ids only). INFO: the phone door answers too (full control since company-1bo5.6.38), so the Phones list is not hidden there', idsOnly(lPc) && subsFile().length === 5, JSON.stringify({ pc: idsOnly(lPc), phone: idsOnly(lPhone), phoneRefused: !lPhone.ok }));
+  const raw = JSON.stringify(lPc) + JSON.stringify(lPhone);
+  R.check('W6l', 'both list replies carry label / created / last_ok / id only; no endpoint, no key, no private key', idsOnly(lPhone) && !/fcm\.googleapis|https:|p256dh|auth"/.test(raw) && !raw.includes(keyOnDisk.privateKey) && lPc.payload.subscriptions.some((x) => x.label === 'Android Chrome'), raw.slice(0, 200));
+  const lostId = lPc.payload.subscriptions.find((x) => x.label === 'Android Chrome').id;
+  const rmPc = await pcSock.rpc('push-remove', { id: lostId });
+  const rmGone = await phone.rpc('push-remove', { id: lostId });
+  const rmBad = await pcSock.rpc('push-remove', { id: { a: 1 } });
+  const lAfter = await pcSock.rpc('push-list', {});
+  R.check('W6m', 'push-remove over the PC door deletes that phone (reply, list and push-subs.json agree); a malformed id is a clean error', rmPc.ok && !rmBad.ok && lAfter.payload.subscriptions.length === 4 && subsFile().length === 4 && !subsFile().some((x) => x.endpoint === five[0].subscription.endpoint), JSON.stringify([rmPc.ok, rmBad.error?.code, subsFile().length]));
+  for (const x of lAfter.payload.subscriptions) await pcSock.rpc('push-remove', { id: x.id });
+  R.check('W6n', 'cleanup through the PC list leaves no subscriptions', subsFile().length === 0);
   await phone.rpc('push-subscribe', { subscription: live.subscription });
   const bellBefore = (await phone.rpc('notify-list', {})).payload?.events?.length;
 
