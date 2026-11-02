@@ -6,7 +6,6 @@
  * steps (option, then Confirm) and writes: a record comment, the card_back
  * role as assignee, and status `open`, through the existing transport.
  */
-import { createPriorityBadge } from '../utils/priority-badge.js';
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import {
@@ -18,6 +17,7 @@ import {
 } from '../utils/board-model.js';
 import { t } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
+import { createPriorityBadge } from '../utils/priority-badge.js';
 import { showToast } from '../utils/toast.js';
 
 /** Client id of the all-open-issues list. */
@@ -79,7 +79,14 @@ export function createDecisionsView(
       pending.delete(it.id);
     } catch (err) {
       log('answer failed: %o', err);
-      showToast(t('answer_failed'), 'error', 4000);
+      const why = /** @type {any} */ (err)?.message;
+      showToast(
+        why
+          ? `${t('answer_failed')}: ${String(why).slice(0, 160)}`
+          : t('answer_failed'),
+        'error',
+        6000
+      );
     } finally {
       busy.delete(it.id);
       doRender();

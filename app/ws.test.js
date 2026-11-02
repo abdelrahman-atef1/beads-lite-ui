@@ -170,5 +170,30 @@ describe('app/ws client', () => {
     client.close();
   });
 
+  test('a socket refused before it opens re-reads the board token (company-1bo5.6.39)', async () => {
+    const sockets = setupFakeWebSocket();
+    document.head.innerHTML = '<meta name="board-token" content="old">';
+    const fetchMock = vi.fn(async () => ({
+      text: async () =>
+        '<meta name="board-token" content="new" /><title>x</title>'
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createWsClient({
+      backoff: { initialMs: 5, maxMs: 5, jitterRatio: 0 }
+    });
+    expect(sockets[0].url).toContain('t=old');
+    sockets[0].close(); // server refused the stale token: never opened
+    await new Promise((r) => setTimeout(r, 40));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sockets.length).toBe(2);
+    expect(sockets[1].url).toContain('t=new');
+    // after it opened once, a later drop does not refetch
+    sockets[1].openNow();
+    sockets[1].close();
+    await new Promise((r) => setTimeout(r, 40));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    client.close();
+  });
+
   // Removed: subscription ack frames; no warnings to test
 });
