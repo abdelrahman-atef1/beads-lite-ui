@@ -81,6 +81,9 @@ export function runBd(args, options = {}) {
 /** Total argument text allowed per bd call (Windows limit is ~32K chars). */
 export const MAX_BD_ARGS_CHARS = 24000;
 
+/** Longest text the board passes to bd through stdin (frame cap is 256KB). */
+export const MAX_BD_STDIN_CHARS = 200000;
+
 /**
  * Run the `bd` CLI with provided arguments without queueing.
  *
@@ -101,6 +104,16 @@ function runBdUnlocked(args, options = {}) {
   const env_with_db = { ...(options.env || process.env) };
   if (db_path.source === 'nearest' && db_path.exists) {
     env_with_db.BEADS_DB = db_path.path;
+  }
+
+  const stdin_text =
+    typeof options.stdin === 'string' ? options.stdin : undefined;
+  if (stdin_text !== undefined && stdin_text.length > MAX_BD_STDIN_CHARS) {
+    return Promise.resolve({
+      code: 1,
+      stdout: '',
+      stderr: `text too long (${stdin_text.length} chars, limit ${MAX_BD_STDIN_CHARS})`
+    });
   }
 
   const spawn_opts = {
@@ -129,6 +142,10 @@ function runBdUnlocked(args, options = {}) {
     let child;
     try {
       child = spawn(bin, final_args, spawn_opts);
+      if (stdin_text !== undefined && child.stdin) {
+        child.stdin.on('error', () => {});
+        child.stdin.end(stdin_text, 'utf8');
+      }
     } catch (err) {
       log('spawn threw running %s %o', bin, err);
       resolve({ code: 127, stdout: '', stderr: String(err?.message || err) });

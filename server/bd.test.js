@@ -5,7 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { getBdBin, getGitUserName, runBd, runBdJson } from './bd.js';
+import {
+  MAX_BD_STDIN_CHARS,
+  getBdBin,
+  getGitUserName,
+  runBd,
+  runBdJson
+} from './bd.js';
 
 // Mock child_process.spawn before importing the module under test
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
@@ -117,7 +123,35 @@ describe('runBd', () => {
 
   test('oversize args answer "too long" without spawning', async () => {
     mockedSpawn.mockClear();
-    const res = await runBd(['update', 'X-1', '--description', 'y'.repeat(40000)]);
+    const res = await runBd([
+      'update',
+      'X-1',
+      '--description',
+      'y'.repeat(40000)
+    ]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('too long');
+    expect(mockedSpawn).not.toHaveBeenCalled();
+  });
+
+  test('long text goes to bd on stdin, not the command line', async () => {
+    const proc = makeFakeProc('ok', '', 0);
+    const written = [];
+    proc.stdin = { on() {}, end: (t) => written.push(t) };
+    mockedSpawn.mockReturnValueOnce(proc);
+    const text = 'z'.repeat(121704);
+    const res = await runBd(['update', 'X-1', '--design-file', '-'], {
+      stdin: text
+    });
+    expect(res.code).toBe(0);
+    expect(written).toEqual([text]);
+  });
+
+  test('stdin text past the cap is refused', async () => {
+    mockedSpawn.mockClear();
+    const res = await runBd(['update', 'X-1', '--design-file', '-'], {
+      stdin: 'z'.repeat(MAX_BD_STDIN_CHARS + 1)
+    });
     expect(res.code).toBe(1);
     expect(res.stderr).toContain('too long');
     expect(mockedSpawn).not.toHaveBeenCalled();

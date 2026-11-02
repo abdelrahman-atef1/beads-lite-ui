@@ -18,9 +18,9 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
-import { installPhoneSocket } from './phone.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
+import { installPhoneSocket } from './phone.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
 import { keyOf, registry } from './subscriptions.js';
 import { validateSubscribeListPayload } from './validators.js';
@@ -259,7 +259,7 @@ export function scheduleListRefresh() {
 const SUBS = new WeakMap();
 
 /** Biggest inbound frame accepted on either door (the ws default is 100 MiB). */
-const MAX_WS_PAYLOAD = 256 * 1024;
+const MAX_WS_PAYLOAD = 1024 * 1024;
 
 /** @type {WebSocketServer | null} */
 let CURRENT_WSS = null;
@@ -1294,7 +1294,20 @@ async function handleMessageUnsafe(ws, data) {
               ? '--notes'
               : '--design';
     clearDetailCaches();
-    const res = await runBd(['update', id, flag, value], bd_options);
+    // description/design can be 100K+: send them on stdin (never the command
+    // line). Other fields have no file option in bd; the arg cap covers them.
+    const file_flag =
+      field === 'description'
+        ? '--body-file'
+        : field === 'design'
+          ? '--design-file'
+          : '';
+    const res = file_flag
+      ? await runBd(['update', id, file_flag, '-'], {
+          ...bd_options,
+          stdin: value
+        })
+      : await runBd(['update', id, flag, value], bd_options);
     if (res.code !== 0) {
       ws.send(
         JSON.stringify(makeError(req, 'bd_error', res.stderr || 'bd failed'))
@@ -1331,6 +1344,8 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
     const args = ['create'];
+    /** @type {string | undefined} */
+    let long_description;
     if (
       typeof type === 'string' &&
       (type === 'bug' ||
@@ -1345,14 +1360,22 @@ async function handleMessageUnsafe(ws, data) {
       args.push('-p', String(priority));
     }
     if (typeof description === 'string' && description.length > 0) {
-      args.push('-d', description);
+      long_description = description;
     }
     // '--' so a title like '--help' is a title, never a bd flag.
     clearDetailCaches();
     // D6: a board-created task is marked and wakes CoS (agents never pass here).
     const res = await runBd(
-      [...args, ...BOARD_TASK_ARGS, '--', title],
-      bd_options
+      [
+        ...args,
+        ...(long_description !== undefined ? ['--body-file', '-'] : []),
+        ...BOARD_TASK_ARGS,
+        '--',
+        title
+      ],
+      long_description !== undefined
+        ? { ...bd_options, stdin: long_description }
+        : bd_options
     );
     if (res.code !== 0) {
       ws.send(
@@ -1593,12 +1616,12 @@ async function handleMessageUnsafe(ws, data) {
 
     // Get git user name for author attribution
     const author = await getGitUserName(bd_options);
-    const args = ['comments', 'add', id, text.trim()];
+    const args = ['comments', 'add', id, '-f', '-'];
     if (author) {
       args.push('--author', author);
     }
 
-    const res = await runBd(args, bd_options);
+    const res = await runBd(args, { ...bd_options, stdin: text.trim() });
     if (res.code !== 0) {
       ws.send(
         JSON.stringify(makeError(req, 'bd_error', res.stderr || 'bd failed'))

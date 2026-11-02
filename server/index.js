@@ -3,8 +3,8 @@ import { createApp } from './app.js';
 import { printServerUrl } from './cli/daemon.js';
 import { getConfig } from './config.js';
 import { resolveWorkspaceDatabase } from './db.js';
-import { debug, enableAllDebug } from './logging.js';
 import { startNotifier, syncNotifier } from './features/notifier.js';
+import { debug, enableAllDebug } from './logging.js';
 import { registerWorkspace, watchRegistry } from './registry-watcher.js';
 import { watchDb } from './watcher.js';
 import { attachPhoneDoor, attachWsServer } from './ws.js';
@@ -73,10 +73,10 @@ startNotifier({ broadcast });
 
 // Last resort: log and stay up. One bad request must never end the board.
 process.on('uncaughtException', (err) => {
-  log('uncaughtException: %o', err);
+  console.error('uncaughtException:', err);
 });
 process.on('unhandledRejection', (err) => {
-  log('unhandledRejection: %o', err);
+  console.error('unhandledRejection:', err);
 });
 
 server.listen(config.port, config.host, () => {

@@ -496,6 +496,29 @@ export function createDetailView(
     });
   }
 
+  /**
+   * Toast the server's real reason; the editor stays open with the typed text.
+   * @param {string} what
+   * @param {any} err
+   * @param {string} sel - editor control, re-enabled so the owner can retry
+   */
+  const saveFailed = (what, err, sel) => {
+    const reason = String(err?.message || err || '').trim();
+    try {
+      const el = /** @type {HTMLInputElement|null} */ (
+        mount_element.querySelector(sel)
+      );
+      if (el) el.disabled = false;
+    } catch {
+      // ignore
+    }
+    showToast(
+      reason ? `Failed to save ${what}: ${reason}` : `Failed to save ${what}`,
+      'error',
+      8000
+    );
+  };
+
   // Handlers
   const onTitleSpanClick = () => {
     edit_title = true;
@@ -545,10 +568,8 @@ export function createDetailView(
       }
     } catch (err) {
       log('save title failed %s %o', String(current.id), err);
-      current.title = prev;
-      edit_title = false;
-      doRender();
-      showToast('Failed to save title', 'error');
+      edit_title = true;
+      saveFailed('title', err, 'h2 input');
     } finally {
       pending = false;
     }
@@ -816,10 +837,8 @@ export function createDetailView(
       }
     } catch (err) {
       log('save description failed %s %o', String(current?.id || ''), err);
-      current.description = prev;
-      edit_desc = false;
-      doRender();
-      showToast('Failed to save description', 'error');
+      edit_desc = true;
+      saveFailed('description', err, '#detail-root textarea');
     } finally {
       pending = false;
     }
@@ -895,10 +914,8 @@ export function createDetailView(
       }
     } catch (err) {
       log('save design failed %s %o', String(current?.id || ''), err);
-      current.design = prev;
-      edit_design = false;
-      doRender();
-      showToast('Failed to save design', 'error');
+      edit_design = true;
+      saveFailed('design', err, '#detail-root .design textarea');
     } finally {
       pending = false;
     }
@@ -964,10 +981,8 @@ export function createDetailView(
       }
     } catch (err) {
       log('save notes failed %s %o', String(current?.id || ''), err);
-      current.notes = prev;
-      edit_notes = false;
-      doRender();
-      showToast('Failed to save notes', 'error');
+      edit_notes = true;
+      saveFailed('notes', err, '#detail-root .notes textarea');
     } finally {
       pending = false;
     }
@@ -1032,10 +1047,8 @@ export function createDetailView(
       }
     } catch (err) {
       log('save acceptance failed %s %o', String(current?.id || ''), err);
-      current.acceptance = prev;
-      edit_accept = false;
-      doRender();
-      showToast('Failed to save acceptance', 'error');
+      edit_accept = true;
+      saveFailed('acceptance', err, '#detail-root .acceptance textarea');
     } finally {
       pending = false;
     }
@@ -1082,7 +1095,7 @@ export function createDetailView(
       }
     } catch (err) {
       log('add comment failed %s %o', String(current.id), err);
-      showToast('Failed to add comment', 'error');
+      saveFailed('comment', err, '#detail-root textarea');
     } finally {
       comment_pending = false;
       doRender();

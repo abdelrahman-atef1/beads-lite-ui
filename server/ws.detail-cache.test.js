@@ -355,8 +355,8 @@ describe('comments cache', () => {
 
     expect(mockedGitUserName).toHaveBeenCalledWith({ cwd: root_dir });
     expect(mockedRunBd).toHaveBeenCalledWith(
-      ['comments', 'add', issue_id, 'hello', '--author', 'Alice'],
-      { cwd: root_dir }
+      ['comments', 'add', issue_id, '-f', '-', '--author', 'Alice'],
+      { cwd: root_dir, stdin: 'hello' }
     );
     expect(mockedRunBdJson).toHaveBeenLastCalledWith(
       ['comments', issue_id, '--json'],

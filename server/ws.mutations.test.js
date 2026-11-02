@@ -392,7 +392,10 @@ describe('ws mutation handlers', () => {
     );
     // Verify bd call flag mapping
     const call = mRun.mock.calls[mRun.mock.calls.length - 1][0];
-    expect(call).toEqual(['update', 'UI-7', '--description', 'New desc']);
+    expect(call).toEqual(['update', 'UI-7', '--body-file', '-']);
+    expect(mRun.mock.calls[mRun.mock.calls.length - 1][1]).toMatchObject({
+      stdin: 'New desc'
+    });
     const obj = JSON.parse(ws.sent[ws.sent.length - 1]);
     expect(obj.ok).toBe(true);
     expect(obj.payload.description).toBe('New desc');
@@ -417,7 +420,10 @@ describe('ws mutation handlers', () => {
       Buffer.from(JSON.stringify(req))
     );
     const call = mRun.mock.calls[mRun.mock.calls.length - 1][0];
-    expect(call).toEqual(['update', 'UI-8', '--design', 'New design']);
+    expect(call).toEqual(['update', 'UI-8', '--design-file', '-']);
+    expect(mRun.mock.calls[mRun.mock.calls.length - 1][1]).toMatchObject({
+      stdin: 'New design'
+    });
     const obj = JSON.parse(ws.sent[ws.sent.length - 1]);
     expect(obj.ok).toBe(true);
     expect(obj.payload.design).toBe('New design');

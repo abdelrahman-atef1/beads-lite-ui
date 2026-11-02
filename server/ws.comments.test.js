@@ -156,8 +156,8 @@ describe('add-comment handler', () => {
 
     // Verify bd was called with correct args including --author
     expect(rb).toHaveBeenCalledWith(
-      ['comments', 'add', 'UI-1', 'New comment', '--author', 'Test User'],
-      expect.objectContaining({})
+      ['comments', 'add', 'UI-1', '-f', '-', '--author', 'Test User'],
+      expect.objectContaining({ stdin: 'New comment' })
     );
   });
 
@@ -191,8 +191,8 @@ describe('add-comment handler', () => {
 
     // Verify bd was called without --author
     expect(rb).toHaveBeenCalledWith(
-      ['comments', 'add', 'UI-1', 'Anonymous comment'],
-      expect.objectContaining({})
+      ['comments', 'add', 'UI-1', '-f', '-'],
+      expect.objectContaining({ stdin: 'Anonymous comment' })
     );
   });
 
