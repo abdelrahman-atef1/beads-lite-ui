@@ -37,6 +37,7 @@ const PROJECT_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const SPAWN_FAIL_RE = /EPERM|uv_spawn|Access is denied/i;
 const BIDI_RE = /[‪-‮⁦-⁩‎‏؜]/g;
+// eslint-disable-next-line no-control-regex -- intentional: strip control characters
 const CTRL_RE = /[\u0000-\u001F\u007F]/g;
 
 /** @param {string} p folder name, lower-case = project key (same as report.js) */
