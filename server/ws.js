@@ -18,7 +18,7 @@ import { resolveWorkspaceDatabase } from './db.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
-import { installPhoneSocket, phoneGate } from './phone.js';
+import { installPhoneSocket } from './phone.js';
 import { fetchListForSubscription } from './list-adapters.js';
 import { debug } from './logging.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
@@ -887,19 +887,8 @@ export async function handleMessage(ws, data) {
 
   const req = json;
 
-  // Phone door (SEC B3): allowlist of request types; per-bead types refuse
-  // desk beads. Replies leave through the redacting send (B4).
-  if (/** @type {any} */ (ws).door === 'phone') {
-    const refused = await phoneGate(ws, req, {
-      cwd: CURRENT_WORKSPACE?.root_dir
-    });
-    if (refused) {
-      ws.send(
-        JSON.stringify(makeError(req, refused, 'Refused on the phone door'))
-      );
-      return;
-    }
-  }
+  // Phone door: full control (company-1bo5.6.38). Same handlers as the PC; the
+  // identity check is at the upgrade, outbound frames go through redactFrame.
 
   // D8 defence in depth: a real connection that is not authed never mutates.
   // (Stub sockets used by unit tests carry no `guarded` marker.)

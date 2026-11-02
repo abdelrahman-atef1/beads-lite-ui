@@ -105,104 +105,84 @@ describe('phone door: guard helpers', () => {
   });
 });
 
-describe('phone door: redaction chokepoint (B4)', () => {
+describe('phone door: outbound frames (full control, company-1bo5.6.38)', () => {
   const frame = (/** @type {any} */ o) => JSON.stringify(o);
-  const leak = /SECRET|rotate the prod key|سري/;
 
-  test('every outbound frame type keeps desk text out', () => {
-    const clean = new Set(['r1']);
-    const frames = [
-      frame({
-        id: 'e',
-        ok: true,
-        type: 'snapshot',
-        payload: {
-          id: 'c',
-          revision: 1,
-          issues: [desk_issue, sec_issue, plain_issue]
-        }
-      }),
-      frame({
-        id: 'e',
-        ok: true,
-        type: 'upsert',
-        payload: { id: 'c', revision: 2, issue: desk_issue }
-      }),
-      frame({
-        id: 'e',
-        ok: true,
-        type: 'upsert',
-        payload: { id: 'c', revision: 3, issue: plain_issue }
-      }),
-      frame({
-        id: 'e',
-        ok: true,
-        type: 'delete',
-        payload: { id: 'c', revision: 4, issue_id: 'p-1' }
-      }),
-      frame({
-        id: 'r1',
-        ok: true,
-        type: 'get-comments',
-        payload: [{ text: 'fine' }]
-      }),
-      frame({
-        id: 'r2',
-        ok: true,
-        type: 'get-comments',
-        payload: [{ text: 'SECRET-COMMENT' }]
-      }),
-      frame({
-        id: 'r3',
-        ok: false,
-        type: 'show',
-        error: {
-          code: 'bd_error',
-          message: DESK_TITLE,
-          details: { stderr: DESK_TITLE }
-        }
-      }),
-      frame({
-        id: 'r4',
-        ok: true,
-        type: 'workspace-changed',
-        payload: { root_dir: 'C:/SECRET' }
-      }),
-      frame({
-        id: 'r5',
-        ok: true,
-        type: 'delete-issue',
-        payload: { id: 'p-1', note: 'SECRET' }
-      }),
-      frame({
-        id: 'r6',
-        ok: true,
-        type: 'something-new',
-        payload: { text: 'SECRET' }
-      }),
-      'not json SECRET'
-    ];
-    const out = frames
-      .map((f) => redactFrame(f, clean))
-      .filter((x) => x !== null);
-    expect(out.join('\n')).not.toMatch(leak);
-    // plain bead stays readable, comments pass only for the proven request id
-    expect(out.join('\n')).toContain('plain task');
-    expect(out.join('\n')).toContain('fine');
-    // the pointer keeps only neutral fields
-    const snap = JSON.parse(
-      /** @type {string} */ (redactFrame(frames[0], clean))
-    );
-    const p = snap.payload.issues[0];
-    expect(p.pointer).toBe(true);
-    expect(p.title).toBe('قرار ينتظرك');
-    expect(p.description).toBeUndefined();
-    expect(p.design).toBeUndefined();
-    expect(snap.payload.issues[1].pointer).toBe(true); // sec-created
-    expect(snap.payload.issues[2].dependencies[0].pointer).toBe(true); // nested
+  test('desk beads, nested titles and comments pass unchanged', () => {
+    const snap = frame({
+      id: 'e',
+      ok: true,
+      type: 'snapshot',
+      payload: {
+        id: 'c',
+        revision: 1,
+        issues: [desk_issue, sec_issue, plain_issue]
+      }
+    });
+    const out = /** @type {string} */ (redactFrame(snap));
+    expect(out).toContain('SECRET-DESK-TITLE');
+    expect(out).toContain('SECRET-DESCRIPTION');
+    expect(JSON.parse(out).payload.issues[0].pointer).toBeUndefined();
+    expect(redactIssue(desk_issue)).toBe(desk_issue);
+    const cm = frame({
+      id: 'r',
+      ok: true,
+      type: 'get-comments',
+      payload: [{ text: 'SECRET-COMMENT' }]
+    });
+    expect(redactFrame(cm)).toContain('SECRET-COMMENT');
+    const up = frame({
+      id: 'e',
+      ok: true,
+      type: 'upsert',
+      payload: { issue: desk_issue }
+    });
+    expect(redactFrame(up)).toContain('rotate the prod key');
+    const neo = frame({
+      id: 'r',
+      ok: true,
+      type: 'delete-issue',
+      payload: { id: 'p-1' }
+    });
+    expect(redactFrame(neo)).toContain('delete-issue');
   });
 
-  test('a subscribed phone socket gets pointers, never desk text', async () => {
+  test('errors keep code and a short message, never details, paths or bd output', () => {
+    const e = JSON.parse(
+      /** @type {string} */ (
+        redactFrame(
+          frame({
+            id: 'r',
+            ok: false,
+            type: 'update-status',
+            error: {
+              code: 'bad_request',
+              message: 'Invalid status',
+              details: { stderr: 'C:/x/y' }
+            }
+          })
+        )
+      )
+    );
+    expect(e.error).toEqual({ code: 'bad_request', message: 'Invalid status' });
+    const p = JSON.parse(
+      /** @type {string} */ (
+        redactFrame(
+          frame({
+            id: 'r',
+            ok: false,
+            type: 'show',
+            error: { code: 'bd_error', message: 'failed at C:/Users/a/x' }
+          })
+        )
+      )
+    );
+    expect(p.error.message).toBe('Could not complete');
+    expect(JSON.stringify(p)).not.toContain('Users');
+    expect(redactFrame('not json')).toBeNull();
+  });
+
+  test('a subscribed phone socket gets desk beads in full', async () => {
     const mock = /** @type {import('vitest').Mock} */ (
       fetchListForSubscription
     );
@@ -224,54 +204,17 @@ describe('phone door: redaction chokepoint (B4)', () => {
         })
       )
     );
-    expect(sent.length).toBeGreaterThan(1);
-    expect(sent.join('\n')).not.toMatch(leak);
-    expect(sent.join('\n')).toContain('plain task');
-  });
-});
-
-describe('phone door: derived fields (B4)', () => {
-  test('blocked_by_detail never carries a desk title', () => {
-    const issue = {
-      id: 'p-1',
-      title: 'plain',
-      labels: [],
-      blocked_by_detail: [
-        { id: 'd-1', assignee: '', status: 'open', title: 'SECRET-DESK-TITLE' },
-        { id: 'd-2', assignee: 'legal', status: 'open', title: 'LEGAL-TITLE' }
-      ]
-    };
-    const out = JSON.stringify(redactIssue(issue));
-    expect(out).not.toMatch(/SECRET-DESK-TITLE|LEGAL-TITLE/);
-    expect(out).toContain('d-1');
-    expect(out).toContain('plain');
-  });
-
-  test('a snapshot frame with blocked_by_detail is scrubbed', () => {
-    const raw = JSON.stringify({
-      type: 'list-snapshot',
-      payload: {
-        issues: [
-          {
-            id: 'p-1',
-            title: 'plain',
-            labels: [],
-            blocked_by_detail: [
-              { id: 'd-1', status: 'open', title: 'SECRET-DESK-TITLE' }
-            ]
-          }
-        ]
-      }
-    });
-    const out = redactFrame(raw, new Set());
-    expect(out === null || !out.includes('SECRET-DESK-TITLE')).toBe(true);
+    expect(sent.join(',')).toContain('SECRET-DESK-TITLE');
+    expect(sent.join(',')).toContain('plain task');
   });
 });
 
 describe('phone door: busy port', () => {
   test('attachPhoneDoor on a busy port does not throw', async () => {
     const blocker = createServer();
-    await new Promise((r) => blocker.listen(0, '127.0.0.1', () => r(undefined)));
+    await new Promise((r) =>
+      blocker.listen(0, '127.0.0.1', () => r(undefined))
+    );
     const port = /** @type {any} */ (blocker.address()).port;
     const phone = createServer();
     attachPhoneDoor(phone, { path: '/ws', heartbeat_ms: 60000 });
@@ -491,114 +434,75 @@ describe('phone door: servers', () => {
     });
   }
 
-  test('WS: delete, label-remove, set-workspace, edits refused on the phone door', async () => {
+  test('WS: every PC request type is accepted on the phone door (edit, delete, status)', async () => {
+    vi.mocked(runBd).mockResolvedValue({ code: 0, stdout: '', stderr: '' });
+    vi.mocked(runBdJson).mockResolvedValue({
+      code: 0,
+      stderr: '',
+      stdoutJson: [desk_issue]
+    });
     for (const type of [
       'delete-issue',
       'label-remove',
-      'set-workspace',
-      'update-status',
-      'edit-text',
       'label-add',
+      'update-status',
+      'update-priority',
+      'update-assignee',
+      'edit-text',
       'dep-add',
       'update-type'
     ]) {
       const r = /** @type {any} */ (
         await ask({
           type,
-          payload: { id: 'p-1', label: 'security', path: '/x' }
+          payload: {
+            id: 'p-1',
+            label: 'security',
+            status: 'open',
+            field: 'title',
+            value: 'x'
+          }
         })
       );
-      expect(r.ok, type).toBe(false);
-      expect(r.error.code, type).toBe('forbidden');
+      expect(r.error?.code, type).not.toBe('forbidden');
+      expect(r.error?.code, type).not.toBe('pc_only');
     }
-    expect(vi.mocked(runBd)).not.toHaveBeenCalled();
+    // the mutations really reached bd
+    expect(vi.mocked(runBd).mock.calls.length).toBeGreaterThan(3);
   });
 
-  test('WS: comment on a desk bead is refused, an unreadable bead fails closed', async () => {
+  test('WS: comments on a desk bead and an unreadable bead are no longer refused', async () => {
     vi.mocked(runBdJson).mockResolvedValue({
       code: 0,
-
       stderr: '',
-      stdoutJson: [desk_issue]
+      stdoutJson: [{ id: 1, text: 'SECRET-COMMENT' }]
     });
+    vi.mocked(runBd).mockResolvedValue({ code: 0, stdout: '', stderr: '' });
     const a = /** @type {any} */ (
       await ask({ type: 'get-comments', payload: { id: 'p-1' } })
     );
-    expect(a.error.code).toBe('pc_only');
+    expect(a.ok).toBe(true);
+    expect(a.payload[0].text).toBe('SECRET-COMMENT');
     const b = /** @type {any} */ (
       await ask({ type: 'add-comment', payload: { id: 'p-1', text: 'hi' } })
     );
-    expect(b.error.code).toBe('pc_only');
-    vi.mocked(runBdJson).mockResolvedValue({
-      code: 1,
-
-      stderr: DESK_TITLE,
-      stdoutJson: null
-    });
-    const c = /** @type {any} */ (
-      await ask({ type: 'get-comments', payload: { id: 'p-9' } })
-    );
-    expect(c.error.code).toBe('pc_only');
-    expect(JSON.stringify(c)).not.toContain('rotate');
-    expect(vi.mocked(runBd)).not.toHaveBeenCalled();
+    expect(b.error?.code).not.toBe('pc_only');
+    expect(b.error?.code).not.toBe('forbidden');
   });
 
-  test('WS: comments on a non-desk bead pass', async () => {
-    vi.mocked(runBdJson).mockImplementation(async (args) =>
-      args[0] === 'show'
-        ? { code: 0, stdoutJson: [plain_issue] }
-        : {
-            code: 0,
-
-            stderr: '',
-            stdoutJson: [{ id: 1, text: 'hello' }]
-          }
-    );
-    const r = /** @type {any} */ (
-      await ask({ type: 'get-comments', payload: { id: 'p-3' } })
-    );
-    expect(r.ok).toBe(true);
-    expect(r.payload[0].text).toBe('hello');
-  });
-
-  test('/att: served only when the owning bead is known and not desk', async () => {
-    const owned = (/** @type {any} */ labels) =>
-      vi.mocked(runBdJson).mockResolvedValue({
-        code: 0,
-
-        stderr: '',
-        stdoutJson: [
-          {
-            id: 'proj-1',
-            labels,
-            created_by: 'cto',
-            metadata: { attachments: ['proj/2026-10/0123456789abcdef.png'] }
-          }
-        ]
-      });
-    owned([]);
-    expect(
-      (await http(phone_port, '/att/proj/2026-10/0123456789abcdef.png', good()))
-        .status
-    ).toBe(200);
-    owned(['publish']);
-    expect(
-      (await http(phone_port, '/att/proj/2026-10/0123456789abcdef.png', good()))
-        .status
-    ).toBe(404);
-    owned([]);
-    // image with no owning bead: refused on the phone, served on the PC
-    expect(
-      (await http(phone_port, '/att/proj/2026-10/fedcba9876543210.png', good()))
-        .status
-    ).toBe(404);
-    expect(
-      (
-        await http(pc_port, '/att/proj/2026-10/fedcba9876543210.png', {
-          Host: '127.0.0.1'
-        })
-      ).status
-    ).toBe(200);
+  test('/att: an image is served on the phone door like the PC, owner bead or not', async () => {
+    for (const name of ['0123456789abcdef', 'fedcba9876543210']) {
+      expect(
+        (await http(phone_port, `/att/proj/2026-10/${name}.png`, good())).status
+      ).toBe(200);
+      expect(
+        (
+          await http(phone_port, `/att/proj/2026-10/${name}.png`, {
+            Host: HOST
+          })
+        ).status
+      ).toBe(403); // identity still required
+    }
   });
 
   test('/api/report: pc token does not open the phone door', async () => {

@@ -136,7 +136,7 @@ describe('views/board', () => {
     );
   });
 
-  test('a desk decision shows only its neutral title', async () => {
+  test('a former desk decision shows its real title', async () => {
     const { mount, view } = setup({
       'tab:all': [
         {
@@ -150,8 +150,7 @@ describe('views/board', () => {
     });
     await view.load();
     const text = mount.querySelector('#owner-col')?.textContent || '';
-    expect(text).toContain('قرار قانوني');
-    expect(text).not.toContain('licence risk');
+    expect(text).toContain('licence risk');
   });
 
   test('card links to the deep link and a plain click navigates in the app', async () => {

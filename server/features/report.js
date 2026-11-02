@@ -17,9 +17,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { runBd, runBdJson } from '../bd.js';
+import { runBd } from '../bd.js';
 import { isAllowedOrigin, isValidToken } from '../guard.js';
-import { isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 
 export const MAX_IMAGE = 4 * 1024 * 1024;
@@ -555,40 +554,6 @@ function doorOf(req) {
 }
 
 /**
- * Phone door only (SEC B4): an image is served only when the bead that owns
- * it is found and is not a desk bead. Fail closed on any doubt.
- *
- * @param {string} project
- * @param {string} rel  project/yyyy-mm/name.ext
- * @returns {Promise<boolean>}
- */
-async function attOwnerIsNonDesk(project, rel) {
-  const root = projects().get(project);
-  if (!root) return false;
-  const r = await runBdJson(
-    [
-      'list',
-      '--all',
-      '--limit',
-      '0',
-      '--has-metadata-key',
-      'attachments',
-      '--json'
-    ],
-    { cwd: root }
-  );
-  if (r.code !== 0 || !Array.isArray(r.stdoutJson)) return false;
-  const owners = r.stdoutJson.filter(
-    (/** @type {any} */ b) =>
-      Array.isArray(b?.metadata?.attachments) &&
-      b.metadata.attachments.includes(rel)
-  );
-  return (
-    owners.length > 0 && owners.every((/** @type {any} */ b) => !isDeskIssue(b))
-  );
-}
-
-/**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
@@ -596,15 +561,7 @@ async function handleAtt(req, res) {
   const m = ATT_RE.exec(req.path);
   if (!m) return fail(res, 404, 'not_found');
   const [, project, ym, name, ext] = m;
-  if (doorOf(req) === 'phone') {
-    let ok = false;
-    try {
-      ok = await attOwnerIsNonDesk(project, `${project}/${ym}/${name}.${ext}`);
-    } catch {
-      ok = false;
-    }
-    if (!ok) return fail(res, 404, 'not_found');
-  }
+  // Full control on the phone door (company-1bo5.6.38): same as the PC.
   try {
     const root = fs.realpathSync(attachRoot());
     const real = fs.realpathSync(
