@@ -72,6 +72,8 @@ export function createWsClient(options = {}) {
   let reconnect_timer = null;
   /** @type {boolean} */
   let should_reconnect = true;
+  /** @type {boolean} did the current socket ever reach open */
+  let opened = false;
 
   /** @type {Map<string, { resolve: (v: any) => void, reject: (e: any) => void, type: string }>} */
   const pending = new Map();
@@ -128,6 +130,7 @@ export function createWsClient(options = {}) {
   }
 
   function onOpen() {
+    opened = true;
     state = 'open';
     log('ws open');
     notifyConnection(state);
@@ -182,7 +185,32 @@ export function createWsClient(options = {}) {
     }
   }
 
+  /**
+   * The server makes a new token on every launch. A page loaded before a
+   * restart still holds the old one, and the server refuses it (403), so the
+   * socket never opens. Read the new token from the page and retry.
+   * Only used by the default URL; a fixed options.url has no token to refresh.
+   */
+  async function refreshToken() {
+    if (options.url || typeof fetch !== 'function') {
+      return;
+    }
+    try {
+      const res = await fetch('/', { cache: 'no-store' });
+      const m = (await res.text()).match(
+        /<meta[^>]*name="board-token"[^>]*content="([^"]*)"/
+      );
+      const meta = document.querySelector('meta[name="board-token"]');
+      if (m && meta) {
+        meta.setAttribute('content', m[1]);
+      }
+    } catch (err) {
+      log('token refresh failed %o', err);
+    }
+  }
+
   function onClose() {
+    const never_opened = !opened;
     state = 'closed';
     log('ws closed');
     notifyConnection(state);
@@ -192,7 +220,11 @@ export function createWsClient(options = {}) {
       pending.delete(id);
     }
     attempts += 1;
-    scheduleReconnect();
+    if (never_opened) {
+      void refreshToken().finally(scheduleReconnect);
+    } else {
+      scheduleReconnect();
+    }
   }
 
   function connect() {
@@ -202,6 +234,7 @@ export function createWsClient(options = {}) {
     const url = resolveUrl();
     try {
       ws = new WebSocket(url);
+      opened = false;
       log('ws connecting %s', url);
       state = 'connecting';
       notifyConnection(state);
