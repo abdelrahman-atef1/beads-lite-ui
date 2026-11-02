@@ -324,7 +324,9 @@ export function bootstrap(root_element) {
      * @param {string} id
      */
     function releaseHeldDetail(id) {
-      if (held_detail_id !== id) return;
+      // Before list-workspaces answered, shouldHoldDetail() holds again and the
+      // re-select would loop forever; the loader finally releases (14.3).
+      if (!workspaces_ready || held_detail_id !== id) return;
       held_detail_id = null;
       if (store.getState().selected_id === id) {
         store.setState({ selected_id: null });
