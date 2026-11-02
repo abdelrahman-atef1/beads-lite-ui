@@ -52,8 +52,11 @@ export async function withPrefixes(workspaces) {
   for (const w of workspaces) {
     const hit = cache.get(w.path);
     if (hit && !hit.pending && now - hit.at < TTL_MS) continue;
+    // Stale-while-revalidate: a prefix we already know is served at once and
+    // refreshed in the background; only a first-ever lookup is waited for.
+    const known = !!hit?.prefix;
     if (hit?.pending) {
-      waits.push(hit.pending);
+      if (!known) waits.push(hit.pending);
       continue;
     }
     const entry = hit || { at: 0 };
@@ -63,7 +66,7 @@ export async function withPrefixes(workspaces) {
       if (prefix) entry.prefix = prefix;
       entry.pending = undefined;
     });
-    waits.push(entry.pending);
+    if (!known) waits.push(entry.pending);
   }
   if (waits.length > 0) {
     await Promise.race([

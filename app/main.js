@@ -293,15 +293,24 @@ export function bootstrap(root_element) {
     let workspaces_ready = false;
     /** @type {string | null} */
     let held_detail_id = null;
-    /** Ids already looked up in the moved-beads alias (company-8ce8.14.3). */
-    const alias_checked = new Set();
+    /** Old id -> new id table, loaded once (company-8ce8.14.3). */
+    /** @type {Record<string, string> | null} */
+    let moved_table = null;
+    const moved_ready = client
+      .send('resolve-moved-id', {})
+      .then((res) => {
+        moved_table = (res && res.all) || {};
+      })
+      .catch(() => {
+        moved_table = {};
+      });
 
     /**
      * @param {string} id
      * @returns {boolean}
      */
     function shouldHoldDetail(id) {
-      if (!workspaces_ready || !alias_checked.has(id)) return true;
+      if (!workspaces_ready || moved_table === null) return true;
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) return false;
       return (
@@ -331,26 +340,17 @@ export function bootstrap(root_element) {
      */
     async function ensureIssueWorkspace(id) {
       if (!id) return;
-      if (!alias_checked.has(id)) {
-        // An old id of a moved bead still matches its old prefix, so ask the
-        // alias file first; a hit opens the new id instead.
-        /** @type {string | null} */
-        let moved_id = null;
-        try {
-          const res = await client.send('resolve-moved-id', { id });
-          moved_id = (res && res.moved && res.moved.id) || null;
-        } catch {
-          // no alias: carry on with the id as given
+      // An old id of a moved bead still matches its old prefix, so look it up
+      // in the alias table first; a hit replaces the address-bar entry (Back
+      // must not land on the dead old id) and opens the new id. Every open
+      // redirects, not just the first.
+      await moved_ready;
+      const moved_id = moved_table && moved_table[id.toLowerCase()];
+      if (moved_id && moved_id !== id) {
+        if (store.getState().selected_id === id) {
+          router.gotoIssue(moved_id, { replace: true });
         }
-        alias_checked.add(id);
-        if (moved_id && moved_id !== id) {
-          if (store.getState().selected_id === id) {
-            // via the hash, so the address bar shows the new id too
-            router.gotoIssue(moved_id);
-          }
-          return;
-        }
-        releaseHeldDetail(id);
+        return;
       }
       const ws = store.getState().workspace;
       if (!ws || !ws.available || ws.available.length === 0) {

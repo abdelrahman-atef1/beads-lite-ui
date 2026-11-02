@@ -126,15 +126,20 @@ export function createHashRouter(store) {
     },
     /**
      * @param {string} id
+     * @param {{ replace?: boolean }} [opts] replace = no history entry (redirects)
      */
-    gotoIssue(id) {
+    gotoIssue(id, opts) {
       // Keep current view in hash and append issue param via helper
       const s = store.getState ? store.getState() : { view: 'issues' };
       const view = s.view || 'issues';
       const next = issueHashFor(view, id);
       log('goto issue %s (view=%s)', id, view);
       if (window.location.hash !== next) {
-        window.location.hash = next;
+        if (opts && opts.replace) {
+          window.location.replace(next);
+        } else {
+          window.location.hash = next;
+        }
       } else {
         // Force state update even if hash is the same
         store.setState({ selected_id: id, view });

@@ -23,6 +23,26 @@ let cached = null;
  */
 export function resolveMovedId(id) {
   if (typeof id !== 'string' || id.length === 0 || id.length > 200) return null;
+  const map = load();
+  return (map && map.get(id.toLowerCase())) || null;
+}
+
+/**
+ * The whole alias table (lower-case old id -> new id), so the browser loads
+ * it once and looks ids up locally.
+ *
+ * @returns {Record<string, string>}
+ */
+export function allMovedIds() {
+  const map = load();
+  /** @type {Record<string, string>} */
+  const out = {};
+  if (map) for (const [o, v] of map) out[o] = v.id;
+  return out;
+}
+
+/** @returns {Map<string, { id: string, repo: string }> | null} */
+function load() {
   const file = aliasPath();
   let mtime;
   try {
@@ -45,5 +65,5 @@ export function resolveMovedId(id) {
     }
     cached = { file, mtime, map };
   }
-  return cached.map.get(id.toLowerCase()) || null;
+  return cached.map;
 }
