@@ -72,7 +72,18 @@ function writeJson(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  // Antivirus now and then holds the file for a moment (EPERM/EBUSY on rename).
+  for (let i = 0; ; i++) {
+    try {
+      fs.renameSync(tmp, file);
+      return;
+    } catch (e) {
+      const code = /** @type {any} */ (e)?.code;
+      if (i >= 3 || (code !== 'EPERM' && code !== 'EBUSY')) throw e;
+      const until = Date.now() + 25 * (i + 1);
+      while (Date.now() < until);
+    }
+  }
 }
 
 const sha = (/** @type {string} */ s) =>

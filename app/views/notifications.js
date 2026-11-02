@@ -13,7 +13,13 @@
  * Ev = { id, kind: decision|answer|digest|degraded, project, bead|null,
  *        title|null, desk, count, at, read }. The server owns read state.
  */
-import { disablePush, enablePush, pushStatus } from '../push-client.js';
+import {
+  T_PUSH_LIST,
+  T_PUSH_REMOVE,
+  disablePush,
+  enablePush,
+  pushStatus
+} from '../push-client.js';
 import { t } from '../utils/i18n.js';
 import { createWsClient } from '../ws.js';
 
@@ -137,6 +143,8 @@ export function mountBell(el, opts = {}) {
   let switchErr = '';
   /** @type {'unsupported'|'denied'|'off'|'on'|'error'|'busy'} */
   let pushState = 'unsupported';
+  /** @type {{ id: string, label: string, created: string, last_ok: string|null }[]} */
+  let pushList = [];
   /** @type {HTMLElement | null} */
   let panel = null;
 
@@ -245,8 +253,54 @@ export function mountBell(el, opts = {}) {
   }
 
   async function loadPush() {
-    pushState = await pushStatus(opts.pushEnv);
+    pushState = await pushStatus(opts.pushEnv, client);
     paint();
+    void loadPushList();
+  }
+
+  /** PC only: the phone door refuses push-list, then the list stays hidden. */
+  async function loadPushList() {
+    try {
+      const r = await client.send(T_PUSH_LIST, {});
+      pushList = Array.isArray(r?.subscriptions) ? r.subscriptions : [];
+    } catch {
+      pushList = [];
+    }
+    paint();
+  }
+
+  /** @param {string} id */
+  async function removePhone(id) {
+    try {
+      await client.send(T_PUSH_REMOVE, { id });
+    } catch {
+      switchErr = tr('nt_push_err');
+    }
+    await loadPushList();
+  }
+
+  function phonesList() {
+    const box = h('div', { class: 'nt-phones' });
+    if (!pushList.length) return box;
+    box.append(h('p', { class: 'nt-note' }, [tr('nt_phones')]));
+    for (const p of pushList) {
+      const rm = h(
+        'button',
+        { type: 'button', class: 'nt-lnk nt-phone-rm', 'data-id': p.id },
+        [tr('nt_phone_remove')]
+      );
+      rm.addEventListener('click', () => void removePhone(p.id));
+      const when = (p.last_ok || p.created || '').slice(0, 10);
+      box.append(
+        h('div', { class: 'nt-row nt-phone' }, [
+          h('span', {}, [
+            `${p.label || tr('nt_phone_unnamed')} ${when}`.trim()
+          ]),
+          rm
+        ])
+      );
+    }
+    return box;
   }
 
   /** Turn push on/off for this phone (ADR 0007 N3). */
@@ -351,7 +405,7 @@ export function mountBell(el, opts = {}) {
     if (switchErr) {
       sw.append(h('p', { class: 'nt-note', role: 'alert' }, [switchErr]));
     }
-    sw.append(pushRow());
+    sw.append(pushRow(), phonesList());
     const mute = h('button', { type: 'button', class: 'nt-lnk nt-mute' }, [
       muteUntil ? tr('nt_unmute') : tr('nt_mute')
     ]);

@@ -88,3 +88,55 @@ describe('bell: phone alerts row', () => {
     );
   });
 });
+
+describe('bell: PC list of subscribed phones (W6)', () => {
+  const phones = [
+    {
+      id: 'aaa',
+      label: 'Android Chrome',
+      created: '2026-11-01T10:00:00Z',
+      last_ok: '2026-11-02T09:00:00Z'
+    },
+    { id: 'bbb', label: '', created: '2026-10-30T10:00:00Z', last_ok: null }
+  ];
+
+  test('lists phones with Remove; Remove sends the id and refreshes', async () => {
+    const r = rig();
+    let list = phones.slice();
+    /** @type {any} */ (r.client.send).mockImplementation(
+      async (/** @type {string} */ t, /** @type {any} */ p) => {
+        if (t === 'push-key') return { key: 'AQAB' };
+        if (t === 'push-list') return { subscriptions: list };
+        if (t === 'push-remove') {
+          list = list.filter((x) => x.id !== p.id);
+          return { ok: true };
+        }
+        return { events: [], unread: 0, projects: [], mute_until: null };
+      }
+    );
+    await open(r);
+    await tick();
+    const rows = document.querySelectorAll('.nt-phone');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toMatch(/Android Chrome 2026-11-02/);
+    /** @type {HTMLElement} */ (rows[0].querySelector('.nt-phone-rm')).click();
+    await tick();
+    await tick();
+    expect(r.client.send).toHaveBeenCalledWith('push-remove', { id: 'aaa' });
+    expect(document.querySelectorAll('.nt-phone')).toHaveLength(1);
+  });
+
+  test('the phone door refuses the list: nothing is shown', async () => {
+    const r = rig();
+    /** @type {any} */ (r.client.send).mockImplementation(
+      async (/** @type {string} */ t) => {
+        if (t === 'push-key') return { key: 'AQAB' };
+        if (t === 'push-list') throw new Error('not_allowed');
+        return { events: [], unread: 0, projects: [], mute_until: null };
+      }
+    );
+    await open(r);
+    await tick();
+    expect(document.querySelector('.nt-phones')?.children.length).toBe(0);
+  });
+});

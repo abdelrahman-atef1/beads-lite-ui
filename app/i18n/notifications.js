@@ -72,6 +72,12 @@ export const strings =
       en: 'This browser cannot receive alerts. Install the board from the browser menu first.',
       ar: 'هذا المتصفح لا يستقبل التنبيهات. ثبّت اللوحة من قائمة المتصفح أولاً.'
     },
+    nt_phones: {
+      en: 'Phones that get alerts (last alert or added):',
+      ar: 'الهواتف التي تصلها التنبيهات (آخر تنبيه أو تاريخ الإضافة):'
+    },
+    nt_phone_remove: { en: 'Remove', ar: 'إزالة' },
+    nt_phone_unnamed: { en: 'Phone', ar: 'هاتف' },
     nt_push_err: {
       en: 'Could not change the phone alerts. Try again.',
       ar: 'تعذر تغيير تنبيهات الهاتف. حاول مرة أخرى.'

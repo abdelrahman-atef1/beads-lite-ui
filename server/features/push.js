@@ -24,6 +24,7 @@
  * local midnight. 404/410 from the push service deletes that subscription.
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,12 +42,15 @@ const SEND_TIMEOUT_MS = 10000;
 const SUBJECT =
   process.env.BDUI_VAPID_SUBJECT || 'mailto:board@codesters-inc.com';
 // Only the public push services the browsers use; also the SSRF guard.
-const PUSH_HOSTS = [
-  'googleapis.com',
-  'mozilla.com',
+// FCM is one exact host (no storage.googleapis.com etc.); the others are
+// their own sub-domain families.
+const PUSH_EXACT = ['fcm.googleapis.com'];
+const PUSH_SUFFIX = [
+  'push.services.mozilla.com',
   'push.apple.com',
   'notify.windows.com'
 ];
+const MAX_LABEL = 40;
 const B64URL = /^[A-Za-z0-9_-]+={0,2}$/;
 const PROJECT_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
@@ -69,7 +73,27 @@ function writeJson(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
-  fs.renameSync(tmp, file);
+  // Antivirus now and then holds the file for a moment (EPERM/EBUSY on rename).
+  for (let i = 0; ; i++) {
+    try {
+      fs.renameSync(tmp, file);
+      return;
+    } catch (e) {
+      const code = /** @type {any} */ (e)?.code;
+      if (i >= 3 || (code !== 'EPERM' && code !== 'EBUSY')) throw e;
+      const until = Date.now() + 25 * (i + 1);
+      while (Date.now() < until);
+    }
+  }
+}
+
+/**
+ * Decoded byte length of a base64url string.
+ *
+ * @param {string} s
+ */
+function b64Len(s) {
+  return Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').length;
 }
 
 /**
@@ -113,6 +137,8 @@ export function cleanSubscription(s) {
   }
   if (k.p256dh.length > 200 || k.auth.length > 64) return null;
   if (!B64URL.test(k.p256dh) || !B64URL.test(k.auth)) return null;
+  // A real browser key pair: P-256 point (65 bytes) and auth secret (16 bytes).
+  if (b64Len(k.p256dh) !== 65 || b64Len(k.auth) !== 16) return null;
   /** @type {URL} */
   let u;
   try {
@@ -126,11 +152,38 @@ export function cleanSubscription(s) {
     u.username ||
     u.password ||
     (u.port && u.port !== '443') ||
-    !PUSH_HOSTS.some((h) => host === h || host.endsWith('.' + h))
+    !(
+      PUSH_EXACT.includes(host) ||
+      PUSH_SUFFIX.some((h) => host === h || host.endsWith('.' + h))
+    )
   ) {
     return null;
   }
   return { endpoint: u.href, keys: { p256dh: k.p256dh, auth: k.auth } };
+}
+
+/**
+ * Short printable label for the PC list.
+ *
+ * @param {any} v
+ */
+function cleanLabel(v) {
+  if (typeof v !== 'string') return '';
+  let out = '';
+  for (const ch of v.slice(0, 200)) {
+    const c = ch.charCodeAt(0);
+    out += c < 32 || c === 127 || ch === '<' || ch === '>' ? ' ' : ch;
+  }
+  return out.trim().slice(0, MAX_LABEL);
+}
+
+/**
+ * Stable id for a subscription in the PC list (the endpoint stays secret).
+ *
+ * @param {string} endpoint
+ */
+function subId(endpoint) {
+  return createHash('sha256').update(endpoint).digest('hex').slice(0, 16);
 }
 
 /**
@@ -174,13 +227,25 @@ export function createPush(opts = {}) {
   let keys = null;
   let locked = false;
 
-  /** @type {Array<{ endpoint: string, keys: { p256dh: string, auth: string }, at: string }>} */
+  /** @type {Array<{ endpoint: string, keys: { p256dh: string, auth: string }, at: string, label?: string, ok?: string }>} */
   let subs = readJson(subsFile, []).filter((/** @type {any} */ s) =>
     cleanSubscription(s)
   );
   /** @type {{ day: string, count: number, noticed: boolean, last: Record<string, number> }} */
-  let state = readJson(stateFile, {});
-  if (!state || typeof state !== 'object') state = /** @type {any} */ ({});
+  let state = readJson(stateFile, null);
+  // W9: a state file that exists but cannot be read must not reset the caps.
+  // Push stays off (bell only) until the next local day, then starts fresh.
+  let stateBroken = '';
+  if (
+    fs.existsSync(stateFile) &&
+    (!state || typeof state !== 'object' || Array.isArray(state))
+  ) {
+    stateBroken = dayOf(now());
+    log('push-state.json unreadable: push off until the next day');
+  }
+  if (!state || typeof state !== 'object' || Array.isArray(state)) {
+    state = /** @type {any} */ ({});
+  }
   state.last = state.last && typeof state.last === 'object' ? state.last : {};
   state.count = Number(state.count) || 0;
   state.noticed = state.noticed === true;
@@ -257,6 +322,7 @@ export function createPush(opts = {}) {
             }
           );
           ok += 1;
+          s.ok = new Date(now()).toISOString();
         } catch (e) {
           const code = /** @type {any} */ (e)?.statusCode;
           if (code === 404 || code === 410) {
@@ -268,6 +334,13 @@ export function createPush(opts = {}) {
         }
       })
     );
+    if (ok) {
+      try {
+        saveSubs();
+      } catch {
+        // last-ok is cosmetic
+      }
+    }
     return ok;
   }
 
@@ -319,16 +392,50 @@ export function createPush(opts = {}) {
     async publicKey() {
       return (await ensureKeys()).publicKey;
     },
-    /** @param {any} s */
-    subscribe(s) {
+    /** @param {any} s @param {any} [label] */
+    subscribe(s, label) {
       const c = cleanSubscription(s);
       if (!c)
         throw Object.assign(new Error('invalid subscription'), {
           code: 'bad_payload'
         });
       const rest = subs.filter((x) => x.endpoint !== c.endpoint);
-      if (rest.length >= MAX_SUBS) rest.shift();
-      subs = [...rest, { ...c, at: new Date(now()).toISOString() }];
+      // Never evict: junk must not push the real phone out. Full means the
+      // owner removes one on the PC list.
+      if (rest.length >= MAX_SUBS) {
+        throw Object.assign(
+          new Error('too many phones; remove one on the PC'),
+          { code: 'too_many' }
+        );
+      }
+      const old = subs.find((x) => x.endpoint === c.endpoint);
+      subs = [
+        ...rest,
+        {
+          ...c,
+          at: old?.at || new Date(now()).toISOString(),
+          label: cleanLabel(label) || old?.label || '',
+          ...(old?.ok ? { ok: old.ok } : {})
+        }
+      ];
+      saveSubs();
+      return { ok: true, subscribers: subs.length };
+    },
+    /** PC list: no endpoint or key leaves the PC. */
+    list() {
+      return subs.map((x) => ({
+        id: subId(x.endpoint),
+        label: x.label || '',
+        created: x.at,
+        last_ok: x.ok || null
+      }));
+    },
+    /** @param {any} id */
+    remove(id) {
+      if (typeof id !== 'string' || id.length > 40) {
+        throw Object.assign(new Error('invalid id'), { code: 'bad_payload' });
+      }
+      subs = subs.filter((x) => subId(x.endpoint) !== id);
       saveSubs();
       return { ok: true, subscribers: subs.length };
     },
@@ -350,6 +457,16 @@ export function createPush(opts = {}) {
      */
     async send(ev, ctx = {}) {
       if (!ev || !subs.length) return 'no-subscriber';
+      if (stateBroken) {
+        if (dayOf(now()) === stateBroken) return 'state-unreadable';
+        stateBroken = '';
+        state = /** @type {any} */ ({
+          last: {},
+          count: 0,
+          day: '',
+          noticed: false
+        });
+      }
       if (ev.kind === 'degraded') return 'not-pushed';
       if (ctx.muted) return 'muted';
       const project = String(ev.project || '');
@@ -423,9 +540,19 @@ export function register(seam) {
     (/** @type {any} */ r) => {
       const s = r?.payload?.subscription;
       if (!s) throw bad('payload requires { subscription }');
-      return getPush().subscribe(s);
+      return getPush().subscribe(s, r?.payload?.label);
     },
     { mutating: true, phone: true }
+  );
+  // PC only (no phone flag): a lost phone is cut off from the desk, not from
+  // another phone. Ids only; endpoints and keys never leave the PC.
+  seam.registerHandler('push-list', () => ({
+    subscriptions: getPush().list()
+  }));
+  seam.registerHandler(
+    'push-remove',
+    (/** @type {any} */ r) => getPush().remove(r?.payload?.id),
+    { mutating: true }
   );
   seam.registerHandler(
     'push-unsubscribe',
