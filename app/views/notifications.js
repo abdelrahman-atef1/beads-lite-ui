@@ -258,7 +258,7 @@ export function mountBell(el, opts = {}) {
     void loadPushList();
   }
 
-  /** PC only: the phone door refuses push-list, then the list stays hidden. */
+  /** Ids only; on a refusal or error the list stays hidden. */
   async function loadPushList() {
     try {
       const r = await client.send(T_PUSH_LIST, {});

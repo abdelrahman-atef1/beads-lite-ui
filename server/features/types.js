@@ -11,5 +11,11 @@ export const FEATURE_MESSAGE_TYPES = [
   'notify-mark-read',
   'notify-set',
   'notify-mute',
-  'notify-event'
+  'notify-event',
+  // web push (company-1bo5.6.16)
+  'push-key',
+  'push-subscribe',
+  'push-unsubscribe',
+  'push-list',
+  'push-remove'
 ];

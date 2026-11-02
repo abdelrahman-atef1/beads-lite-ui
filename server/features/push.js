@@ -544,8 +544,8 @@ export function register(seam) {
     },
     { mutating: true, phone: true }
   );
-  // PC only (no phone flag): a lost phone is cut off from the desk, not from
-  // another phone. Ids only; endpoints and keys never leave the PC.
+  // No phone flag: the phone door has full control now (company-8ce8.13), so
+  // the list shows there too. Ids only; endpoints and keys never leave the PC.
   seam.registerHandler('push-list', () => ({
     subscriptions: getPush().list()
   }));
