@@ -109,8 +109,8 @@ test('D11 phone 390x844 AR RTL dark: no overflow, targets >=44px, Arabic', async
       .filter((r) => r.h > 0 && r.h < 44)
   );
   fs.writeFileSync(path.join(OUT, 'D11-small-targets.json'), JSON.stringify(small, null, 1));
-  // pre-existing small 'Open bead' text link (finding F2) is recorded in the json, not asserted
-  expect(small.filter((r) => r.c !== 'qcard__open')).toEqual([]);
+  // F2 fixed in de875e8: 'Open bead' link must be >=44px too
+  expect(small).toEqual([]);
   const pb = await page.locator('.dfilter__panel').boundingBox();
   expect(pb.x).toBeGreaterThanOrEqual(0);
   expect(pb.x + pb.width).toBeLessThanOrEqual(390.5);
