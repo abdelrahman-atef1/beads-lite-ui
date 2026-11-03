@@ -248,10 +248,11 @@ describe('views/detail', () => {
     const commentItems = mount.querySelectorAll('.comment-item');
     expect(commentItems.length).toBe(2);
 
-    // Check first comment content
-    const firstComment = commentItems[0];
-    expect(firstComment.textContent).toContain('Alice');
-    expect(firstComment.textContent).toContain('This is a comment');
+    // Newest first: Bob (11:00) is listed above Alice (10:30)
+    expect(commentItems[0].textContent).toContain('Bob');
+    const alice = commentItems[1];
+    expect(alice.textContent).toContain('Alice');
+    expect(alice.textContent).toContain('This is a comment');
   });
 
   test('shows placeholder when no comments', async () => {
