@@ -1,6 +1,12 @@
 // Issue Detail view implementation (lit-html based)
 import { html, render } from 'lit-html';
 import { parseView } from '../router.js';
+import {
+  commentAnchor,
+  findCommentIndex,
+  findLineElement,
+  parseAnchor
+} from '../utils/anchor.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
 import { debug } from '../utils/logging.js';
@@ -13,6 +19,7 @@ import {
   statusOptions
 } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
+import { createTypeBadge } from '../utils/type-badge.js';
 
 /**
  * Build a failure message that includes the server reason.
@@ -23,7 +30,6 @@ function failMsg(base, err) {
   const reason = String(err?.message || err || '').trim();
   return reason ? `${base}: ${reason}` : base;
 }
-import { createTypeBadge } from '../utils/type-badge.js';
 
 /**
  * Format a date string for display.
@@ -1244,7 +1250,7 @@ export function createDetailView(
       </select>`;
 
     const desc_block = edit_desc
-      ? html`<div class="description">
+      ? html`<div class="description" data-anchor="description">
           <textarea
             @keydown=${onDescKeydown}
             .value=${issue.description || ''}
@@ -1257,6 +1263,7 @@ export function createDetailView(
           </div>
         </div>`
       : html`<div
+          data-anchor="description"
           class="md editable"
           tabindex="0"
           role="button"
@@ -1284,7 +1291,7 @@ export function createDetailView(
     })();
 
     const accept_block = edit_accept
-      ? html`<div class="acceptance">
+      ? html`<div class="acceptance" data-anchor="acceptance">
           ${acceptance_text.trim().length > 0
             ? html`<div class="props-card__title">Acceptance Criteria</div>`
             : ''}
@@ -1299,7 +1306,7 @@ export function createDetailView(
             <button @click=${onAcceptCancel}>Cancel</button>
           </div>
         </div>`
-      : html`<div class="acceptance">
+      : html`<div class="acceptance" data-anchor="acceptance">
           ${(() => {
             const text = acceptance_text;
             const has = text.trim().length > 0;
@@ -1324,7 +1331,7 @@ export function createDetailView(
     // Notes: editable in-place similar to Description
     const notes_text = String(issue.notes || '');
     const notes_block = edit_notes
-      ? html`<div class="notes">
+      ? html`<div class="notes" data-anchor="notes">
           ${notes_text.trim().length > 0
             ? html`<div class="props-card__title">Notes</div>`
             : ''}
@@ -1339,7 +1346,7 @@ export function createDetailView(
             <button @click=${onNotesCancel}>Cancel</button>
           </div>
         </div>`
-      : html`<div class="notes">
+      : html`<div class="notes" data-anchor="notes">
           ${(() => {
             const text = notes_text;
             const has = text.trim().length > 0;
@@ -1439,7 +1446,7 @@ export function createDetailView(
     // Design section block
     const design_text = String(issue.design || '');
     const design_block = edit_design
-      ? html`<div class="design">
+      ? html`<div class="design" data-anchor="design">
           ${design_text.trim().length > 0
             ? html`<div class="props-card__title">Design</div>`
             : ''}
@@ -1454,7 +1461,7 @@ export function createDetailView(
             <button @click=${onDesignCancel}>Cancel</button>
           </div>
         </div>`
-      : html`<div class="design">
+      : html`<div class="design" data-anchor="design">
           ${(() => {
             const text = design_text;
             const has = text.trim().length > 0;
@@ -1480,10 +1487,11 @@ export function createDetailView(
     const comments = Array.isArray(/** @type {any} */ (issue).comments)
       ? /** @type {Comment[]} */ (/** @type {any} */ (issue).comments)
       : [];
+    const comments_newest_first = comments.slice().reverse();
     const comments_error = comments_load_errors.get(String(issue.id)) || '';
     const comments_pending =
       comments.length === 0 && !comments_error && !hasCurrentComments(issue);
-    const comments_block = html`<div class="comments">
+    const comments_block = html`<div class="comments" data-anchor="comments">
       <div class="props-card__title">Comments</div>
       ${comments_error
         ? html`<div class="muted" role="alert">
@@ -1494,13 +1502,24 @@ export function createDetailView(
           ? html`<div class="muted">
               ${comments_pending ? 'Loading comments…' : 'No comments yet'}
             </div>`
-          : comments.map(
+          : comments_newest_first.map(
               (c) => html`
-                <div class="comment-item">
+                <div class="comment-item" data-anchor=${commentAnchor(c)}>
                   <div class="comment-header">
                     <span class="comment-author">${c.author || 'Unknown'}</span>
                     <span class="comment-date"
                       >${formatCommentDate(c.created_at)}</span
+                    >
+                    <a
+                      class="comment-link"
+                      title="Link to this comment"
+                      href=${issueHashFor(
+                        parseView(window.location.hash || ''),
+                        String(issue.id)
+                      ) +
+                      '&at=' +
+                      commentAnchor(c)}
+                      >#</a
                     >
                   </div>
                   <div class="comment-text">${linkifyText(c.text)}</div>
@@ -1533,7 +1552,7 @@ export function createDetailView(
             ${accept_block} ${comments_block}
           </div>
           <div class="detail-side">
-            <div class="props-card">
+            <div class="props-card" data-anchor="card">
               <div class="props-card__header">
                 <div class="props-card__title">Properties</div>
                 <button class="delete-issue-btn" title="Delete issue" aria-label="Delete issue" @click=${onDeleteClick}>
@@ -1645,6 +1664,62 @@ export function createDetailView(
       return;
     }
     render(detailTemplate(current), mount_element);
+    applyAnchor();
+  }
+
+  // Deep link `&at=<anchor>`: scroll to and highlight one section, comment or
+  // line, once per (bead, anchor); retried on later renders until it exists.
+  let anchor_done = '';
+  function applyAnchor() {
+    const a = parseAnchor(window.location.hash || '');
+    if (!a || !current) {
+      anchor_done = '';
+      return;
+    }
+    const key = `${current.id}|${a.target}|${a.from}-${a.to}`;
+    if (anchor_done === key) {
+      return;
+    }
+    const cur = /** @type {any} */ (current);
+    let attr = a.target;
+    let source = '';
+    if (a.target.startsWith('c-')) {
+      const list = Array.isArray(cur.comments) ? cur.comments : [];
+      const idx = findCommentIndex(a.target, list);
+      if (idx < 0) {
+        if (hasCurrentComments(current)) {
+          anchor_done = key; // loaded, no such comment: give up quietly
+        }
+        return;
+      }
+      attr = commentAnchor(list[idx]);
+      source = String(list[idx].text || '');
+    } else if (a.target === 'acceptance') {
+      source = String(cur.acceptance || cur.acceptance_criteria || '');
+    } else if (['description', 'design', 'notes'].includes(a.target)) {
+      source = String(cur[a.target] || '');
+    }
+    const root = mount_element.querySelector(`[data-anchor="${attr}"]`);
+    if (!root) {
+      return;
+    }
+    anchor_done = key;
+    mount_element
+      .querySelectorAll('.anchor-hit')
+      .forEach((n) => n.classList.remove('anchor-hit'));
+    /** @type {Element[]} */
+    const hits = [];
+    if (a.from > 0) {
+      for (let n = a.from; n <= a.to; n++) {
+        const el = findLineElement(root, source, n);
+        if (el && !hits.includes(el)) {
+          hits.push(el);
+        }
+      }
+    }
+    const marks = hits.length ? hits : [root];
+    marks.forEach((m) => m.classList.add('anchor-hit'));
+    marks[0].scrollIntoView({ block: 'start' });
   }
 
   /**
@@ -1803,6 +1878,8 @@ export function createDetailView(
     }
   }
 
+  window.addEventListener('hashchange', applyAnchor);
+
   return {
     async load(id) {
       if (!id) {
@@ -1832,6 +1909,7 @@ export function createDetailView(
       renderPlaceholder('Select an issue to view details');
     },
     destroy() {
+      window.removeEventListener('hashchange', applyAnchor);
       mount_element.replaceChildren();
       if (unsubscribe_issue_stores) {
         unsubscribe_issue_stores();
