@@ -167,6 +167,38 @@ describe('decisions-feed', () => {
     expect(r.frames.length).toBe(1);
   });
 
+  test('cold start: a 2nd list during the first scan waits for it (F1)', async () => {
+    /** @type {() => void} */
+    let release = () => {};
+    const gate = new Promise((res) => (release = () => res(undefined)));
+    const r = rig({
+      listParked: async (/** @type {string} */ cwd) => {
+        await gate;
+        return cwd === '/w/alpha' ? [bead('alpha-1', card())] : [];
+      }
+    });
+    const first = r.feed.list();
+    const second = r.feed.list();
+    let done = false;
+    void second.then(() => (done = true));
+    await new Promise((res) => setTimeout(res, 20));
+    expect(done).toBe(false); // used to return items: [] at once
+    release();
+    expect((await second).items.map((i) => i.id)).toEqual(['alpha-1']);
+    expect((await first).items.length).toBe(1);
+  });
+
+  test('a workspace whose scan never works is not in the dropdown (F3)', async () => {
+    const r = rig({
+      listParked: async (/** @type {string} */ cwd) => {
+        if (cwd === '/w/beta') throw new Error('no db');
+        return [bead('alpha-1', card())];
+      }
+    });
+    const snap = await r.feed.list();
+    expect(snap.projects.map((p) => p.key)).toEqual(['alpha']);
+  });
+
   test('a failing project keeps its last list and does not hide the others', async () => {
     let fail = false;
     const r = rig({

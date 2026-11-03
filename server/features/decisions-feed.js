@@ -127,11 +127,14 @@ export function createDecisionsFeed(opts = {}) {
 
   /** @type {any} */
   let rules = opts.rules;
-  /** @type {Map<string, { path: string, key: string, name: string, items: any[], close: () => void }>} */
+  /** @type {Map<string, { path: string, key: string, name: string, items: any[], loaded: boolean, close: () => void }>} */
   const projects = new Map();
   /** @type {Map<string, { running: boolean, again: boolean }>} */
   const flight = new Map();
   let lastJson = '';
+  /** First scan of newly seen projects; later callers wait for it (F1). */
+  /** @type {Promise<void> | null} */
+  let loading = null;
 
   async function ensureRules() {
     if (rules === undefined) rules = await loadRules();
@@ -195,6 +198,8 @@ export function createDecisionsFeed(opts = {}) {
     const items = [];
     const plist = [];
     for (const p of projects.values()) {
+      // a workspace whose scan never worked (dead, no db) stays out of the dropdown
+      if (!p.loaded) continue;
       items.push(...p.items);
       plist.push({ key: p.key, name: p.name, count: p.items.length });
     }
@@ -237,6 +242,7 @@ export function createDecisionsFeed(opts = {}) {
       await ensureRules();
       const beads = await listParked(p.path);
       p.items = beads.map((b) => toItem(b, p)).filter((x) => x !== null);
+      p.loaded = true;
     } catch (e) {
       // keep the last good list for this project; the others are unaffected
       log('scan %s failed: %s', key, String(/** @type {any} */ (e)?.message));
@@ -288,6 +294,7 @@ export function createDecisionsFeed(opts = {}) {
         key,
         name: path.basename(dir.replace(/[\\/]+$/, '')),
         items: [],
+        loaded: false,
         close
       });
       fresh.push(key);
@@ -299,10 +306,25 @@ export function createDecisionsFeed(opts = {}) {
   async function list() {
     const fresh = sync();
     if (fresh.length) {
-      await ensureRules();
-      await Promise.all(fresh.map((k) => scan(k)));
-      lastJson = JSON.stringify(snapshot());
+      const batch = (async () => {
+        await ensureRules();
+        await Promise.all(fresh.map((k) => scan(k)));
+        lastJson = JSON.stringify(snapshot());
+      })();
+      const prev = loading;
+      const mine = (async () => {
+        await prev?.catch(() => {});
+        await batch;
+      })();
+      loading = mine;
+      void mine
+        .catch(() => {})
+        .finally(() => {
+          if (loading === mine) loading = null;
+        });
     }
+    // a second call during the first scan waits for it instead of seeing []
+    if (loading) await loading.catch(() => {});
     return snapshot();
   }
 
