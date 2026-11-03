@@ -851,7 +851,9 @@ export function bootstrap(root_element) {
           sub_issue_stores,
           // Raw sender: an answer must fail loudly, not be swallowed as [].
           (type, payload) =>
-            tracked_send(/** @type {MessageType} */ (type), payload)
+            tracked_send(/** @type {MessageType} */ (type), payload),
+          // All-projects feed (server/features/decisions-feed.js)
+          client
         )
     );
     const board_view = lazyView(

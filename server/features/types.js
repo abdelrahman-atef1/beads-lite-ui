@@ -17,5 +17,9 @@ export const FEATURE_MESSAGE_TYPES = [
   'push-subscribe',
   'push-unsubscribe',
   'push-list',
-  'push-remove'
+  'push-remove',
+  // decisions feed (company-1bo5.6.26)
+  'list-decisions-all',
+  'decisions-all',
+  'answer-decision'
 ];

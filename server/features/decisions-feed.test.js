@@ -1,0 +1,274 @@
+import { describe, expect, test } from 'vitest';
+import { createDecisionsFeed } from './decisions-feed.js';
+
+// Minimal stand-in for the card core: valid = card_q + at least one option.
+const rules = {
+  parseCard(/** @type {any} */ bead) {
+    const m = bead.metadata || {};
+    let opts = [];
+    try {
+      opts = JSON.parse(m.card_opts || '[]');
+    } catch {
+      opts = [];
+    }
+    const ok = !!m.card_q && opts.length > 0 && m.card_class !== 'desk';
+    return {
+      ok,
+      card: {
+        q: m.card_q || '',
+        effect: m.card_effect || '',
+        show: '',
+        blocks: '',
+        title: '',
+        titleAr: '',
+        opts: opts.map((/** @type {any} */ o) => ({ l: o.l, note: '' }))
+      }
+    };
+  },
+  scanText: (/** @type {string} */ s) =>
+    /sk-[a-z0-9]{8,}/.test(s) ? ['key'] : []
+};
+
+const card = (/** @type {any} */ extra = {}) => ({
+  card_class: 'tap',
+  card_back: 'swe',
+  card_q: 'Ship it?',
+  card_effect: 'It ships.',
+  card_opts: JSON.stringify([{ l: 'Yes', rec: true }, { l: 'No' }]),
+  ...extra
+});
+const bead = (
+  /** @type {string} */ id,
+  /** @type {any} */ metadata,
+  /** @type {any} */ o = {}
+) => ({
+  id,
+  title: 'T ' + id,
+  status: 'owner_decision',
+  assignee: 'abdelrahman',
+  priority: 2,
+  updated_at: '2026-11-01T10:00:00Z',
+  labels: [],
+  metadata,
+  ...o
+});
+
+/** Two fixture workspaces: alpha and beta. */
+function rig(/** @type {any} */ over = {}) {
+  /** @type {Record<string, any[]>} */
+  const parked = {
+    '/w/alpha': [
+      bead('alpha-1', card(), { priority: 2 }),
+      bead('alpha-2', card({ card_q: '' })), // no valid card
+      bead('alpha-3', card({ card_class: 'desk' })) // desk: never listed
+    ],
+    '/w/beta': [
+      bead('beta-1', card(), { priority: 0 }),
+      bead('beta-2', card({ card_effect: 'key sk-abcdefgh12345' }), {
+        title: 'leak sk-abcdefgh12345'
+      })
+    ]
+  };
+  const calls = {
+    list: /** @type {string[]} */ ([]),
+    bd: /** @type {Array<{ args: string[], cwd: string, stdin?: string }>} */ ([])
+  };
+  /** @type {Map<string, () => void>} */
+  const cbs = new Map();
+  /** @type {any[]} */
+  const frames = [];
+  let projects = [{ path: '/w/alpha' }, { path: '/w/beta' }];
+  const feed = createDecisionsFeed({
+    listProjects: () => projects,
+    listParked: async (cwd) => {
+      calls.list.push(cwd);
+      return parked[cwd] || [];
+    },
+    rules,
+    watch: (root, cb) => {
+      cbs.set(root, cb);
+      return { close: () => cbs.delete(root) };
+    },
+    broadcast: (type, payload) => frames.push({ type, payload }),
+    runBd: /** @type {any} */ (
+      async (/** @type {string[]} */ args, /** @type {any} */ o) => {
+        calls.bd.push({ args, cwd: o.cwd, stdin: o.stdin });
+        return { code: 0, stdout: '', stderr: '' };
+      }
+    ),
+    author: async () => 'Owner',
+    prefixes: async (ws) => ws.map((w) => ({ ...w, prefix: w.path.slice(3) })),
+    ...over
+  });
+  return {
+    feed,
+    parked,
+    calls,
+    cbs,
+    frames,
+    setProjects: (/** @type {any[]} */ p) => (projects = p)
+  };
+}
+
+describe('decisions-feed', () => {
+  test('lists valid cards from both projects, priority first, with project', async () => {
+    const r = rig();
+    const snap = await r.feed.list();
+    expect(snap.items.map((i) => i.id)).toEqual(['beta-1', 'alpha-1']);
+    expect(snap.items[0].project).toEqual({ key: 'beta', name: 'beta' });
+    expect(snap.projects).toEqual([
+      { key: 'alpha', name: 'alpha', count: 1 },
+      { key: 'beta', name: 'beta', count: 1 }
+    ]);
+    expect(snap.rules_ok).toBe(true);
+  });
+
+  test('invalid card, desk card and a card that trips the secret scan are never listed', async () => {
+    const r = rig();
+    const ids = (await r.feed.list()).items.map((i) => i.id);
+    expect(ids).not.toContain('alpha-2');
+    expect(ids).not.toContain('alpha-3');
+    expect(ids).not.toContain('beta-2');
+  });
+
+  test('only card_* metadata leaves the server', async () => {
+    const r = rig();
+    r.parked['/w/alpha'][0].metadata.secret_note = 'x';
+    const snap = await r.feed.list();
+    const a = snap.items.find((i) => i.id === 'alpha-1');
+    expect(a?.metadata.secret_note).toBeUndefined();
+    expect(a?.metadata.card_q).toBe('Ship it?');
+  });
+
+  test('cached: a second list spawns no bd; idle costs nothing', async () => {
+    const r = rig();
+    await r.feed.list();
+    expect(r.calls.list).toEqual(['/w/alpha', '/w/beta']);
+    await r.feed.list();
+    expect(r.calls.list.length).toBe(2);
+  });
+
+  test('a change in one project rescans only that project and pushes once', async () => {
+    const r = rig();
+    await r.feed.list();
+    r.parked['/w/alpha'].push(bead('alpha-9', card(), { priority: 1 }));
+    r.cbs.get('/w/alpha')?.();
+    await new Promise((res) => setTimeout(res, 20));
+    expect(r.calls.list.filter((c) => c === '/w/alpha').length).toBe(2);
+    expect(r.calls.list.filter((c) => c === '/w/beta').length).toBe(1);
+    expect(r.frames.length).toBe(1);
+    expect(r.frames[0].type).toBe('decisions-all');
+    expect(
+      r.frames[0].payload.items.map((/** @type {any} */ i) => i.id)
+    ).toEqual(['beta-1', 'alpha-9', 'alpha-1']);
+    // same data again: no second push
+    r.cbs.get('/w/alpha')?.();
+    await new Promise((res) => setTimeout(res, 20));
+    expect(r.frames.length).toBe(1);
+  });
+
+  test('a failing project keeps its last list and does not hide the others', async () => {
+    let fail = false;
+    const r = rig({
+      listParked: async (/** @type {string} */ cwd) => {
+        if (fail && cwd === '/w/beta') throw new Error('boom');
+        return cwd === '/w/alpha'
+          ? [bead('alpha-1', card())]
+          : [bead('beta-1', card())];
+      }
+    });
+    await r.feed.list();
+    fail = true;
+    r.cbs.get('/w/beta')?.();
+    await new Promise((res) => setTimeout(res, 20));
+    expect((await r.feed.list()).items.map((i) => i.id).sort()).toEqual([
+      'alpha-1',
+      'beta-1'
+    ]);
+  });
+
+  test('a project that leaves the registry is dropped and its watcher closed', async () => {
+    const r = rig();
+    await r.feed.list();
+    r.setProjects([{ path: '/w/alpha' }]);
+    const snap = await r.feed.list();
+    expect(snap.items.map((i) => i.id)).toEqual(['alpha-1']);
+    expect(r.cbs.has('/w/beta')).toBe(false);
+  });
+
+  test('missing card rules: nothing listed, rules_ok false', async () => {
+    const r = rig({ rules: null });
+    const snap = await r.feed.list();
+    expect(snap.items).toEqual([]);
+    expect(snap.rules_ok).toBe(false);
+  });
+
+  test('answer in another project writes comment, assignee, status there', async () => {
+    const r = rig();
+    await r.feed.list();
+    r.parked['/w/beta'] = []; // after the answer the bead is gone
+    await r.feed.answer(
+      'beta-1',
+      'OWNER DECISION via web board\nOption 1: Yes'
+    );
+    expect(r.calls.bd.map((c) => c.cwd)).toEqual([
+      '/w/beta',
+      '/w/beta',
+      '/w/beta'
+    ]);
+    expect(r.calls.bd[0].args).toEqual([
+      'comments',
+      'add',
+      'beta-1',
+      '-f',
+      '-',
+      '--author',
+      'Owner'
+    ]);
+    expect(r.calls.bd[0].stdin).toContain('Option 1: Yes');
+    expect(r.calls.bd[1].args).toEqual([
+      'update',
+      'beta-1',
+      '--assignee',
+      'swe'
+    ]);
+    expect(r.calls.bd[2].args).toEqual([
+      'update',
+      'beta-1',
+      '--status',
+      'open'
+    ]);
+    expect(
+      r.frames.at(-1)?.payload.items.map((/** @type {any} */ i) => i.id)
+    ).toEqual(['alpha-1']);
+  });
+
+  test('answer refuses a bead that is not a waiting decision in the feed', async () => {
+    const r = rig();
+    for (const id of ['alpha-2', 'alpha-3', 'nope-1']) {
+      await expect(r.feed.answer(id, 'x')).rejects.toMatchObject({
+        code: 'not_found'
+      });
+    }
+    await expect(r.feed.answer('bad id;', 'x')).rejects.toMatchObject({
+      code: 'bad_request'
+    });
+    await expect(r.feed.answer('alpha-1', '  ')).rejects.toMatchObject({
+      code: 'bad_request'
+    });
+    await expect(
+      r.feed.answer('alpha-1', 'x'.repeat(3000))
+    ).rejects.toMatchObject({
+      code: 'bad_request'
+    });
+    expect(r.calls.bd).toEqual([]);
+  });
+
+  test('same bead id in two projects: the id prefix picks the project', async () => {
+    const r = rig();
+    r.parked['/w/alpha'].push(bead('beta-1', card()));
+    await r.feed.list();
+    await r.feed.answer('beta-1', 'ok');
+    expect(r.calls.bd[0].cwd).toBe('/w/beta');
+  });
+});

@@ -2,6 +2,11 @@
  * Decisions view: the owner's queue (status owner_decision), oldest first,
  * rendered from the bead's decision-card metadata (knowledge/decision-card.md).
  *
+ * With a `feed` (the board socket) the list is the all-projects feed
+ * (server/features/decisions-feed.js): "All projects" is selected by default
+ * and a multi-select dropdown at the top narrows it. Without a feed, or when
+ * the feed fails, it shows the current project only.
+ *
  * Desk cards (never-by-phone classes) show no buttons. A tap answer takes two
  * steps (option, then Confirm) and writes: a record comment, the card_back
  * role as assignee, and status `open`, through the existing transport.
@@ -36,16 +41,48 @@ export function pendingDecisions(all) {
 }
 
 /**
+ * Priority first (P0 on top), then the longest-waiting.
+ *
+ * @param {any[]} list
+ * @returns {any[]}
+ */
+export function byPriorityThenAge(list) {
+  return [...list].sort(
+    (a, b) =>
+      (typeof a.priority === 'number' ? a.priority : 2) -
+        (typeof b.priority === 'number' ? b.priority : 2) ||
+      (a.updated_at || 0) - (b.updated_at || 0)
+  );
+}
+
+/**
+ * Items of the chosen projects; an empty choice means All.
+ *
+ * @param {any[]} list
+ * @param {Set<string>} chosen - project keys
+ * @returns {any[]}
+ */
+export function filterByProjects(list, chosen) {
+  if (chosen.size === 0) {
+    return list;
+  }
+  return list.filter((it) => it.project && chosen.has(it.project.key));
+}
+
+/**
  * @param {HTMLElement} mount_element
  * @param {(id: string) => void} gotoIssue
  * @param {{ snapshotFor?: (id: string) => any[], isLoaded?: (id: string) => boolean, subscribeFor?: (ids: string | string[], fn: (id: string) => void) => () => void }} [issueStores]
  * @param {(type: string, payload: unknown) => Promise<unknown>} [transport]
+ * @param {{ send: (type: any, payload?: unknown) => Promise<any>, on: (type: any, fn: (p: any) => void) => () => void, onConnection?: (fn: (s: any) => void) => () => void }} [feed]
+ *   board socket for the all-projects feed
  */
 export function createDecisionsView(
   mount_element,
   gotoIssue,
   issueStores = undefined,
-  transport = undefined
+  transport = undefined,
+  feed = undefined
 ) {
   const log = debug('views:decisions');
   /** @type {any[]} */
@@ -57,24 +94,44 @@ export function createDecisionsView(
   const busy = new Set();
   /** @type {Map<string, string>} typed replies */
   const typed = new Map();
+  // All-projects feed state. Empty `chosen` = All projects (the default).
+  /** @type {any[]} */
+  let feed_items = [];
+  /** @type {Array<{ key: string, name: string, count: number }>} */
+  let feed_projects = [];
+  let feed_loaded = false;
+  let feed_failed = false;
+  let rules_ok = true;
+  /** @type {Set<string>} */
+  let chosen = new Set();
+  let menu_open = false;
+  const useFeed = () => Boolean(feed) && !feed_failed;
+  const shown = () =>
+    useFeed() ? filterByProjects(feed_items, chosen) : items;
 
   /**
    * @param {any} it
    * @param {string} text - record text written as a comment
    */
   async function answer(it, text) {
-    if (!transport || busy.has(it.id)) {
+    if ((!transport && !feed) || busy.has(it.id)) {
       return;
     }
     busy.add(it.id);
     doRender();
     try {
-      await transport('add-comment', { id: it.id, text });
-      const back = meta(it, 'card_back');
-      if (back) {
-        await transport('update-assignee', { id: it.id, assignee: back });
+      if (useFeed() && feed) {
+        // The server finds the project by id prefix and writes there.
+        await feed.send('answer-decision', { id: it.id, text });
+        feed_items = feed_items.filter((x) => x.id !== it.id);
+      } else if (transport) {
+        await transport('add-comment', { id: it.id, text });
+        const back = meta(it, 'card_back');
+        if (back) {
+          await transport('update-assignee', { id: it.id, assignee: back });
+        }
+        await transport('update-status', { id: it.id, status: 'open' });
       }
-      await transport('update-status', { id: it.id, status: 'open' });
       showToast(t('answered'), 'success', 2000);
       pending.delete(it.id);
     } catch (err) {
@@ -116,6 +173,11 @@ export function createDecisionsView(
       >
         <div class="card__meta">
           <span class="card__pri">${createPriorityBadge(pri)}</span>
+          ${useFeed() && it.project
+            ? html`<span class="dchip" title=${it.project.name}
+                >${it.project.name}</span
+              >`
+            : ''}
           <span class="card__id">${it.id}</span>
           <span>${t('asked')} ${ageLabel(it.updated_at)}</span>
         </div>
@@ -254,25 +316,117 @@ export function createDecisionsView(
     </div>`;
   }
 
+  /** Label of the dropdown button. */
+  function filterLabel() {
+    if (chosen.size === 0) {
+      return t('dec_all');
+    }
+    if (chosen.size === 1) {
+      const k = [...chosen][0];
+      return feed_projects.find((p) => p.key === k)?.name || k;
+    }
+    return t('dec_n_projects').replace('{n}', String(chosen.size));
+  }
+
+  /** @param {string} key */
+  function toggleProject(key) {
+    if (chosen.has(key)) {
+      chosen.delete(key);
+    } else {
+      chosen.add(key);
+    }
+    // Every project ticked is the same as All.
+    if (chosen.size >= feed_projects.length) {
+      chosen = new Set();
+    }
+    doRender();
+  }
+
+  function resetProjects() {
+    chosen = new Set();
+    doRender();
+  }
+
+  function filterTemplate() {
+    if (!useFeed() || !feed_loaded) {
+      return '';
+    }
+    return html`<details
+      class="dfilter"
+      ?open=${menu_open}
+      @toggle=${(/** @type {Event} */ ev) => {
+        menu_open = /** @type {HTMLDetailsElement} */ (ev.target).open;
+      }}
+    >
+      <summary aria-label=${t('dec_filter')}>${filterLabel()}</summary>
+      <div class="dfilter__panel" role="group" aria-label=${t('dec_filter')}>
+        <label class="dfilter__row">
+          <input
+            type="checkbox"
+            data-project="*"
+            .checked=${chosen.size === 0}
+            @change=${resetProjects}
+          />
+          <span>${t('dec_all')}</span>
+          <span class="dfilter__n">${feed_items.length}</span>
+        </label>
+        ${feed_projects.map(
+          (p) =>
+            html`<label class="dfilter__row">
+              <input
+                type="checkbox"
+                data-project=${p.key}
+                .checked=${chosen.has(p.key)}
+                @change=${() => toggleProject(p.key)}
+              />
+              <span dir="auto">${p.name}</span>
+              <span class="dfilter__n">${p.count}</span>
+            </label>`
+        )}
+      </div>
+    </details>`;
+  }
+
   function template() {
+    const list = shown();
+    const ready = useFeed() ? feed_loaded : loaded;
+    const narrowed = useFeed() && chosen.size > 0;
     return html`
       <div class="decisions">
         <h1 class="decisions__title">
           ${t('waiting_title')}
-          <span class="decisions__n">${loaded ? items.length : ''}</span>
+          <span class="decisions__n">${ready ? list.length : ''}</span>
         </h1>
-        <div class="decisions__sub">${t('waiting_sub')}</div>
-        ${!loaded
+        <div class="decisions__sub">
+          ${useFeed() ? t('dec_sub_all') : t('waiting_sub')}
+        </div>
+        ${feed && feed_failed
+          ? html`<p class="dnote dnote--err">${t('dec_feed_error')}</p>`
+          : ''}
+        ${useFeed() && feed_loaded && !rules_ok
+          ? html`<p class="dnote dnote--err">${t('dec_rules_missing')}</p>`
+          : ''}
+        ${filterTemplate()}
+        ${!ready
           ? html`<div class="skeleton"></div>
               <div class="skeleton"></div>`
-          : items.length === 0
+          : list.length === 0
             ? html`<div class="empty">
                 <div class="empty__mark" aria-hidden="true">✓</div>
-                <b>${t('empty_title')}</b>
+                <b>${narrowed ? t('dec_none_here') : t('empty_title')}</b>
                 <div>${t('empty_sub')}</div>
+                ${narrowed
+                  ? html`<button
+                      type="button"
+                      class="btn dreset"
+                      @click=${resetProjects}
+                    >
+                      ${t('dec_filter_reset')}
+                    </button>`
+                  : ''}
               </div>`
             : repeat(
-                items,
+                list,
                 (it) => it.id,
                 (it) => cardTemplate(it)
               )}
@@ -296,15 +450,94 @@ export function createDecisionsView(
     doRender();
   }
 
+  /** @param {any} snap */
+  function applyFeed(snap) {
+    if (!snap || !Array.isArray(snap.items)) {
+      return;
+    }
+    feed_items = byPriorityThenAge(snap.items);
+    feed_projects = Array.isArray(snap.projects) ? snap.projects : [];
+    rules_ok = snap.rules_ok !== false;
+    // A project that left the registry cannot stay ticked.
+    const keys = new Set(feed_projects.map((p) => p.key));
+    chosen = new Set([...chosen].filter((k) => keys.has(k)));
+    feed_loaded = true;
+    feed_failed = false;
+    doRender();
+  }
+
+  async function fetchFeed() {
+    if (!feed) {
+      return;
+    }
+    try {
+      applyFeed(await feed.send('list-decisions-all', {}));
+    } catch (err) {
+      log('feed failed: %o', err);
+      feed_failed = true;
+      refresh();
+    }
+  }
+
+  /**
+   * Keys 1-9 pick option N on the card that has focus, else the top card.
+   *
+   * @param {KeyboardEvent} ev
+   */
+  function onKey(ev) {
+    if (
+      mount_element.hidden ||
+      ev.ctrlKey ||
+      ev.metaKey ||
+      ev.altKey ||
+      !/^[1-9]$/.test(ev.key)
+    ) {
+      return;
+    }
+    const tag = /** @type {HTMLElement | null} */ (ev.target)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+      return;
+    }
+    const focused = /** @type {HTMLElement | null} */ (
+      document.activeElement
+    )?.closest?.('[data-issue-id]');
+    const id = focused?.getAttribute('data-issue-id') || shown()[0]?.id;
+    const it = shown().find((x) => x.id === id);
+    if (!it || busy.has(it.id) || meta(it, 'card_class') === 'type') {
+      return;
+    }
+    const opts = cardOptions(it);
+    const i = Number(ev.key) - 1;
+    if (pending.has(it.id) || !opts[i]) {
+      return;
+    }
+    ev.preventDefault();
+    pending.set(it.id, i);
+    doRender();
+  }
+
   if (issueStores && issueStores.subscribeFor) {
     issueStores.subscribeFor(DECISIONS_CLIENT_ID, () => refresh());
   }
+  if (feed) {
+    feed.on('decisions-all', applyFeed);
+    // Reconnect = refetch (covers pushes missed while offline); no timer.
+    feed.onConnection?.((s) => {
+      if (s === 'open' && feed_loaded) {
+        void fetchFeed();
+      }
+    });
+  }
   window.addEventListener('bdui-lang', () => doRender());
+  window.addEventListener('keydown', onKey);
   doRender();
 
   return {
     async load() {
       refresh();
+      if (feed && !feed_loaded) {
+        await fetchFeed();
+      }
     }
   };
 }
