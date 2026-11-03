@@ -1879,6 +1879,16 @@ export function createDetailView(
   }
 
   window.addEventListener('hashchange', applyAnchor);
+  // Clicking a permalink whose hash is already the current one fires no
+  // hashchange: re-apply it by hand.
+  mount_element.addEventListener('click', (ev) => {
+    const a = /** @type {any} */ (ev.target)?.closest?.('a.comment-link');
+    if (a && a.getAttribute('href') === window.location.hash) {
+      ev.preventDefault();
+      anchor_done = '';
+      applyAnchor();
+    }
+  });
 
   return {
     async load(id) {
@@ -1887,6 +1897,7 @@ export function createDetailView(
         return;
       }
       current_id = String(id);
+      anchor_done = ''; // an explicit open re-applies the deep link
       // Try from store first; show placeholder while waiting for snapshot
       current = null;
       refreshFromStore();
@@ -1903,6 +1914,7 @@ export function createDetailView(
       void ensureCommentsLoaded(current_id);
     },
     clear() {
+      anchor_done = '';
       current_id = null;
       current = null;
       comments_load_errors.clear();

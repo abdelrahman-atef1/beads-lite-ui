@@ -104,4 +104,20 @@ describe('detail deep-link anchors', () => {
     expect(mount.querySelector('.anchor-hit')).toBeNull();
     expect(scroll).not.toHaveBeenCalled();
   });
+
+  test('reopening the same at-link re-applies the anchor', async () => {
+    const { mount, view } = await open('#/issues?issue=UI-7&at=c-bbbbbbbb');
+    expect(scroll).toHaveBeenCalledTimes(1);
+    view.clear();
+    await view.load('UI-7');
+    expect(scroll).toHaveBeenCalledTimes(2);
+    expect(mount.querySelectorAll('.anchor-hit').length).toBe(1);
+    // same-hash permalink click (no hashchange)
+    mount
+      .querySelector('[data-anchor="c-bbbbbbbb"] a.comment-link')
+      ?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true })
+      );
+    expect(scroll).toHaveBeenCalledTimes(3);
+  });
 });
