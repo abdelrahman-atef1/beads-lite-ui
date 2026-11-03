@@ -90,3 +90,11 @@
   margin-top: var(--sp-3);
   min-height: 44px;
 }
+
+/* "Open bead" link: tap target >= 44px (QA F2) */
+.qcard__open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 8px;
+}
