@@ -1,6 +1,9 @@
 /* list strings (en/ar). Merged in utils/i18n.js. */
 export const strings =
   /** @type {Record<string, { en: string, ar: string }>} */ ({
+    ep_none: { en: 'No epics found.', ar: 'لا توجد ملاحم.' },
+    ep_loading: { en: 'Loading…', ar: 'جارٍ التحميل…' },
+    ep_no_issues: { en: 'No issues found', ar: 'لا توجد مهام' },
     l_status: { en: 'Status', ar: 'الحالة' },
     l_types: { en: 'Types', ar: 'الأنواع' },
     l_any: { en: 'Any', ar: 'أي' },

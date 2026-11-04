@@ -80,6 +80,8 @@ export function createBoardView(
   let budget = Infinity;
   /** @type {ReturnType<typeof setTimeout> | null} */
   let rest_timer = null;
+  /** The 30-card budget applies to the first loaded paint only; later renders (live updates) draw everything. */
+  let first_paint_done = false;
 
   /**
    * @param {any} it
@@ -459,12 +461,17 @@ export function createBoardView(
       rest_timer = null;
     }
     const total = Object.values(columns).reduce((n, c) => n + c.length, 0);
-    budget = FIRST_PAINT_CARDS;
+    const trim = !first_paint_done;
+    budget = trim ? FIRST_PAINT_CARDS : Infinity;
     render(template(), mount_element);
-    if (loaded && total + other.length > FIRST_PAINT_CARDS) {
+    if (trim && loaded && total + other.length <= FIRST_PAINT_CARDS) {
+      first_paint_done = true; // nothing was held back
+    }
+    if (trim && loaded && total + other.length > FIRST_PAINT_CARDS) {
       // The rest of the cards, once the first screen is on the glass.
       rest_timer = setTimeout(() => {
         rest_timer = null;
+        first_paint_done = true;
         budget = Infinity;
         render(template(), mount_element);
       }, 0);
@@ -576,6 +583,7 @@ export function createBoardView(
       other = [];
       closed = [];
       loaded = false;
+      first_paint_done = false;
       doRender();
     }
   };

@@ -527,4 +527,27 @@ describe('views/epics', () => {
     );
     expect(input).not.toBeNull();
   });
+
+  test('the empty state follows the UI language (AR)', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    window.localStorage.setItem('beads-ui.lang', 'ar');
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const store = createSubscriptionIssueStore('tab:epics');
+    const issueStores = {
+      getStore: () => store,
+      snapshotFor: () => [],
+      subscribe: () => () => {}
+    };
+    const view = createEpicsView(
+      mount,
+      /** @type {any} */ ({}),
+      () => {},
+      createSubscriptionStore(async () => {}),
+      /** @type {any} */ (issueStores)
+    );
+    await view.load();
+    expect(mount.textContent).toContain('لا توجد ملاحم');
+    expect(mount.textContent).not.toContain('No epics');
+    window.localStorage.removeItem('beads-ui.lang');
+  });
 });

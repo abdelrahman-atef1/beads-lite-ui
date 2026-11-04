@@ -79,6 +79,11 @@
   .chips .chip {
     flex: 0 0 auto;
   }
+  /* The whole menu chip and its select are tap targets (>= 44 px). */
+  .chips .chip--menu,
+  .chips .chip--menu select {
+    min-height: var(--tap);
+  }
 }
 /* Phone held sideways: short screen, wide columns would push the page. */
 @media (max-height: 520px) and (orientation: landscape) {

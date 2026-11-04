@@ -274,6 +274,37 @@ describe('views/board', () => {
     expect(mount.querySelectorAll('.col .card').length).toBe(45);
   });
 
+  test('a live update after the first paint keeps every card and the focused one', async () => {
+    const many = Array.from({ length: 42 }, (_, i) => ({
+      id: 'R-' + i,
+      title: 'r' + i,
+      status: 'in_progress'
+    }));
+    const { mount, view, push } = setup({ 'tab:all': many, ...EMPTY });
+    await view.load();
+    await flush();
+    expect(mount.querySelectorAll('.col .card').length).toBe(42);
+    const card = /** @type {HTMLElement} */ (
+      mount.querySelector('[data-issue-id="R-38"]')
+    );
+    card.focus();
+    const seen = /** @type {number[]} */ ([]);
+    const mo = new MutationObserver(() =>
+      seen.push(mount.querySelectorAll('.col .card').length)
+    );
+    mo.observe(mount, { childList: true, subtree: true });
+    push(
+      'tab:all',
+      many.map((m, i) => (i === 3 ? { ...m, title: 'changed' } : m)),
+      2
+    );
+    await flush();
+    mo.disconnect();
+    expect(Math.min(...seen, 42)).toBe(42);
+    expect(mount.querySelectorAll('.col .card').length).toBe(42);
+    expect(document.activeElement).toBe(card);
+  });
+
   test('j and k move focus between cards; typing in a field is left alone', async () => {
     const { mount, view } = setup({
       'tab:all': [

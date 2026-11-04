@@ -88,7 +88,7 @@ export function createEpicsView(
 
   function template() {
     if (!groups.length) {
-      return html`<div class="panel__header muted">No epics found.</div>`;
+      return html`<div class="panel__header muted">${t('ep_none')}</div>`;
     }
     return html`${repeat(
       groups,
@@ -136,9 +136,9 @@ export function createEpicsView(
         ${is_open
           ? html`<div class="epic-children">
               ${is_loading
-                ? html`<div class="muted">Loading…</div>`
+                ? html`<div class="muted">${t('ep_loading')}</div>`
                 : list.length === 0
-                  ? html`<div class="muted">No issues found</div>`
+                  ? html`<div class="muted">${t('ep_no_issues')}</div>`
                   : html`<table class="table">
                       <colgroup>
                         <col style="width: 100px" />
@@ -279,6 +279,8 @@ export function createEpicsView(
     }
     return next_groups;
   }
+
+  window.addEventListener('bdui-lang', () => doRender());
 
   return {
     async load() {
