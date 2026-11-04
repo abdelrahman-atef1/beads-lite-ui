@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { createApp } from '../app.js';
 import { registerWorkspace } from '../registry-watcher.js';
 import { resolveLocalImage } from './local-img.js';
@@ -114,5 +114,82 @@ describe('local-img: images named in beads (1bo5.6.28.2)', () => {
     expect(bad.status).toBe(404);
     expect(none.status).toBe(404);
     expect(await bad.text()).toBe(await none.text());
+  });
+
+  test('R1: UNC / device refs never reach the filesystem (no network)', () => {
+    const seen = /** @type {string[]} */ ([]);
+    const orig = fs.realpathSync.native;
+    const spy = vi
+      .spyOn(fs.realpathSync, 'native')
+      .mockImplementation((/** @type {any} */ p, /** @type {any} */ o) => {
+        seen.push(String(p));
+        return orig(p, o);
+      });
+    const stat = vi.spyOn(fs, 'statSync');
+    const lstat = vi.spyOn(fs, 'lstatSync');
+    try {
+      for (const ref of [
+        '//localhost/nosuchshare/a.png',
+        String.raw`\\localhost\nosuchshare\a.png`,
+        '//?/C:/Windows/a.png',
+        '//./pipe/a.png',
+        'x?y.png'
+      ])
+        expect(resolveLocalImage(ref, 'a-1', proj)).toBeNull();
+      expect(resolveLocalImage('docs/qa/shot.png', '', proj)?.kind).toBe('png');
+      expect(seen.length).toBeGreaterThan(0); // the spy does see real lookups
+      expect(
+        seen.filter((p) => /^[\\/]{2}/.test(p) || p.includes('nosuchshare'))
+      ).toEqual([]);
+      for (const c of [...stat.mock.calls, ...lstat.mock.calls])
+        expect(String(c[0])).not.toMatch(/nosuchshare/);
+    } finally {
+      spy.mockRestore();
+      stat.mockRestore();
+      lstat.mockRestore();
+    }
+  });
+
+  test('R2: cross-site fetch gets 404 and CORP header is set', async () => {
+    const u = `http://127.0.0.1:${port}/api/local-img?ref=docs%2Fqa%2Fshot.png&bead=a-1&w=${encodeURIComponent(proj)}`;
+    const cross = await fetch(u, {
+      headers: { 'Sec-Fetch-Site': 'cross-site' }
+    });
+    expect(cross.status).toBe(404);
+    const same = await fetch(u, {
+      headers: { 'Sec-Fetch-Site': 'same-origin' }
+    });
+    expect(same.status).toBe(200);
+    expect(same.headers.get('cross-origin-resource-policy')).toBe(
+      'same-origin'
+    );
+    const none = await fetch(u, { headers: { 'Sec-Fetch-Site': 'none' } });
+    expect(none.status).toBe(200);
+  });
+
+  test('R3: realpath.native is what resolves (8.3 GIT~1 cannot hide .git)', () => {
+    const git = path.join(proj, 'GIT~1', 'x.png');
+    if (process.platform === 'win32' && fs.existsSync(git))
+      expect(resolveLocalImage('GIT~1/x.png', '', proj)).toBeNull();
+    else console.warn('R3 live check not exercised: 8.3 names off here');
+    const spy = vi.spyOn(fs.realpathSync, 'native');
+    try {
+      expect(resolveLocalImage('docs/qa/shot.png', '', proj)?.kind).toBe('png');
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('R4: ADS / colon refs are refused', () => {
+    expect(resolveLocalImage('docs/qa/shot.png:x.png', '', proj)).toBeNull();
+    expect(resolveLocalImage('docs/qa:x/shot.png', '', proj)).toBeNull();
+    if (process.platform === 'win32') {
+      fs.writeFileSync(path.join(proj, 'notes.md'), 'hi');
+      fs.writeFileSync(path.join(proj, 'notes.md:x.png'), PNG);
+      expect(resolveLocalImage('notes.md:x.png', '', proj)).toBeNull();
+      const abs = path.join(proj, 'notes.md:x.png').split(path.sep).join('/');
+      expect(resolveLocalImage(abs, '', '')).toBeNull();
+    }
   });
 });

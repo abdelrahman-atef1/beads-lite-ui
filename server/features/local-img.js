@@ -41,7 +41,8 @@ const norm = (p) => p.replace(/\\/g, '/');
 /** @param {string} p */
 function real(p) {
   try {
-    return fs.realpathSync(p);
+    // .native expands 8.3 short names (GIT~1 -> .git) that BAD_SEG must see.
+    return fs.realpathSync.native(p);
   } catch {
     return '';
   }
@@ -99,13 +100,21 @@ function findByName(dir, name) {
   return '';
 }
 
-/** Allowed roots (realpath'd): registered workspaces, their -wt-* siblings, ~/company. */
+/**
+ * Allowed roots: registered workspaces, their -wt-* siblings, ~/company.
+ * `real` = realpath'd (final check); `lex` = real plus the spelled-out form
+ * (lexical pre-check, before any filesystem call on a candidate).
+ */
 function allowedRoots() {
   /** @type {string[]} */
   const roots = [];
+  /** @type {string[]} */
+  const lex = [];
   const add = (/** @type {string} */ p) => {
     const r = real(p);
-    if (r && !roots.includes(r)) roots.push(r);
+    if (!r) return;
+    if (!roots.includes(r)) roots.push(r);
+    for (const x of [r, path.resolve(p)]) if (!lex.includes(x)) lex.push(x);
   };
   for (const w of getAvailableWorkspaces()) {
     add(w.path);
@@ -121,7 +130,7 @@ function allowedRoots() {
     }
   }
   add(path.join(os.homedir(), 'company'));
-  return roots;
+  return { real: roots, lex };
 }
 
 /**
@@ -134,6 +143,11 @@ export function resolveLocalImage(ref, bead, w) {
   if (!ref || ref.length > MAX_REF || ref.includes('\0')) return null;
   const r = norm(ref.trim()).replace(/^file:\/+/i, '');
   if (!EXT.test(r)) return null;
+  // R1: a UNC / device path ("//host/share") makes realpath open an
+  // SMB connection; "?" is never in a real file ref here.
+  if (r.startsWith('//') || r.includes('?')) return null;
+  // R4: no ":" after an optional drive prefix (NTFS alternate data streams).
+  if (r.replace(/^[A-Za-z]:\//, '').includes(':')) return null;
   if (bead && !BEAD_RE.test(bead)) bead = '';
   const spaces = getAvailableWorkspaces().map((x) => path.resolve(x.path));
   const wr = w ? path.resolve(w) : '';
@@ -160,8 +174,14 @@ export function resolveLocalImage(ref, bead, w) {
   const roots = allowedRoots();
   /** @param {string} c */
   const accept = (c) => {
+    // R1: lexical check first, so nothing outside a root is ever touched.
+    const lc = path.resolve(c);
+    if (lc.startsWith('\\\\') || !roots.lex.some((x) => under(lc, x)))
+      return '';
     const rp = real(c);
-    if (!rp || !roots.some((x) => under(rp, x))) return '';
+    if (!rp || rp.startsWith('\\\\')) return '';
+    if (rp.replace(/^[A-Za-z]:/, '').includes(':')) return '';
+    if (!roots.real.some((x) => under(rp, x))) return '';
     if (rp.split(path.sep).some((s) => BAD_SEG.test(s))) return '';
     return rp;
   };
@@ -204,6 +224,13 @@ export function register(seam) {
         typeof req.query[k] === 'string'
           ? /** @type {string} */ (req.query[k])
           : '';
+      // R2: another site's page (<img src=...>) must not probe this door.
+      const site = req.headers['sec-fetch-site'];
+      if (site && site !== 'same-origin' && site !== 'none') {
+        res.status(404).type('text/plain').send('not_found');
+        return;
+      }
+      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
       const hit = resolveLocalImage(q('ref'), q('bead'), q('w'));
       if (!hit) {
         res.status(404).type('text/plain').send('not_found');
