@@ -1,3 +1,29 @@
-/* list strings (en/ar). Filled by its own task; merged in utils/i18n.js. */
+/* list strings (en/ar). Merged in utils/i18n.js. */
 export const strings =
-  /** @type {Record<string, { en: string, ar: string }>} */ ({});
+  /** @type {Record<string, { en: string, ar: string }>} */ ({
+    l_status: { en: 'Status', ar: 'الحالة' },
+    l_types: { en: 'Types', ar: 'الأنواع' },
+    l_any: { en: 'Any', ar: 'أي' },
+    l_scope: { en: 'Scope', ar: 'النطاق' },
+    l_by_status: { en: 'By status', ar: 'حسب الحالة' },
+    l_ready_only: { en: 'Ready only', ar: 'الجاهزة فقط' },
+    l_search: { en: 'Search…', ar: 'بحث…' },
+    l_none: { en: 'No issues', ar: 'لا توجد مهام' },
+    l_id: { en: 'ID', ar: 'المعرّف' },
+    l_type: { en: 'Type', ar: 'النوع' },
+    l_title: { en: 'Title', ar: 'العنوان' },
+    l_assignee: { en: 'Assignee', ar: 'المسؤول' },
+    l_priority: { en: 'Priority', ar: 'الأولوية' },
+    l_deps: { en: 'Deps', ar: 'الاعتماديات' },
+    l_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
+    st_open: { en: 'Open', ar: 'مفتوحة' },
+    st_in_progress: { en: 'In progress', ar: 'قيد التنفيذ' },
+    st_blocked: { en: 'Blocked', ar: 'معطّلة' },
+    st_owner_decision: { en: 'Owner decision', ar: 'بانتظار قرار المالك' },
+    st_waiting_for_test: { en: 'Waiting for test', ar: 'بانتظار الاختبار' },
+    st_waiting_for_merge: { en: 'Waiting for merge', ar: 'بانتظار الدمج' },
+    st_deferred: { en: 'Deferred', ar: 'مؤجّلة' },
+    st_closed: { en: 'Closed', ar: 'مغلقة' },
+    st_pinned: { en: 'Pinned', ar: 'مثبّتة' },
+    st_hooked: { en: 'Hooked', ar: 'معلّقة' }
+  });

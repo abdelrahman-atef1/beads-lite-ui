@@ -195,6 +195,18 @@ body {
   .shell__main > .app-shell {
     height: auto;
   }
+  /* Header must fit the narrow main column (844px landscape = 612px main):
+     compact search, no bug-report text (it keeps its aria-label), tight gaps. */
+  .header-actions {
+    gap: 4px;
+  }
+  .rpt-open__txt,
+  .top-search__field kbd {
+    display: none;
+  }
+  .top-search__field {
+    width: min(160px, 22vw);
+  }
 }
 
 /* Phone: one column, page scrolls, bottom nav, drawer for projects */

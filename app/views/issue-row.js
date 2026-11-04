@@ -2,10 +2,11 @@
  * @import { SettableStatus } from '../protocol.js'
  */
 import { html } from 'lit-html';
+import { t } from '../utils/i18n.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { ISSUE_TYPES, typeLabel } from '../utils/issue-type.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
-import { priority_levels } from '../utils/priority.js';
+import { priorityName, priority_levels } from '../utils/priority.js';
 import {
   isSettableStatus,
   statusLabel,
@@ -193,9 +194,9 @@ export function createIssueRowRenderer(options) {
           @change=${makeSelectChange(it.id, 'issue_type', cur_type)}
         >
           ${ISSUE_TYPES.map(
-            (t) =>
-              html`<option value=${t} ?selected=${cur_type === t}>
-                ${typeLabel(t)}
+            (ty) =>
+              html`<option value=${ty} ?selected=${cur_type === ty}>
+                ${typeLabel(ty)}
               </option>`
           )}
         </select>
@@ -223,7 +224,7 @@ export function createIssueRowRenderer(options) {
         </select>
       </td>
       <td role="gridcell">
-        ${editableText(it.id, 'assignee', it.assignee || '', 'Unassigned')}
+        ${editableText(it.id, 'assignee', it.assignee || '', t('l_unassigned'))}
       </td>
       <td role="gridcell">
         <div class="pri-cell">
@@ -239,7 +240,7 @@ export function createIssueRowRenderer(options) {
                   value=${String(i)}
                   ?selected=${cur_prio === String(i)}
                 >
-                  ${p}
+                  ${priorityName(i)}
                 </option>`
             )}
           </select>

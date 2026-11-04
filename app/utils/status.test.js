@@ -90,3 +90,21 @@ describe('utils/status', () => {
     expect(isSettableStatus('')).toBe(false);
   });
 });
+
+describe('utils/status labels in Arabic', () => {
+  test('every status has an Arabic label, not the English one', async () => {
+    const store = new Map([['beads-ui.lang', 'ar']]);
+    globalThis.window = {
+      localStorage: { getItem: (k) => store.get(k) ?? null }
+    };
+    try {
+      for (const s of STATUSES) {
+        const ar = statusLabel(s);
+        expect(ar).toMatch(/[\u0600-\u06FF]/);
+      }
+      expect(statusLabel('weird_thing')).toBe('Weird thing');
+    } finally {
+      delete globalThis.window;
+    }
+  });
+});

@@ -2,6 +2,7 @@
  * @import { Status } from '../protocol.js'
  */
 import { SETTABLE_STATUSES, STATUSES, isSettableStatus } from '../protocol.js';
+import { t } from './i18n.js';
 
 // Guiding rule: render everything, offer only what a human should set.
 // `STATUSES` is every status bd can emit, so all of them get a label and a
@@ -100,30 +101,10 @@ export function sameStatusFilters(a, b) {
  */
 export function statusLabel(status) {
   const raw = (status || '').toString();
-  switch (raw) {
-    case 'open':
-      return 'Open';
-    case 'in_progress':
-      return 'In progress';
-    case 'blocked':
-      return 'Blocked';
-    case 'owner_decision':
-      return 'Owner decision';
-    case 'waiting_for_test':
-      return 'Waiting for test';
-    case 'waiting_for_merge':
-      return 'Waiting for merge';
-    case 'deferred':
-      return 'Deferred';
-    case 'closed':
-      return 'Closed';
-    case 'pinned':
-      return 'Pinned';
-    case 'hooked':
-      return 'Hooked';
-    default:
-      return titleize(raw);
+  if (STATUSES.includes(/** @type {Status} */ (raw))) {
+    return t(`st_${raw}`);
   }
+  return titleize(raw);
 }
 
 /**
