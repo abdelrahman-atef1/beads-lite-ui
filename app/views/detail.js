@@ -25,6 +25,7 @@ import {
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
 import { mountSlots } from './registry.js';
+import { renderDetailHeader } from './detail-header.js';
 
 /**
  * Flat comment text keeps its line breaks.
@@ -1612,7 +1613,12 @@ export function createDetailView(
       <div class="panel__body" id="detail-root">
         <div class="detail-layout">
           <div class="detail-main">
-            ${title_zone} ${desc_block} ${design_block} ${notes_block}
+            ${title_zone}
+            ${renderDetailHeader(issue, {
+              weights: weights_by_id.get(String(issue.id)),
+              max_chips: window.innerWidth < 600 ? 4 : 8
+            })}
+            ${desc_block} ${design_block} ${notes_block}
             ${accept_block} ${comments_block}
           </div>
           <div class="detail-side">
@@ -1724,6 +1730,42 @@ export function createDetailView(
     `;
   }
 
+  /** Explicit child weights (metadata.weight) by bead id; fetched lazily. */
+  /** @type {Map<string, Record<string, number|string>>} */
+  const weights_by_id = new Map();
+  /** @type {Set<string>} */
+  const weights_asked = new Set();
+
+  /**
+   * One lazy read-only call after first paint, only for beads with children.
+   * A failure leaves priority defaults in place (degrade, never break).
+   *
+   * @param {any} issue
+   */
+  function ensureWeightsLoaded(issue) {
+    const id = String(issue.id);
+    const has_children = (issue.dependents || []).some(
+      (/** @type {any} */ d) => d && d.dependency_type === 'parent-child'
+    );
+    if (!has_children || weights_asked.has(id)) {
+      return;
+    }
+    weights_asked.add(id);
+    setTimeout(async () => {
+      try {
+        const w = await sendFn('get-weights', { id });
+        if (w && typeof w === 'object') {
+          weights_by_id.set(id, /** @type {any} */ (w));
+          if (current_id === id) {
+            doRender();
+          }
+        }
+      } catch (err) {
+        log('weights failed %s %o', id, err);
+      }
+    }, 0);
+  }
+
   function doRender() {
     if (!current) {
       if (current_id) renderSkeleton();
@@ -1735,6 +1777,7 @@ export function createDetailView(
     // Slots (card, outputs): fire and forget, a failed slot never breaks the
     // detail. The registry calls mount(el, issue) again when the issue changes.
     void mountSlots(mount_element, current);
+    ensureWeightsLoaded(current);
     applyAnchor();
   }
 

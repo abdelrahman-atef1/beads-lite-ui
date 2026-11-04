@@ -228,3 +228,63 @@
   max-height: 96vh;
   cursor: zoom-out;
 }
+
+/* Bead header: agents who worked on it + weighted progress (1bo5.6.47).
+   Logical properties only so RTL mirrors; the bar fills from inline-start. */
+.detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block: 4px 12px;
+}
+.dh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-block: 2px;
+  padding-inline: 8px;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 999px;
+  font-size: 13px;
+  max-inline-size: 100%;
+}
+.dh-chip--current {
+  border-color: var(--accent, #2563eb);
+  background: color-mix(in srgb, var(--accent, #2563eb) 14%, transparent);
+  font-weight: 600;
+  order: -1;
+}
+.dh-tag {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.dh-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dh-bar {
+  flex: 1;
+  block-size: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-start;
+}
+.dh-fill {
+  block-size: 100%;
+  background: var(--accent, #2563eb);
+}
+.dh-text {
+  font-size: 12px;
+  white-space: nowrap;
+}

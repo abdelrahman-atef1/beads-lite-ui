@@ -9,7 +9,7 @@
  * - Server can also send unsolicited events (e.g., subscription `snapshot`).
  */
 
-/** @typedef {'list-issues'|'update-status'|'edit-text'|'update-priority'|'update-type'|'create-issue'|'list-ready'|'dep-add'|'dep-remove'|'epic-status'|'update-assignee'|'label-add'|'label-remove'|'subscribe-list'|'unsubscribe-list'|'snapshot'|'upsert'|'delete'|'get-comments'|'add-comment'|'delete-issue'|'list-workspaces'|'set-workspace'|'get-workspace'|'resolve-moved-id'|'workspace-changed'} MessageType */
+/** @typedef {'list-issues'|'update-status'|'edit-text'|'update-priority'|'update-type'|'create-issue'|'list-ready'|'dep-add'|'dep-remove'|'epic-status'|'update-assignee'|'label-add'|'label-remove'|'subscribe-list'|'unsubscribe-list'|'snapshot'|'upsert'|'delete'|'get-comments'|'get-weights'|'add-comment'|'delete-issue'|'list-workspaces'|'set-workspace'|'get-workspace'|'resolve-moved-id'|'workspace-changed'} MessageType */
 
 /**
  * Every status `bd` can report on an issue.
@@ -122,6 +122,7 @@ export const MESSAGE_TYPES = /** @type {const} */ ([
   'delete',
   // Comments
   'get-comments',
+  'get-weights',
   'add-comment',
   // Delete issue
   'delete-issue',

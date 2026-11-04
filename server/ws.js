@@ -1666,6 +1666,52 @@ async function handleMessageUnsafe(ws, data) {
     return;
   }
 
+  // get-weights: payload { id: string } -> { [child_id]: weight } for children of
+  // id that carry an explicit metadata.weight (usually none). Read-only, bounded
+  // (200), one cheap bd list; the header fills its progress bar from it.
+  if (req.type === 'get-weights') {
+    const { id } = /** @type {any} */ (req.payload || {});
+    if (typeof id !== 'string' || id.length === 0 || id.length > 200) {
+      ws.send(
+        JSON.stringify(
+          makeError(req, 'bad_request', 'payload requires { id: string }')
+        )
+      );
+      return;
+    }
+    const res = await runBdJson(
+      [
+        'list',
+        '--parent',
+        id,
+        '--has-metadata-key',
+        'weight',
+        '--all',
+        '--limit',
+        '200',
+        '--json'
+      ],
+      bd_options
+    );
+    if (res.code !== 0) {
+      ws.send(
+        JSON.stringify(makeError(req, 'bd_error', res.stderr || 'bd failed'))
+      );
+      return;
+    }
+    /** @type {Record<string, number|string>} */
+    const out = {};
+    const rows = Array.isArray(res.stdoutJson) ? res.stdoutJson : [];
+    for (const r of rows) {
+      const wv = r && r.metadata ? r.metadata.weight : undefined;
+      if (r && typeof r.id === 'string' && wv !== undefined) {
+        out[r.id] = wv;
+      }
+    }
+    ws.send(JSON.stringify(makeOk(req, out)));
+    return;
+  }
+
   // get-comments: payload { id: string }
   if (req.type === 'get-comments') {
     const { id } = /** @type {any} */ (req.payload || {});
