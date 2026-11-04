@@ -355,6 +355,7 @@ export function createDetailView(
           aria-busy="true"
           aria-label=${t('Loading issue')}
         >
+          <span class="sr-only">${t('Loading issue')}</span>
           <div class="sk sk--title"></div>
           <div class="sk sk--line"></div>
           <div class="sk sk--line sk--short"></div>
@@ -1309,6 +1310,7 @@ export function createDetailView(
         </div>`;
 
     // Normalize acceptance text: prefer issue.acceptance, fallback to acceptance_criteria from bd
+    const ac_title = t('Acceptance Criteria');
     const acceptance_text = (() => {
       /** @type {any} */
       const any_issue = issue;
@@ -1321,9 +1323,7 @@ export function createDetailView(
     const accept_block = edit_accept
       ? html`<div class="acceptance" data-anchor="acceptance">
           ${acceptance_text.trim().length > 0
-            ? html`<div class="props-card__title">
-                ${t('Acceptance Criteria')}
-              </div>`
+            ? html`<div class="props-card__title">${ac_title}</div>`
             : ''}
           <textarea
             @keydown=${onAcceptKeydown}
@@ -1341,9 +1341,7 @@ export function createDetailView(
             const text = acceptance_text;
             const has = text.trim().length > 0;
             return html`${has
-                ? html`<div class="props-card__title">
-                    ${t('Acceptance Criteria')}
-                  </div>`
+                ? html`<div class="props-card__title">${ac_title}</div>`
                 : ''}
               <div
                 class="md editable"
