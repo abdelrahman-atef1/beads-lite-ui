@@ -22,7 +22,7 @@
  */
 
 /**
- * @typedef {{ updated_at: number, closed_at: number | null }} ItemMeta
+ * @typedef {{ updated_at: number, closed_at: number | null, comment_count?: number }} ItemMeta
  */
 
 /**
@@ -88,7 +88,13 @@ export function computeDelta(prev, next) {
       added.push(id);
       continue;
     }
-    if (p.updated_at !== meta.updated_at || p.closed_at !== meta.closed_at) {
+    // A comment added from outside does not bump updated_at, so the comment
+    // count counts as a change too (beads-lite-1bo5.6.28.3).
+    if (
+      p.updated_at !== meta.updated_at ||
+      p.closed_at !== meta.closed_at ||
+      p.comment_count !== meta.comment_count
+    ) {
       updated.push(id);
     }
   }
@@ -122,7 +128,13 @@ export function toItemsMap(items) {
       const n = Number(it.closed_at);
       closed_at = Number.isFinite(n) ? n : null;
     }
-    map.set(it.id, { updated_at, closed_at });
+    /** @type {ItemMeta} */
+    const meta = { updated_at, closed_at };
+    const count = Number(/** @type {any} */ (it).comment_count);
+    if (Number.isFinite(count)) {
+      meta.comment_count = count;
+    }
+    map.set(it.id, meta);
   }
   return map;
 }

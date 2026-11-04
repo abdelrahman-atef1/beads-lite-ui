@@ -51,15 +51,17 @@ export function watchDb(root_dir, onChange, options = {}) {
 
   /**
    * Schedule the debounced onChange callback.
+   *
+   * @param {number} [extra_ms] - extra delay (used to wait out the cooldown)
    */
-  const schedule = () => {
+  const schedule = (extra_ms = 0) => {
     if (timer) {
       clearTimeout(timer);
     }
     timer = setTimeout(() => {
       onChange();
       cooldown_until = Date.now() + cooldown_ms;
-    }, debounce_ms);
+    }, debounce_ms + extra_ms);
     timer.unref();
   };
 
@@ -102,7 +104,13 @@ export function watchDb(root_dir, onChange, options = {}) {
             return;
           }
           if (event_type === 'change' || event_type === 'rename') {
+            // A change inside the cooldown is not dropped: it fires once the
+            // cooldown ends, so a comment added right after a refresh still
+            // shows (beads-lite-1bo5.6.28.3). Reads do not touch the watched
+            // file, so this cannot chain into a loop.
             if (Date.now() < cooldown_until) {
+              log('fs %s %s (cooldown, deferred)', event_type, filename || '');
+              schedule(cooldown_until - Date.now());
               return;
             }
             log('fs %s %s', event_type, filename || '');
