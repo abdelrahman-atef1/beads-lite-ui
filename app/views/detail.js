@@ -7,6 +7,7 @@ import {
   findLineElement,
   parseAnchor
 } from '../utils/anchor.js';
+import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
 import { debug } from '../utils/logging.js';
@@ -20,6 +21,7 @@ import {
 } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
+import { mountSlots } from './registry.js';
 
 /**
  * Build a failure message that includes the server reason.
@@ -336,6 +338,28 @@ export function createDetailView(
       html`
         <div class="panel__body" id="detail-root">
           <p class="muted">${message}</p>
+        </div>
+      `,
+      mount_element
+    );
+  }
+
+  /** Skeleton shown at once while the first snapshot is on its way. */
+  function renderSkeleton() {
+    render(
+      html`
+        <div
+          class="panel__body detail-skeleton"
+          id="detail-root"
+          role="status"
+          aria-busy="true"
+          aria-label=${t('Loading issue')}
+        >
+          <div class="sk sk--title"></div>
+          <div class="sk sk--line"></div>
+          <div class="sk sk--line sk--short"></div>
+          <div class="sk sk--block"></div>
+          <div class="sk sk--block"></div>
         </div>
       `,
       mount_element
@@ -1138,7 +1162,7 @@ export function createDetailView(
     return html`
       <div class="props-card">
         <div>
-          <div class="props-card__title">${title}</div>
+          <div class="props-card__title">${t(title)}</div>
         </div>
         <ul>
           ${!items || items.length === 0
@@ -1162,7 +1186,11 @@ export function createDetailView(
               })}
         </ul>
         <div class="props-card__footer">
-          <input type="text" placeholder="Issue ID" data-testid=${test_id} />
+          <input
+            type="text"
+            placeholder=${t('Issue ID')}
+            data-testid=${test_id}
+          />
           <button @click=${makeDepAddClick(items, title)}>Add</button>
         </div>
       </div>
@@ -1293,7 +1321,9 @@ export function createDetailView(
     const accept_block = edit_accept
       ? html`<div class="acceptance" data-anchor="acceptance">
           ${acceptance_text.trim().length > 0
-            ? html`<div class="props-card__title">Acceptance Criteria</div>`
+            ? html`<div class="props-card__title">
+                ${t('Acceptance Criteria')}
+              </div>`
             : ''}
           <textarea
             @keydown=${onAcceptKeydown}
@@ -1311,7 +1341,9 @@ export function createDetailView(
             const text = acceptance_text;
             const has = text.trim().length > 0;
             return html`${has
-                ? html`<div class="props-card__title">Acceptance Criteria</div>`
+                ? html`<div class="props-card__title">
+                    ${t('Acceptance Criteria')}
+                  </div>`
                 : ''}
               <div
                 class="md editable"
@@ -1323,7 +1355,9 @@ export function createDetailView(
               >
                 ${has
                   ? renderMarkdown(text)
-                  : html`<div class="muted">Add acceptance criteria…</div>`}
+                  : html`<div class="muted">
+                      ${t('Add acceptance criteria…')}
+                    </div>`}
               </div>`;
           })()}
         </div>`;
@@ -1333,7 +1367,7 @@ export function createDetailView(
     const notes_block = edit_notes
       ? html`<div class="notes" data-anchor="notes">
           ${notes_text.trim().length > 0
-            ? html`<div class="props-card__title">Notes</div>`
+            ? html`<div class="props-card__title">${t('Notes')}</div>`
             : ''}
           <textarea
             @keydown=${onNotesKeydown}
@@ -1351,7 +1385,7 @@ export function createDetailView(
             const text = notes_text;
             const has = text.trim().length > 0;
             return html`${has
-                ? html`<div class="props-card__title">Notes</div>`
+                ? html`<div class="props-card__title">${t('Notes')}</div>`
                 : ''}
               <div
                 class="md editable"
@@ -1363,7 +1397,7 @@ export function createDetailView(
               >
                 ${has
                   ? renderMarkdown(text)
-                  : html`<div class="muted">Add notes…</div>`}
+                  : html`<div class="muted">${t('Add notes…')}</div>`}
               </div>`;
           })()}
         </div>`;
@@ -1372,7 +1406,7 @@ export function createDetailView(
     const labels = Array.isArray(issue.labels) ? issue.labels : [];
     const labels_block = html`<div class="props-card labels">
       <div>
-        <div class="props-card__title">Labels</div>
+        <div class="props-card__title">${t('Labels')}</div>
       </div>
       <ul>
         ${labels.map(
@@ -1396,7 +1430,7 @@ export function createDetailView(
       <div class="props-card__footer">
         <input
           type="text"
-          placeholder="Label"
+          placeholder=${t('Label')}
           size="12"
           .value=${new_label_text}
           @input=${onLabelInput}
@@ -1413,31 +1447,31 @@ export function createDetailView(
     const closed_display = formatDateValue(issue.closed_at);
     const dates_block = html`<div class="props-card dates">
       <div class="props-card__header">
-        <div class="props-card__title">Dates</div>
+        <div class="props-card__title">${t('Dates')}</div>
       </div>
       <div class="prop">
-        <div class="label">Created</div>
+        <div class="label">${t('Created')}</div>
         <div class="value">${formatDateValue(issue.created_at)}</div>
       </div>
       ${issue.started_at
         ? html`<div class="prop">
-            <div class="label">Started</div>
+            <div class="label">${t('Started')}</div>
             <div class="value">${formatDateValue(issue.started_at)}</div>
           </div>`
         : ''}
       <div class="prop">
-        <div class="label">Updated</div>
+        <div class="label">${t('Updated')}</div>
         <div class="value">${formatDateValue(issue.updated_at)}</div>
       </div>
       ${closed_display
         ? html`<div class="prop">
-            <div class="label">Closed</div>
+            <div class="label">${t('Closed')}</div>
             <div class="value">${closed_display}</div>
           </div>`
         : ''}
       ${issue.defer_until
         ? html`<div class="prop">
-            <div class="label">Deferred until</div>
+            <div class="label">${t('Deferred until')}</div>
             <div class="value">${formatDateValue(issue.defer_until)}</div>
           </div>`
         : ''}
@@ -1448,7 +1482,7 @@ export function createDetailView(
     const design_block = edit_design
       ? html`<div class="design" data-anchor="design">
           ${design_text.trim().length > 0
-            ? html`<div class="props-card__title">Design</div>`
+            ? html`<div class="props-card__title">${t('Design')}</div>`
             : ''}
           <textarea
             @keydown=${onDesignKeydown}
@@ -1466,7 +1500,7 @@ export function createDetailView(
             const text = design_text;
             const has = text.trim().length > 0;
             return html`${has
-                ? html`<div class="props-card__title">Design</div>`
+                ? html`<div class="props-card__title">${t('Design')}</div>`
                 : ''}
               <div
                 class="md editable"
@@ -1478,7 +1512,7 @@ export function createDetailView(
               >
                 ${has
                   ? renderMarkdown(text)
-                  : html`<div class="muted">Add design…</div>`}
+                  : html`<div class="muted">${t('Add design…')}</div>`}
               </div>`;
           })()}
         </div>`;
@@ -1492,7 +1526,7 @@ export function createDetailView(
     const comments_pending =
       comments.length === 0 && !comments_error && !hasCurrentComments(issue);
     const comments_block = html`<div class="comments" data-anchor="comments">
-      <div class="props-card__title">Comments</div>
+      <div class="props-card__title">${t('Comments')}</div>
       ${comments_error
         ? html`<div class="muted" role="alert">
             ${comments_error}
@@ -1500,7 +1534,9 @@ export function createDetailView(
           </div>`
         : comments.length === 0
           ? html`<div class="muted">
-              ${comments_pending ? 'Loading comments…' : 'No comments yet'}
+              ${comments_pending
+                ? t('Loading comments…')
+                : t('No comments yet')}
             </div>`
           : comments_newest_first.map(
               (c) => html`
@@ -1528,7 +1564,7 @@ export function createDetailView(
             )}
       <div class="comment-input">
         <textarea
-          placeholder="Add a comment... (Ctrl+Enter to submit)"
+          placeholder=${t('Add a comment... (Ctrl+Enter to submit)')}
           rows="3"
           .value=${comment_text}
           @input=${onCommentInput}
@@ -1539,7 +1575,7 @@ export function createDetailView(
           @click=${onCommentSubmit}
           ?disabled=${comment_pending || !comment_text.trim()}
         >
-          ${comment_pending ? 'Adding...' : 'Add Comment'}
+          ${comment_pending ? 'Adding...' : t('Add Comment')}
         </button>
       </div>
     </div>`;
@@ -1552,9 +1588,10 @@ export function createDetailView(
             ${accept_block} ${comments_block}
           </div>
           <div class="detail-side">
+            <div class="detail-slot" data-slot="card"></div>
             <div class="props-card" data-anchor="card">
               <div class="props-card__header">
-                <div class="props-card__title">Properties</div>
+                <div class="props-card__title">${t('Properties')}</div>
                 <button class="delete-issue-btn" title="Delete issue" aria-label="Delete issue" @click=${onDeleteClick}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"></polyline>
@@ -1566,29 +1603,29 @@ export function createDetailView(
                 </button>
               </div>
                 <div class="prop">
-                  <div class="label">Type</div>
+                  <div class="label">${t('Type')}</div>
                   <div class="value">
                     ${createTypeBadge(/** @type {any} */ (issue).issue_type)}
                   </div>
                 </div>
                 <div class="prop">
-                  <div class="label">Status</div>
+                  <div class="label">${t('Status')}</div>
                   <div class="value">${status_select}</div>
                 </div>
                 ${
                   issue.close_reason
                     ? html`<div class="prop">
-                        <div class="label">Close Reason</div>
+                        <div class="label">${t('Close Reason')}</div>
                         <div class="value">${issue.close_reason}</div>
                       </div>`
                     : ''
                 }
                 <div class="prop">
-                  <div class="label">Priority</div>
+                  <div class="label">${t('Priority')}</div>
                   <div class="value">${priority_select}</div>
                 </div>
                 <div class="prop assignee">
-                  <div class="label">Assignee</div>
+                  <div class="label">${t('Assignee')}</div>
                   <div class="value">
                     ${
                       edit_assignee
@@ -1631,7 +1668,7 @@ export function createDetailView(
                         : html`${(() => {
                             const raw = issue.assignee || '';
                             const has = raw.trim().length > 0;
-                            const text = has ? raw : 'Unassigned';
+                            const text = has ? raw : t('Unassigned');
                             const cls = has ? 'editable' : 'editable muted';
                             return html`<span
                               class=${cls}
@@ -1651,6 +1688,7 @@ export function createDetailView(
               ${labels_block}
               ${depsSection('Dependencies', issue.dependencies || [])}
               ${depsSection('Dependents', issue.dependents || [])}
+              <div class="detail-slot" data-slot="outputs"></div>
             </div>
           </div>
         </div>
@@ -1660,10 +1698,14 @@ export function createDetailView(
 
   function doRender() {
     if (!current) {
-      renderPlaceholder(current_id ? 'Loading…' : 'No issue selected');
+      if (current_id) renderSkeleton();
+      else renderPlaceholder('No issue selected');
       return;
     }
     render(detailTemplate(current), mount_element);
+    // Slots (card, outputs): fire and forget, a failed slot never breaks the
+    // detail. The registry calls mount(el, issue) again when the issue changes.
+    void mountSlots(mount_element, current);
     applyAnchor();
   }
 
@@ -1902,7 +1944,7 @@ export function createDetailView(
       current = null;
       refreshFromStore();
       if (!current) {
-        renderPlaceholder('Loading…');
+        renderSkeleton();
       }
       // Render from current (if available) or keep placeholder until push arrives
       pending = false;
