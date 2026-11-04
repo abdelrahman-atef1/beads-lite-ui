@@ -18,6 +18,8 @@ const TEXT_RE = new RegExp(
   '\\[[^\\]]*\\]\\((' + PATH + ')\\)|(?<![\\w/])(' + PATH + ')',
   'g'
 );
+const IMG_RE = new RegExp('<img\\b[^>]*\\bsrc="(' + PATH + ')"[^>]*>', 'g');
+const BARE_RE = new RegExp('(?<![\\w/])(' + PATH + ')', 'g');
 const A_RE = new RegExp(
   '<a\\b[^>]*\\bhref="(' + PATH + ')"[^>]*>[\\s\\S]*?</a>',
   'g'
@@ -73,7 +75,26 @@ function thumbHtml(src, ref) {
  * @param {string} html_string
  */
 export function attifyHtml(html_string) {
-  return html_string.replace(A_RE, (_m, src) => thumbHtml(src));
+  const linked = html_string.replace(A_RE, (_m, src) => thumbHtml(src));
+  // A markdown image ![](/att/..) arrives as a bare <img>; the bare path in
+  // prose arrives as text. Both become the same small thumbnail.
+  return linked
+    .replace(IMG_RE, (m, src) => (/att-img/.test(m) ? m : thumbHtml(src)))
+    .split(/(<[^>]*>)/)
+    .map((part, i, all) => {
+      if (i % 2) return part;
+      // skip text inside links, code and existing thumbnails
+      const before = all.slice(0, i).filter((_, k) => k % 2);
+      let open = 0;
+      for (const t of before) {
+        if (/^<(?:a|pre|code)\b/i.test(t)) open++;
+        else if (/^<\/(?:a|pre|code)\s*>/i.test(t)) open--;
+      }
+      return open > 0
+        ? part
+        : part.replace(BARE_RE, (_m, src) => thumbHtml(src));
+    })
+    .join('');
 }
 
 /**

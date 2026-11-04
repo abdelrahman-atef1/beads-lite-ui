@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 /**
  * Create a reusable, copy-to-clipboard issue ID renderer.
  * Looks like the current inline ID (monospace `#123`) but acts as a button
@@ -19,8 +21,8 @@ export function createIssueIdRenderer(id, opts) {
     (opts?.class_name ? opts.class_name + ' ' : '') + 'mono id-copy';
   btn.type = 'button';
   btn.setAttribute('aria-live', 'polite');
-  btn.setAttribute('title', 'Copy issue ID');
-  btn.setAttribute('aria-label', `Copy issue ID ${id}`);
+  btn.setAttribute('title', t('Copy issue ID'));
+  btn.setAttribute('aria-label', `${t('Copy issue ID')} ${id}`);
   btn.textContent = id;
 
   /** Copy handler with feedback. */
@@ -54,9 +56,9 @@ export function createIssueIdRenderer(id, opts) {
         }
       }
       if (copied) {
-        btn.textContent = 'Copied';
+        btn.textContent = t('Copied');
         const oldAria = btn.getAttribute('aria-label') || '';
-        btn.setAttribute('aria-label', 'Copied');
+        btn.setAttribute('aria-label', t('Copied'));
         setTimeout(
           () => {
             btn.textContent = id;

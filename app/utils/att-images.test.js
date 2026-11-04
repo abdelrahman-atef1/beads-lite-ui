@@ -1,4 +1,5 @@
 import { render } from 'lit-html';
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { attifyHtml, bindAttClicks, setImgContext } from './att-images.js';
 import { linkifyText } from './linkify-ids.js';
@@ -22,6 +23,27 @@ describe('att images', () => {
     expect(d.querySelectorAll('img.att-img').length).toBe(2);
     expect(d.textContent).toContain('see');
     expect(d.textContent).toContain('end');
+  });
+  test('description: md image and bare /att path become thumbnails (1bo5.6.28.2)', () => {
+    const d = document.createElement('div');
+    render(
+      renderMarkdown(`![shot](${P})
+
+text ${P} end
+
+\`${P}\``),
+      d
+    );
+    // md image and bare path -> thumbnails; the code span stays code
+    expect(d.querySelectorAll('a.att-thumb').length).toBe(2);
+    expect(d.querySelectorAll('a.att-thumb > img.att-img').length).toBe(2);
+    expect(d.querySelectorAll('img').length).toBe(2);
+    expect(d.querySelector('code')?.textContent).toBe(P);
+  });
+  test('detail.css keeps long text as block flow (1bo5.6.28.1)', () => {
+    const css = readFileSync('app/css/detail.css', 'utf8');
+    const rule = css.match(/#issue-dialog \.md\.editable\s*\{([^}]*)\}/);
+    expect(rule?.[1]).toMatch(/display:\s*block/);
   });
   test('other links and traversal paths are untouched', () => {
     const h =

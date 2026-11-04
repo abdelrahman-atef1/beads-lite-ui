@@ -1,3 +1,4 @@
+import { t as tr } from './i18n.js';
 import { typeLabel } from './issue-type.js';
 
 /**
@@ -25,9 +26,12 @@ export function createTypeBadge(issue_type) {
   const label = KNOWN.has(t) ? typeLabel(t) : '—';
   el.setAttribute(
     'aria-label',
-    KNOWN.has(t) ? `Issue type: ${label}` : 'Issue type: unknown'
+    KNOWN.has(t) ? `${tr('Issue type')}: ${label}` : `${tr('Issue type')}: ?`
   );
-  el.setAttribute('title', KNOWN.has(t) ? `Type: ${label}` : 'Type: unknown');
+  el.setAttribute(
+    'title',
+    KNOWN.has(t) ? `${tr('Type')}: ${label}` : `${tr('Type')}: ?`
+  );
   el.textContent = label;
   return el;
 }

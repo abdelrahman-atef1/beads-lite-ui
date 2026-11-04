@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 /**
  * Known issue types in canonical order for dropdowns.
  *
@@ -21,17 +23,17 @@ export const ISSUE_TYPES = [
 export function typeLabel(type) {
   switch ((type || '').toString().toLowerCase()) {
     case 'bug':
-      return 'Bug';
+      return t('Bug');
     case 'feature':
-      return 'Feature';
+      return t('Feature');
     case 'task':
-      return 'Task';
+      return t('Task');
     case 'epic':
-      return 'Epic';
+      return t('Epic');
     case 'chore':
-      return 'Chore';
+      return t('Chore');
     case 'decision':
-      return 'Decision';
+      return t('Decision');
     default:
       return '';
   }

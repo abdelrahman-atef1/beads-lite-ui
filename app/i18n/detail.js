@@ -74,6 +74,17 @@ export const strings =
       s('Failed to save design', 'تعذّر حفظ التصميم'),
       s('Failed to save notes', 'تعذّر حفظ الملاحظات'),
       s('Failed to save acceptance', 'تعذّر حفظ معايير القبول'),
-      s('Failed to save comment', 'تعذّر حفظ التعليق')
+      s('Failed to save comment', 'تعذّر حفظ التعليق'),
+      s('Close', 'إغلاق'),
+      s('Copy issue ID', 'نسخ رقم المهمة'),
+      s('Copied', 'تم النسخ'),
+      s('Issue type', 'نوع المهمة'),
+      s('Type', 'النوع'),
+      s('Bug', 'عطل'),
+      s('Feature', 'ميزة'),
+      s('Task', 'مهمة'),
+      s('Epic', 'ملحمة'),
+      s('Chore', 'صيانة'),
+      s('Decision', 'قرار')
     ])
   );

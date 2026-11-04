@@ -1,4 +1,5 @@
 // Lightweight wrapper around the native <dialog> for issue details
+import { t } from '../utils/i18n.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 
 // Provides: open(id), close(), getMount()
@@ -36,6 +37,12 @@ export function createIssueDialog(mount_element, store, onClose) {
   `;
 
   mount_element.appendChild(dialog);
+  const label_close = () =>
+    dialog
+      .querySelector('.issue-dialog__close')
+      ?.setAttribute('aria-label', t('Close'));
+  label_close();
+  window.addEventListener('bdui-lang', label_close);
 
   const body_mount = /** @type {HTMLElement} */ (
     dialog.querySelector('#issue-dialog-body')

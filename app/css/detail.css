@@ -115,6 +115,13 @@
   align-items: center;
   min-height: 44px;
 }
+/* Long text (description, design, notes, acceptance) keeps normal block flow:
+   paragraphs and lists stack; only the tap height is kept (1bo5.6.28.1). */
+#issue-dialog .md.editable {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 #issue-dialog .comment-link {
   justify-content: center;
   min-width: 44px;
