@@ -26,6 +26,14 @@ import { createTypeBadge } from '../utils/type-badge.js';
 import { mountSlots } from './registry.js';
 
 /**
+ * Flat comment text keeps its line breaks.
+ *
+ * @param {string} s
+ */
+const flatComment = (s) =>
+  html`<span class="comment-flat">${linkifyText(s)}</span>`;
+
+/**
  * Build a failure message that includes the server reason.
  * @param {string} base
  * @param {any} err
@@ -1570,7 +1578,7 @@ export function createDetailView(
                     >
                   </div>
                   <div class="comment-text">
-                    ${renderFolded(c.text, linkifyText)}
+                    ${renderFolded(c.text, renderMarkdown, flatComment)}
                   </div>
                 </div>
               `

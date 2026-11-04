@@ -1,4 +1,5 @@
 import { html } from 'lit-html';
+import { getLang, t } from './i18n.js';
 
 /**
  * "Folded text" format (beads-lite-1bo5.6.46): line 1 is the title, an
@@ -97,7 +98,9 @@ export function renderFolded(text, body, flat = body) {
       >
         <summary dir="auto">
           <span class="fold-name">${s.name}</span>
-          <span class="fold-n">${s.lines}</span>
+          <span class="fold-n" dir=${getLang() === 'ar' ? 'rtl' : 'ltr'}
+            >${s.lines} ${t(s.lines === 1 ? 'line' : 'lines')}</span
+          >
         </summary>
         <div class="fold-body" dir="auto">${body(s.body)}</div>
       </details>`;

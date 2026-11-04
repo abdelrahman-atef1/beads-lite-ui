@@ -1,5 +1,7 @@
+import { render } from 'lit-html';
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { parseFolded } from './fold.js';
+import { parseFolded, renderFolded } from './fold.js';
 
 describe('parseFolded', () => {
   test('title, lead and sections', () => {
@@ -37,5 +39,30 @@ describe('parseFolded', () => {
     expect(parseFolded('تم الانتهاء\n\n## تفاصيل\nنص')?.sections[0].name).toBe(
       'تفاصيل'
     );
+  });
+});
+
+describe('renderFolded markup', () => {
+  const txt = 'Title\n\nlead\n\n## One\na\nb\n\n## Two\nc';
+  test('labelled counts, plain name, no stray text nodes in .fold', () => {
+    const el = document.createElement('div');
+    render(
+      renderFolded(txt, (s) => s),
+      el
+    );
+    const n = [...el.querySelectorAll('.fold-n')].map((x) => x.textContent);
+    expect(n).toEqual(['2 lines', '1 line']);
+    const fold = /** @type {HTMLElement} */ (el.querySelector('.fold'));
+    expect(fold.querySelectorAll('details')).toHaveLength(2);
+    expect(fold.firstElementChild?.className).toBe('fold-title');
+  });
+  test('css: chevron, rtl flip, fg name, no tap flash, whitespace-safe comment', () => {
+    const css = readFileSync('app/styles.css', 'utf8');
+    expect(css).toMatch(/\.fold-sec > summary::before/);
+    expect(css).toMatch(/summary:dir\(rtl\)::before/);
+    expect(css).toMatch(/-webkit-tap-highlight-color: transparent/);
+    expect(css).toMatch(/\.fold-sec > summary:active/);
+    const ct = /\.comment-text \{[^}]*\}/.exec(css)?.[0] ?? '';
+    expect(ct).not.toMatch(/pre-wrap/);
   });
 });
