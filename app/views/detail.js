@@ -7,13 +7,14 @@ import {
   findLineElement,
   parseAnchor
 } from '../utils/anchor.js';
+import { bindAttClicks } from '../utils/att-images.js';
 import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
 import { debug } from '../utils/logging.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
-import { priority_levels } from '../utils/priority.js';
+import { priorityName } from '../utils/priority.js';
 import {
   isSettableStatus,
   statusLabel,
@@ -30,7 +31,7 @@ import { mountSlots } from './registry.js';
  */
 function failMsg(base, err) {
   const reason = String(err?.message || err || '').trim();
-  return reason ? `${base}: ${reason}` : base;
+  return reason ? `${t(base)}: ${reason}` : t(base);
 }
 
 /**
@@ -159,6 +160,7 @@ export function createDetailView(
   issue_stores = undefined
 ) {
   const log = debug('views:detail');
+  bindAttClicks(mount_element);
   /** @type {IssueDetail | null} */
   let current = null;
   /** @type {string | null} */
@@ -242,18 +244,18 @@ export function createDetailView(
     }
     const dialog = ensureDeleteDialog();
     const issue_id = current.id;
-    const issue_title = current.title || '(no title)';
+    const issue_title = current.title || t('(no title)');
     delete_target_id = issue_id;
     render(
       html`
         <div class="delete-confirm">
           <h2 class="delete-confirm__title" id="delete-confirm-title">
-            Delete Issue
+            ${t('Delete Issue')}
           </h2>
           <p class="delete-confirm__message" id="delete-confirm-message">
-            Are you sure you want to delete issue
-            <strong>${issue_id}</strong> — <strong>${issue_title}</strong>? This
-            action cannot be undone.
+            ${t('Are you sure you want to delete issue')}
+            <strong>${issue_id}</strong> — <strong>${issue_title}</strong>?
+            ${t('This action cannot be undone.')}
           </p>
           <div class="delete-confirm__actions">
             <button
@@ -262,7 +264,7 @@ export function createDetailView(
               id="delete-cancel-btn"
               @click=${closeDeleteDialog}
             >
-              Cancel
+              ${t('Cancel')}
             </button>
             <button
               type="button"
@@ -270,7 +272,7 @@ export function createDetailView(
               id="delete-confirm-btn"
               @click=${onDeleteConfirm}
             >
-              Delete
+              ${t('Delete')}
             </button>
           </div>
         </div>
@@ -337,7 +339,7 @@ export function createDetailView(
     render(
       html`
         <div class="panel__body" id="detail-root">
-          <p class="muted">${message}</p>
+          <p class="muted">${t(message)}</p>
         </div>
       `,
       mount_element
@@ -554,7 +556,9 @@ export function createDetailView(
       // ignore
     }
     showToast(
-      reason ? `Failed to save ${what}: ${reason}` : `Failed to save ${what}`,
+      reason
+        ? `${t(`Failed to save ${what}`)}: ${reason}`
+        : t(`Failed to save ${what}`),
       'error',
       8000
     );
@@ -825,7 +829,8 @@ export function createDetailView(
     }
   };
 
-  const onDescEdit = (/** @type {Event | undefined} */ ev) => {
+  /** @param {Event} [ev] */
+  const onDescEdit = (ev) => {
     if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_desc = true;
     doRender();
@@ -890,7 +895,8 @@ export function createDetailView(
   };
 
   // Design inline edit handlers (same UX as Description)
-  const onDesignEdit = (/** @type {Event | undefined} */ ev) => {
+  /** @param {Event} [ev] */
+  const onDesignEdit = (ev) => {
     if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_design = true;
     doRender();
@@ -967,7 +973,8 @@ export function createDetailView(
   };
 
   // Notes inline edit handlers
-  const onNotesEdit = (/** @type {Event | undefined} */ ev) => {
+  /** @param {Event} [ev] */
+  const onNotesEdit = (ev) => {
     if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_notes = true;
     doRender();
@@ -1033,7 +1040,8 @@ export function createDetailView(
     doRender();
   };
 
-  const onAcceptEdit = (/** @type {Event | undefined} */ ev) => {
+  /** @param {Event} [ev] */
+  const onAcceptEdit = (ev) => {
     if (ev?.target instanceof Element && ev.target.closest('a')) return;
     edit_accept = true;
     doRender();
@@ -1192,7 +1200,7 @@ export function createDetailView(
             placeholder=${t('Issue ID')}
             data-testid=${test_id}
           />
-          <button @click=${makeDepAddClick(items, title)}>Add</button>
+          <button @click=${makeDepAddClick(items, title)}>${t('Add')}</button>
         </div>
       </div>
     `;
@@ -1207,12 +1215,12 @@ export function createDetailView(
           <h2>
             <input
               type="text"
-              aria-label="Edit title"
+              aria-label=${t('Edit title')}
               .value=${issue.title || ''}
               @keydown=${onTitleInputKeydown}
             />
-            <button @click=${onTitleSave}>Save</button>
-            <button @click=${onTitleCancel}>Cancel</button>
+            <button @click=${onTitleSave}>${t('Save')}</button>
+            <button @click=${onTitleCancel}>${t('Cancel')}</button>
           </h2>
         </div>`
       : html`<div class="detail-title">
@@ -1221,7 +1229,7 @@ export function createDetailView(
               class="editable"
               tabindex="0"
               role="button"
-              aria-label="Edit title"
+              aria-label=${t('Edit title')}
               @click=${onTitleSpanClick}
               @keydown=${onTitleKeydown}
               >${issue.title || ''}</span
@@ -1269,10 +1277,10 @@ export function createDetailView(
           const cur = String(
             typeof issue.priority === 'number' ? issue.priority : 2
           );
-          return priority_levels.map(
-            (p, i) =>
+          return [0, 1, 2, 3, 4].map(
+            (i) =>
               html`<option value=${String(i)} ?selected=${cur === String(i)}>
-                ${p}
+                ${priorityName(i)}
               </option>`
           );
         })()}
@@ -1287,8 +1295,8 @@ export function createDetailView(
             style="width:100%"
           ></textarea>
           <div class="editable-actions">
-            <button @click=${onDescSave}>Save</button>
-            <button @click=${onDescCancel}>Cancel</button>
+            <button @click=${onDescSave}>${t('Save')}</button>
+            <button @click=${onDescCancel}>${t('Cancel')}</button>
           </div>
         </div>`
       : html`<div
@@ -1296,14 +1304,14 @@ export function createDetailView(
           class="md editable"
           tabindex="0"
           role="button"
-          aria-label="Edit description"
+          aria-label=${t('Edit description')}
           @click=${onDescEdit}
           @keydown=${onDescEditableKeydown}
         >
           ${(() => {
             const text = issue.description || '';
             if (text.trim() === '') {
-              return html`<div class="muted">Description</div>`;
+              return html`<div class="muted">${t('Description')}</div>`;
             }
             return renderMarkdown(text);
           })()}
@@ -1332,8 +1340,8 @@ export function createDetailView(
             style="width:100%"
           ></textarea>
           <div class="editable-actions">
-            <button @click=${onAcceptSave}>Save</button>
-            <button @click=${onAcceptCancel}>Cancel</button>
+            <button @click=${onAcceptSave}>${t('Save')}</button>
+            <button @click=${onAcceptCancel}>${t('Cancel')}</button>
           </div>
         </div>`
       : html`<div class="acceptance" data-anchor="acceptance">
@@ -1347,7 +1355,7 @@ export function createDetailView(
                 class="md editable"
                 tabindex="0"
                 role="button"
-                aria-label="Edit acceptance criteria"
+                aria-label=${t('Edit acceptance criteria')}
                 @click=${onAcceptEdit}
                 @keydown=${onAcceptEditableKeydown}
               >
@@ -1374,8 +1382,8 @@ export function createDetailView(
             style="width:100%"
           ></textarea>
           <div class="editable-actions">
-            <button @click=${onNotesSave}>Save</button>
-            <button @click=${onNotesCancel}>Cancel</button>
+            <button @click=${onNotesSave}>${t('Save')}</button>
+            <button @click=${onNotesCancel}>${t('Cancel')}</button>
           </div>
         </div>`
       : html`<div class="notes" data-anchor="notes">
@@ -1389,7 +1397,7 @@ export function createDetailView(
                 class="md editable"
                 tabindex="0"
                 role="button"
-                aria-label="Edit notes"
+                aria-label=${t('Edit notes')}
                 @click=${onNotesEdit}
                 @keydown=${onNotesEditableKeydown}
               >
@@ -1414,8 +1422,8 @@ export function createDetailView(
                 >${l}
                 <button
                   class="icon-button"
-                  title="Remove label"
-                  aria-label=${'Remove label ' + l}
+                  title=${t('Remove label')}
+                  aria-label=${t('Remove label') + ' ' + l}
                   @click=${() => onRemoveLabel(l)}
                   style="margin-left:6px"
                 >
@@ -1434,7 +1442,7 @@ export function createDetailView(
           @input=${onLabelInput}
           @keydown=${onLabelKeydown}
         />
-        <button @click=${onAddLabel}>Add</button>
+        <button @click=${onAddLabel}>${t('Add')}</button>
       </div>
     </div>`;
 
@@ -1489,8 +1497,8 @@ export function createDetailView(
             style="width:100%"
           ></textarea>
           <div class="editable-actions">
-            <button @click=${onDesignSave}>Save</button>
-            <button @click=${onDesignCancel}>Cancel</button>
+            <button @click=${onDesignSave}>${t('Save')}</button>
+            <button @click=${onDesignCancel}>${t('Cancel')}</button>
           </div>
         </div>`
       : html`<div class="design" data-anchor="design">
@@ -1504,7 +1512,7 @@ export function createDetailView(
                 class="md editable"
                 tabindex="0"
                 role="button"
-                aria-label="Edit design"
+                aria-label=${t('Edit design')}
                 @click=${onDesignEdit}
                 @keydown=${onDesignEditableKeydown}
               >
@@ -1528,7 +1536,9 @@ export function createDetailView(
       ${comments_error
         ? html`<div class="muted" role="alert">
             ${comments_error}
-            <button type="button" @click=${onCommentsRetry}>Retry</button>
+            <button type="button" @click=${onCommentsRetry}>
+              ${t('Retry')}
+            </button>
           </div>`
         : comments.length === 0
           ? html`<div class="muted">
@@ -1540,13 +1550,15 @@ export function createDetailView(
               (c) => html`
                 <div class="comment-item" data-anchor=${commentAnchor(c)}>
                   <div class="comment-header">
-                    <span class="comment-author">${c.author || 'Unknown'}</span>
+                    <span class="comment-author"
+                      >${c.author || t('Unknown')}</span
+                    >
                     <span class="comment-date"
                       >${formatCommentDate(c.created_at)}</span
                     >
                     <a
                       class="comment-link"
-                      title="Link to this comment"
+                      title=${t('Link to this comment')}
                       href=${issueHashFor(
                         parseView(window.location.hash || ''),
                         String(issue.id)
@@ -1573,7 +1585,7 @@ export function createDetailView(
           @click=${onCommentSubmit}
           ?disabled=${comment_pending || !comment_text.trim()}
         >
-          ${comment_pending ? 'Adding...' : t('Add Comment')}
+          ${comment_pending ? t('Adding...') : t('Add Comment')}
         </button>
       </div>
     </div>`;
@@ -1590,14 +1602,14 @@ export function createDetailView(
             <div class="props-card" data-anchor="card">
               <div class="props-card__header">
                 <div class="props-card__title">${t('Properties')}</div>
-                <button class="delete-issue-btn" title="Delete issue" aria-label="Delete issue" @click=${onDeleteClick}>
+                <button class="delete-issue-btn" title=${t('Delete issue')} aria-label=${t('Delete issue')} @click=${onDeleteClick}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     <line x1="10" y1="11" x2="10" y2="17"></line>
                     <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
-                  <span class="tooltip">Delete issue</span>
+                  <span class="tooltip">${t('Delete issue')}</span>
                 </button>
               </div>
                 <div class="prop">
@@ -1629,7 +1641,7 @@ export function createDetailView(
                       edit_assignee
                         ? html`<input
                               type="text"
-                              aria-label="Edit assignee"
+                              aria-label=${t('Edit assignee')}
                               .value=${
                                 /** @type {any} */ (issue).assignee || ''
                               }
@@ -1672,7 +1684,7 @@ export function createDetailView(
                               class=${cls}
                               tabindex="0"
                               role="button"
-                              aria-label="Edit assignee"
+                              aria-label=${t('Edit assignee')}
                               @click=${onAssigneeSpanClick}
                               @keydown=${onAssigneeKeydown}
                               >${text}</span
@@ -1824,12 +1836,12 @@ export function createDetailView(
       );
       const target = input ? input.value.trim() : '';
       if (!target || target === current.id) {
-        showToast('Enter a different issue id');
+        showToast(t('Enter a different issue id'));
         return;
       }
       const set = new Set((items || []).map((d) => d.id));
       if (set.has(target)) {
-        showToast('Link already exists');
+        showToast(t('Link already exists'));
         return;
       }
       pending = true;

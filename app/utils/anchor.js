@@ -49,7 +49,7 @@ export function parseAnchor(hash) {
 /**
  * Short, stable anchor for a comment: `c-` + first 8 chars of its id.
  *
- * @param {{ id?: string }} c
+ * @param {{ id?: string | number }} c
  */
 export function commentAnchor(c) {
   return (

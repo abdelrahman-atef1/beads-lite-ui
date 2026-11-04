@@ -1,4 +1,5 @@
 import { html } from 'lit-html';
+import { attifyText } from './att-images.js';
 
 /**
  * Turn bead ids written in text (any project prefix) into links that open
@@ -89,6 +90,11 @@ function stop(ev) {
  * @param {string} text
  */
 export function linkifyText(text) {
+  return attifyText(text, linkifyPlain);
+}
+
+/** @param {string} text */
+function linkifyPlain(text) {
   const out = [];
   let last = 0;
   const src = String(text ?? '');

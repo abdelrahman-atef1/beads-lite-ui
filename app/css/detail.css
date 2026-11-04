@@ -191,3 +191,33 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* report screenshots: inline thumbnail, tap to enlarge */
+.att-thumb {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.att-img {
+  max-width: min(100%, 360px);
+  max-height: 240px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #8884);
+  cursor: zoom-in;
+}
+.att-lightbox {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+.att-lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+.att-lightbox img {
+  display: block;
+  max-width: 96vw;
+  max-height: 96vh;
+  cursor: zoom-out;
+}
