@@ -26,6 +26,7 @@ for (let i = 0; i < process.argv.length; i++) {
 const config = getConfig();
 const app = createApp(config);
 const server = createServer(app);
+app.locals.perf.warm(); // build the bundle once now, not on the first slow request
 const log = debug('server');
 
 // Register the initial workspace (from cwd) so it appears in the workspace picker

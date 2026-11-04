@@ -5,6 +5,7 @@
  */
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
+import { WS_DEFLATE } from './features/perf.js';
 import {
   SETTABLE_STATUSES,
   isRequest,
@@ -644,6 +645,7 @@ export function attachWsServer(http_server, options = {}) {
   const wss = new WebSocketServer({
     server: http_server,
     maxPayload: MAX_WS_PAYLOAD,
+    perMessageDeflate: WS_DEFLATE, // slow links (1bo5.6.31)
     path: ws_path,
     // D8: foreign/missing Origin, unknown Host or bad token never upgrade.
     verifyClient: (info, cb) => {
@@ -799,6 +801,7 @@ export function attachPhoneDoor(http_server, options = {}) {
   const wss = new WebSocketServer({
     server: http_server,
     maxPayload: MAX_WS_PAYLOAD,
+    perMessageDeflate: WS_DEFLATE, // slow links (1bo5.6.31)
     path: options.path || '/ws',
     verifyClient: (info, cb) => {
       const r = checkUpgrade(info.req, 'phone');

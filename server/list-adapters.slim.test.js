@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import { fetchListForSubscription, slimBoardItems } from './list-adapters.js';
 import { runBdJson } from './bd.js';
+import { fetchListForSubscription, slimBoardItems } from './list-adapters.js';
 
 vi.mock('./bd.js', () => ({ runBdJson: vi.fn() }));
 
@@ -32,7 +32,13 @@ describe('board payload', () => {
     expect(it.title).toBe('Title 1');
     expect(it.dependency_count).toBe(1);
     expect(it.metadata).toEqual({ card_q: 'Q?', title_ar: 'عنوان' });
-    for (const k of ['description', 'design', 'notes', 'comments', 'acceptance_criteria']) {
+    for (const k of [
+      'description',
+      'design',
+      'notes',
+      'comments',
+      'acceptance_criteria'
+    ]) {
       expect(k in it).toBe(false);
     }
   });
@@ -54,7 +60,9 @@ describe('board payload', () => {
         ...fat(1),
         claimed_at: '2026-10-01T00:00:00Z',
         stalled: true,
-        blocked_by_detail: [{ id: 'x-2', assignee: 'a', status: 'open', title: 't' }],
+        blocked_by_detail: [
+          { id: 'x-2', assignee: 'a', status: 'open', title: 't' }
+        ],
         unblocks: 3
       }
     ]);
@@ -86,8 +94,42 @@ describe('board payload', () => {
     expect(it.blocked_by_detail).toEqual([
       { id: 'B', assignee: 'qa', status: 'open', title: 'Title 2' }
     ]);
-    expect(it.unblocks).toBe(0);
+    expect(it.unblocks ?? 0).toBe(0);
     const bb = res.items.find((x) => x.id === 'B');
     expect(bb).toBeUndefined();
+  });
+});
+
+describe('empty card values are not sent (1bo5.6.31)', () => {
+  test('drops null/false/0/[] but keeps priority 0 and real values', () => {
+    const [it] = slimBoardItems([
+      {
+        id: 'x-1',
+        title: 't',
+        status: 'open',
+        priority: 0,
+        labels: [],
+        closed_at: null,
+        claimed_at: null,
+        stalled: false,
+        blocked_by_detail: [],
+        unblocks: 0,
+        dependency_count: 0,
+        dependent_count: 2,
+        updated_at: '2026-10-02T00:00:00Z'
+      }
+    ]);
+    expect(it.priority).toBe(0);
+    expect(it.dependent_count).toBe(2);
+    for (const k of [
+      'labels',
+      'claimed_at',
+      'stalled',
+      'blocked_by_detail',
+      'unblocks',
+      'dependency_count'
+    ]) {
+      expect(k in it).toBe(false);
+    }
   });
 });

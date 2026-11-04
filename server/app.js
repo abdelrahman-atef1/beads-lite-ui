@@ -4,8 +4,10 @@
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { mountFeatureRoutes } from './features/index.js';
 import { syncNotifier } from './features/notifier.js';
+import { createPerf } from './features/perf.js';
 import {
   getBoardToken,
   isAllowedHost,
@@ -29,6 +31,8 @@ import { prewarmCounts } from './workspace-counts.js';
 export function createApp(config, door = 'pc') {
   const app = express();
   app.locals.door = door;
+  const perf = createPerf(config);
+  app.locals.perf = perf;
 
   // Basic hardening and config
   app.disable('x-powered-by');
@@ -107,58 +111,31 @@ export function createApp(config, door = 'pc') {
 
   mountFeatureRoutes(app, config);
 
-  if (
-    !fs.statSync(path.resolve(config.app_dir, 'main.bundle.js'), {
-      throwIfNoEntry: false
-    })
-  ) {
-    /**
-     * On-demand bundle for the browser using esbuild.
-     *
-     * @param {Request} _req
-     * @param {Response} res
-     */
-    app.get('/main.bundle.js', async (_req, res) => {
-      try {
-        const esbuild = await import('esbuild');
-        const entry = path.join(config.app_dir, 'main.js');
-        const result = await esbuild.build({
-          entryPoints: [entry],
-          bundle: true,
-          format: 'esm',
-          platform: 'browser',
-          target: 'es2020',
-          sourcemap: 'inline',
-          minify: false,
-          write: false
-        });
-        const out = result.outputFiles && result.outputFiles[0];
-        if (!out) {
-          res.status(500).type('text/plain').send('Bundle failed: no output');
-          return;
-        }
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-        res.setHeader('Cache-Control', 'no-store');
-        res.send(out.text);
-      } catch (err) {
-        res
-          .status(500)
-          .type('text/plain')
-          .send('Bundle error: ' + (err && /** @type {any} */ (err).message));
-      }
-    });
-  }
+  // Bundle built once, precompressed, hashed URL (1bo5.6.31); see features/perf.js.
+  app.get(
+    ['/main.bundle.js', /^\/main\.[0-9a-f]{12}\.js$/],
+    perf.bundleHandler
+  );
+  app.get(/^\/app\.[0-9a-f]{12}\.css$/, perf.cssHandler);
 
   // Page with the per-launch token injected (D8); before static so it wins.
   /**
    * @param {Request} _req
    * @param {Response} res
    */
-  const sendIndex = (_req, res) => {
-    const html = fs
-      .readFileSync(path.join(config.app_dir, 'index.html'), 'utf8')
-      .replace('__BOARD_TOKEN__', getBoardToken(door));
+  const sendIndex = async (req, res) => {
+    const html = await perf.rewriteIndex(
+      fs
+        .readFileSync(path.join(config.app_dir, 'index.html'), 'utf8')
+        .replace('__BOARD_TOKEN__', getBoardToken(door))
+    );
     res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
+      res.setHeader('Content-Encoding', 'gzip');
+      res.type('html').send(zlib.gzipSync(html));
+      return;
+    }
     res.type('html').send(html);
   };
   app.get(['/', '/index.html'], sendIndex);
@@ -176,7 +153,8 @@ export function createApp(config, door = 'pc') {
       .send(renderServiceWorker(config.app_dir));
   });
 
-  // Static assets from /app
+  // Static assets from /app (compressed + ETag first, plain static as fallback)
+  app.use(perf.staticHandler);
   app.use(express.static(config.app_dir));
 
   // Last: any body-parse or route error becomes a short JSON reply, never the

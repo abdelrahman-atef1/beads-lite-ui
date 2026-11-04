@@ -167,8 +167,31 @@ const CARD_FIELDS = [
   'blocked_by_detail',
   'unblocks'
 ];
+/** Fields the cards treat as absent when null/false/0/[] (never priority, ids, dates). */
+const OMIT_WHEN_EMPTY = new Set([
+  'labels',
+  'claimed_at',
+  'stalled',
+  'blocked_by_detail',
+  'unblocks',
+  'dependency_count',
+  'dependent_count'
+]);
 /** Metadata keys the cards read (decision-card fields, Arabic title). */
 const CARD_META = /^(card_[a-z_]+|title_ar)$/;
+
+/**
+ * Null, false, 0 and [] are what the cards assume when a field is absent, so
+ * they are not sent (about a third of a card's bytes on a slow link,
+ * 1bo5.6.31). `priority` is never dropped: 0 is P0.
+ *
+ * @param {unknown} v
+ */
+function isEmptyCardValue(v) {
+  return (
+    v === null || v === false || v === 0 || (Array.isArray(v) && v.length === 0)
+  );
+}
 
 /**
  * @param {Array<Record<string, any>>} items
@@ -179,7 +202,9 @@ export function slimBoardItems(items) {
     /** @type {any} */
     const out = {};
     for (const k of CARD_FIELDS) {
-      if (it[k] !== undefined) out[k] = it[k];
+      if (it[k] === undefined) continue;
+      if (OMIT_WHEN_EMPTY.has(k) && isEmptyCardValue(it[k])) continue;
+      out[k] = it[k];
     }
     const m = it.metadata;
     if (m && typeof m === 'object') {
