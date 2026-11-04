@@ -8,6 +8,7 @@
 import { allowPhoneFeatureType } from '../phone.js';
 import * as cards from './cards.js';
 import * as decisionsFeed from './decisions-feed.js';
+import * as localImg from './local-img.js';
 import * as notifier from './notifier.js';
 import * as outputs from './outputs.js';
 import * as push from './push.js';
@@ -69,6 +70,14 @@ export function mountFeatureRoutes(app, config) {
   }
 }
 
-for (const f of [decisionsFeed, report, notifier, push, outputs, cards]) {
+for (const f of [
+  decisionsFeed,
+  report,
+  localImg,
+  notifier,
+  push,
+  outputs,
+  cards
+]) {
   f.register({ registerHandler, registerRoute });
 }

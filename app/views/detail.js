@@ -7,7 +7,7 @@ import {
   findLineElement,
   parseAnchor
 } from '../utils/anchor.js';
-import { bindAttClicks } from '../utils/att-images.js';
+import { bindAttClicks, setImgContext } from '../utils/att-images.js';
 import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
@@ -1712,6 +1712,7 @@ export function createDetailView(
       else renderPlaceholder('No issue selected');
       return;
     }
+    setImgContext({ bead: String(current.id) });
     render(detailTemplate(current), mount_element);
     // Slots (card, outputs): fire and forget, a failed slot never breaks the
     // detail. The registry calls mount(el, issue) again when the issue changes.
