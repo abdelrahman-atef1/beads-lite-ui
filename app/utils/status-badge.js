@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { statusLabel } from './status.js';
 
 /**
@@ -14,7 +15,7 @@ export function createStatusBadge(status) {
   el.classList.add(`is-${s}`);
   el.setAttribute('role', 'img');
   el.setAttribute('title', label);
-  el.setAttribute('aria-label', `Status: ${label}`);
+  el.setAttribute('aria-label', `${t('l_status')}: ${label}`);
   el.textContent = label;
   return el;
 }

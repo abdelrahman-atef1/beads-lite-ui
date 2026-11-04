@@ -15,5 +15,15 @@ export const strings =
     l_assignee: { en: 'Assignee', ar: 'المسؤول' },
     l_priority: { en: 'Priority', ar: 'الأولوية' },
     l_deps: { en: 'Deps', ar: 'الاعتماديات' },
-    l_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' }
+    l_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
+    st_open: { en: 'Open', ar: 'مفتوحة' },
+    st_in_progress: { en: 'In progress', ar: 'قيد التنفيذ' },
+    st_blocked: { en: 'Blocked', ar: 'معطّلة' },
+    st_owner_decision: { en: 'Owner decision', ar: 'بانتظار قرار المالك' },
+    st_waiting_for_test: { en: 'Waiting for test', ar: 'بانتظار الاختبار' },
+    st_waiting_for_merge: { en: 'Waiting for merge', ar: 'بانتظار الدمج' },
+    st_deferred: { en: 'Deferred', ar: 'مؤجّلة' },
+    st_closed: { en: 'Closed', ar: 'مغلقة' },
+    st_pinned: { en: 'Pinned', ar: 'مثبّتة' },
+    st_hooked: { en: 'Hooked', ar: 'معلّقة' }
   });
