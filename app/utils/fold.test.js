@@ -65,4 +65,18 @@ describe('renderFolded markup', () => {
     const ct = /\.comment-text \{[^}]*\}/.exec(css)?.[0] ?? '';
     expect(ct).not.toMatch(/pre-wrap/);
   });
+  test('summary click/keydown do not reach an edit-on-click parent', () => {
+    const el = document.createElement('div');
+    const seen = [];
+    el.addEventListener('click', () => seen.push('click'));
+    el.addEventListener('keydown', () => seen.push('key'));
+    render(
+      renderFolded('T\n\n## One\na', (s) => s),
+      el
+    );
+    const sum = /** @type {HTMLElement} */ (el.querySelector('summary'));
+    sum.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    sum.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    expect(seen).toEqual([]);
+  });
 });

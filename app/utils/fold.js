@@ -69,6 +69,9 @@ function hash(s) {
   return (h >>> 0).toString(36);
 }
 
+/** A summary tap/key toggles its section; it must not reach an edit-on-click parent. */
+const stop = (/** @type {Event} */ e) => e.stopPropagation();
+
 /**
  * Render folded text, or `flat(text)` when the text is flat.
  *
@@ -96,7 +99,11 @@ export function renderFolded(text, body, flat = body) {
           else openKeys.delete(key);
         }}
       >
-        <summary dir="auto">
+        <summary
+          dir="auto"
+          @click=${stop}
+          @keydown=${stop}
+        >
           <span class="fold-name">${s.name}</span>
           <span class="fold-n" dir=${getLang() === 'ar' ? 'rtl' : 'ltr'}
             >${s.lines} ${t(s.lines === 1 ? 'line' : 'lines')}</span

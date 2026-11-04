@@ -1782,6 +1782,12 @@ export function createDetailView(
       }
     }
     const marks = hits.length ? hits : [root];
+    // A line inside a folded section: open the section first (its toggle
+    // handler records it as open, so it stays open across re-renders).
+    marks.forEach((m) => {
+      const d = m.closest('details.fold-sec');
+      if (d) /** @type {HTMLDetailsElement} */ (d).open = true;
+    });
     marks.forEach((m) => m.classList.add('anchor-hit'));
     marks[0].scrollIntoView({ block: 'start' });
   }
