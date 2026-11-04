@@ -8,6 +8,7 @@ import {
   parseAnchor
 } from '../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../utils/att-images.js';
+import { renderFolded } from '../utils/fold.js';
 import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
@@ -1313,7 +1314,7 @@ export function createDetailView(
             if (text.trim() === '') {
               return html`<div class="muted">${t('Description')}</div>`;
             }
-            return renderMarkdown(text);
+            return renderFolded(text, renderMarkdown);
           })()}
         </div>`;
 
@@ -1360,7 +1361,7 @@ export function createDetailView(
                 @keydown=${onAcceptEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">
                       ${t('Add acceptance criteria…')}
                     </div>`}
@@ -1402,7 +1403,7 @@ export function createDetailView(
                 @keydown=${onNotesEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">${t('Add notes…')}</div>`}
               </div>`;
           })()}
@@ -1517,7 +1518,7 @@ export function createDetailView(
                 @keydown=${onDesignEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">${t('Add design…')}</div>`}
               </div>`;
           })()}
@@ -1568,7 +1569,9 @@ export function createDetailView(
                       >#</a
                     >
                   </div>
-                  <div class="comment-text">${linkifyText(c.text)}</div>
+                  <div class="comment-text">
+                    ${renderFolded(c.text, linkifyText)}
+                  </div>
                 </div>
               `
             )}

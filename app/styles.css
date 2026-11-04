@@ -134,7 +134,6 @@ a {
   }
 }
 
-
 .app-shell {
   /* Fill remaining viewport height below sticky header */
   height: calc(100% - 53px);
@@ -2385,4 +2384,44 @@ body {
 }
 .comment-link:hover {
   color: var(--accent);
+}
+
+/* Folded text (beads-lite-1bo5.6.46.1) */
+.fold {
+  white-space: normal;
+}
+.fold-title {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.fold-lead {
+  margin: 4px 0 8px;
+  color: var(--fg);
+}
+.comment-text .fold-lead,
+.comment-text .fold-body {
+  white-space: pre-wrap;
+}
+.fold-sec {
+  border-top: 1px solid var(--control-border);
+}
+.fold-sec > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--muted);
+}
+.fold-sec[open] > summary {
+  color: var(--fg);
+}
+.fold-n {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fold-body {
+  padding: 0 0 8px;
 }
