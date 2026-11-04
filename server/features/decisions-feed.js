@@ -4,7 +4,6 @@
  *
  *   list-decisions-all {}            -> Snap   (phone door allowed)
  *   decisions-all (push)             -> Snap   (only when the list changed)
- *   answer-decision {id, text}       -> {id}   (board token; phone door allowed)
  * Snap = { items: Item[], projects: [{key,name,count}], rules_ok }
  * Item = { id, project:{key,name}, title, title_ar, priority, updated_at,
  *          assignee, metadata:{card_*} }
@@ -23,19 +22,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { matchWorkspace } from '../../app/issue-workspace.js';
-import { getGitUserName, runBd, runBdJson } from '../bd.js';
+import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { watchDb } from '../watcher.js';
-import { withPrefixes } from '../workspace-prefix.js';
 
 const log = debug('decisions-feed');
 
 export const DEBOUNCE_MS = 1500;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
-const ANSWER_MAX = 2000;
 const MAX_ITEMS = 200;
 const KEEP_META = [
   'card_class',
@@ -58,7 +54,7 @@ export function projectKey(p) {
 }
 
 /** Where the card core may live; the first folder with rules.mjs wins. */
-function rulesDirs() {
+export function cardsDirs() {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return /** @type {string[]} */ (
     [
@@ -73,6 +69,7 @@ function rulesDirs() {
         '..',
         '..',
         '..',
+        '..',
         'learner',
         'scripts',
         'cards'
@@ -82,13 +79,41 @@ function rulesDirs() {
 }
 
 async function loadRules() {
-  for (const dir of rulesDirs()) {
+  for (const dir of cardsDirs()) {
     const file = path.join(dir, 'rules.mjs');
     if (fs.existsSync(file)) {
-      return import(pathToFileURL(file).href);
+      const rules = await import(pathToFileURL(file).href);
+      // questionSha lives in core.mjs, next to the rules
+      const core = fs.existsSync(path.join(dir, 'core.mjs'))
+        ? await import(pathToFileURL(path.join(dir, 'core.mjs')).href)
+        : null;
+      return { ...rules, questionSha: core?.questionSha };
     }
   }
   return null;
+}
+
+/**
+ * True when any text the owner would read trips the secret scan (fails closed).
+ *
+ * @param {{ scanText: Function }} rules
+ * @param {any} card parsed card
+ * @param {any} bead
+ */
+export function scanBlocked(rules, card, bead) {
+  for (const text of [
+    card.q,
+    card.effect,
+    card.show,
+    card.blocks,
+    card.title,
+    card.titleAr,
+    String(bead.title || ''),
+    ...card.opts.flatMap((/** @type {any} */ o) => [o.l, o.note])
+  ]) {
+    if (text && rules.scanText(String(text)).length) return true;
+  }
+  return false;
 }
 
 /**
@@ -98,9 +123,6 @@ async function loadRules() {
  *   rules?: { parseCard: Function, scanText: Function } | null,
  *   watch?: (root: string, cb: () => void) => { close: () => void },
  *   broadcast?: (type: string, payload?: unknown) => void,
- *   runBd?: typeof runBd,
- *   author?: () => Promise<string | undefined>,
- *   prefixes?: (ws: Array<{ path: string }>) => Promise<Array<{ path: string, prefix?: string }>>,
  *   debounce_ms?: number
  * }} [opts]
  */
@@ -121,9 +143,6 @@ export function createDecisionsFeed(opts = {}) {
     ((/** @type {string} */ root, /** @type {() => void} */ cb) =>
       watchDb(root, cb, { debounce_ms: opts.debounce_ms ?? DEBOUNCE_MS }));
   const broadcast = opts.broadcast || (() => {});
-  const bd = opts.runBd || runBd;
-  const author = opts.author || (() => getGitUserName({}));
-  const prefixes = opts.prefixes || withPrefixes;
 
   /** @type {any} */
   let rules = opts.rules;
@@ -159,18 +178,7 @@ export function createDecisionsFeed(opts = {}) {
     const parsed = rules.parseCard(bead);
     if (!parsed.ok) return null;
     const card = parsed.card;
-    for (const text of [
-      card.q,
-      card.effect,
-      card.show,
-      card.blocks,
-      card.title,
-      card.titleAr,
-      String(bead.title || ''),
-      ...card.opts.flatMap((/** @type {any} */ o) => [o.l, o.note])
-    ]) {
-      if (text && rules.scanText(String(text)).length) return null;
-    }
+    if (scanBlocked(rules, card, bead)) return null;
     const m = bead.metadata || {};
     /** @type {Record<string, string>} */
     const metadata = {};
@@ -184,6 +192,8 @@ export function createDecisionsFeed(opts = {}) {
     return {
       id: bead.id,
       project: { key: proj.key, name: proj.name },
+      sha:
+        typeof rules.questionSha === 'function' ? rules.questionSha(card) : '',
       title: String(bead.title || ''),
       title_ar: typeof m.title_ar === 'string' ? m.title_ar : '',
       priority: typeof bead.priority === 'number' ? bead.priority : 2,
@@ -328,65 +338,6 @@ export function createDecisionsFeed(opts = {}) {
     return snapshot();
   }
 
-  /**
-   * Answer one waiting decision: a record comment, the card_back role as
-   * assignee, status open, all in the bead's own project (found by id prefix).
-   *
-   * @param {string} id
-   * @param {string} text
-   */
-  async function answer(id, text) {
-    if (
-      typeof id !== 'string' ||
-      !BEAD_ID_RE.test(id) ||
-      typeof text !== 'string' ||
-      !text.trim() ||
-      text.length > ANSWER_MAX
-    ) {
-      throw Object.assign(new Error('payload requires { id, text }'), {
-        code: 'bad_request'
-      });
-    }
-    await list();
-    const hits = [...projects.values()].filter((p) =>
-      p.items.some((i) => i.id === id)
-    );
-    const ws = await prefixes(hits.map((p) => ({ path: p.path })));
-    const best = matchWorkspace(id, ws) || ws[0];
-    const proj = hits.find((p) => p.path === best?.path) || hits[0];
-    const item = proj?.items.find((i) => i.id === id);
-    if (!proj || !item) {
-      throw Object.assign(new Error('No waiting decision with that id'), {
-        code: 'not_found'
-      });
-    }
-    const who = await author();
-    const cargs = ['comments', 'add', id, '-f', '-'];
-    if (who) cargs.push('--author', who);
-    /** @type {Array<{ args: string[], stdin?: string }>} */
-    const steps = [{ args: cargs, stdin: text.trim() }];
-    if (item.metadata.card_back) {
-      steps.push({
-        args: ['update', id, '--assignee', item.metadata.card_back]
-      });
-    }
-    steps.push({ args: ['update', id, '--status', 'open'] });
-    for (const s of steps) {
-      const r = await bd(s.args, {
-        cwd: proj.path,
-        ...(s.stdin !== undefined ? { stdin: s.stdin } : {})
-      });
-      if (r.code !== 0) {
-        throw Object.assign(new Error(r.stderr || 'bd failed'), {
-          code: 'bd_error'
-        });
-      }
-    }
-    await scan(proj.key);
-    pushIfChanged();
-    return { id };
-  }
-
   function close() {
     for (const p of projects.values()) {
       try {
@@ -399,7 +350,7 @@ export function createDecisionsFeed(opts = {}) {
     lastJson = '';
   }
 
-  return { list, answer, sync, close, snapshot };
+  return { list, sync, close, snapshot };
 }
 
 /** @type {ReturnType<typeof createDecisionsFeed> | null} */
@@ -426,14 +377,5 @@ export function register(seam) {
       return getDecisionsFeed().list();
     },
     { phone: true }
-  );
-  seam.registerHandler(
-    'answer-decision',
-    (/** @type {any} */ req, /** @type {any} */ ctx) => {
-      sharedBroadcast = ctx.broadcast;
-      const p = req.payload || {};
-      return getDecisionsFeed().answer(p.id, p.text);
-    },
-    { mutating: true, phone: true }
   );
 }

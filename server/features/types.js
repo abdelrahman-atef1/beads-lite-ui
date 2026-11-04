@@ -21,5 +21,8 @@ export const FEATURE_MESSAGE_TYPES = [
   // decisions feed (company-1bo5.6.26)
   'list-decisions-all',
   'decisions-all',
-  'answer-decision'
+  // decision card: answer, ask, thread, wake state (company-1bo5.6.9)
+  'card-state',
+  'card-answer',
+  'card-ask'
 ];

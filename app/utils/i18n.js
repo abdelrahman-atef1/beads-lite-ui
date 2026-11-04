@@ -4,6 +4,7 @@
  * mirrored on <html lang dir>; views re-render on the `bdui-lang` event.
  */
 import { strings as board } from '../i18n/board.js';
+import { strings as card } from '../i18n/card.js';
 import { strings as decisions } from '../i18n/decisions.js';
 import { strings as detail } from '../i18n/detail.js';
 import { strings as list } from '../i18n/list.js';
@@ -97,7 +98,8 @@ const STRINGS = {
   ...detail,
   ...notifications,
   ...report,
-  ...outputs
+  ...outputs,
+  ...card
 };
 
 /** @returns {'en'|'ar'} */

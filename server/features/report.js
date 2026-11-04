@@ -252,7 +252,7 @@ function readBody(req) {
 /**
  * Emit a wake event. Never throws; resolves 'queued' or 'failed'.
  *
- * @param {{ kind: 'report' | 'new-task', repo: string, bead: string, via: 'pc' | 'phone' }} ev
+ * @param {{ kind: 'report' | 'new-task' | 'decided' | 'asked', repo: string, bead: string, via: 'pc' | 'phone', role?: string }} ev
  * @returns {Promise<'queued' | 'failed'>}
  */
 export function emitWake(ev) {
@@ -270,7 +270,7 @@ export function emitWake(ev) {
           '--bead',
           ev.bead,
           '--role',
-          'cos',
+          ev.role && /^[a-z]{2,12}$/.test(ev.role) ? ev.role : 'cos',
           '--via',
           ev.via
         ],

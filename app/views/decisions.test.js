@@ -72,7 +72,7 @@ describe('views/decisions', () => {
     expect(mount.querySelector('.empty')).not.toBeNull();
   });
 
-  test('a tap answer needs Confirm, then writes comment, assignee and status', async () => {
+  test('a tap answer needs Confirm, then goes to the card core (no record text built here)', async () => {
     const { mount, view, transport } = setup([TAP]);
     await view.load();
     const buttons = Array.from(mount.querySelectorAll('.opts button'));
@@ -86,11 +86,10 @@ describe('views/decisions', () => {
     );
     confirm.click();
     await flush();
-    const calls = /** @type {any[]} */ (transport.mock.calls).map((c) => c[0]);
-    expect(calls).toEqual(['add-comment', 'update-assignee', 'update-status']);
-    expect(transport.mock.calls[1][1]).toEqual({ id: 'T-1', assignee: 'swe' });
-    expect(transport.mock.calls[2][1]).toEqual({ id: 'T-1', status: 'open' });
-    expect(String(transport.mock.calls[0][1].text)).toContain('Option 1');
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport.mock.calls[0][0]).toBe('card-answer');
+    expect(transport.mock.calls[0][1]).toMatchObject({ id: 'T-1', option: 1 });
+    expect(JSON.stringify(transport.mock.calls[0][1])).not.toContain('OWNER');
   });
 
   test('a failed comment stops the answer (status is not changed)', async () => {

@@ -7,9 +7,9 @@
  * and a multi-select dropdown at the top narrows it. Without a feed, or when
  * the feed fails, it shows the current project only.
  *
- * Desk cards (never-by-phone classes) show no buttons. A tap answer takes two
- * steps (option, then Confirm) and writes: a record comment, the card_back
- * role as assignee, and status `open`, through the existing transport.
+ * A tap answer takes two steps (option, then Confirm) and goes to the card
+ * core (server card-answer -> card CLI), which writes the record, returns the
+ * bead to card_back and wakes that role.
  */
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
@@ -20,6 +20,7 @@ import {
   isDesk,
   meta
 } from '../utils/board-model.js';
+import { errorText } from '../utils/card-text.js';
 import { t } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
@@ -110,37 +111,35 @@ export function createDecisionsView(
     useFeed() ? filterByProjects(feed_items, chosen) : items;
 
   /**
+   * Answer through the card core (server card-answer -> card CLI). The board
+   * never builds the record text itself.
+   *
    * @param {any} it
-   * @param {string} text - record text written as a comment
+   * @param {{ option?: number, text?: string }} choice
    */
-  async function answer(it, text) {
-    if ((!transport && !feed) || busy.has(it.id)) {
+  async function answer(it, choice) {
+    const send = feed ? feed.send.bind(feed) : transport;
+    if (!send || busy.has(it.id)) {
       return;
     }
     busy.add(it.id);
     doRender();
     try {
-      if (useFeed() && feed) {
-        // The server finds the project by id prefix and writes there.
-        await feed.send('answer-decision', { id: it.id, text });
-        feed_items = feed_items.filter((x) => x.id !== it.id);
-      } else if (transport) {
-        await transport('add-comment', { id: it.id, text });
-        const back = meta(it, 'card_back');
-        if (back) {
-          await transport('update-assignee', { id: it.id, assignee: back });
-        }
-        await transport('update-status', { id: it.id, status: 'open' });
+      const res = /** @type {any} */ (
+        await send('card-answer', { id: it.id, ...choice, sha: it.sha })
+      );
+      feed_items = feed_items.filter((x) => x.id !== it.id);
+      if (res && res.wake === 'failed') {
+        showToast(t('cd_wake_failed'), 'info', 5000);
+      } else {
+        showToast(t('answered'), 'success', 2000);
       }
-      showToast(t('answered'), 'success', 2000);
       pending.delete(it.id);
     } catch (err) {
       log('answer failed: %o', err);
-      const why = /** @type {any} */ (err)?.message;
+      pending.delete(it.id);
       showToast(
-        why
-          ? `${t('answer_failed')}: ${String(why).slice(0, 160)}`
-          : t('answer_failed'),
+        `${t('answer_failed')}: ${errorText(String(/** @type {any} */ (err)?.message || ''))}`,
         'error',
         6000
       );
@@ -236,11 +235,7 @@ export function createDecisionsView(
           type="button"
           class="btn btn--primary"
           ?disabled=${disabled}
-          @click=${() =>
-            answer(
-              it,
-              `OWNER DECISION via web board${String.fromCharCode(10)}Option ${sel + 1}: ${o.l}`
-            )}
+          @click=${() => answer(it, { option: sel + 1 })}
         >
           ${t('confirm')}: ${o.l}
         </button>
@@ -305,10 +300,7 @@ export function createDecisionsView(
             return;
           }
           typed.delete(it.id);
-          void answer(
-            it,
-            `OWNER DECISION via web board${String.fromCharCode(10)}${text}`
-          );
+          void answer(it, { text });
         }}
       >
         ${t('send')}
