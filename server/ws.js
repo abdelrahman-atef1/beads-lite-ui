@@ -781,6 +781,11 @@ export function attachWsServer(http_server, options = {}) {
   });
   CURRENT_WSS = wss;
 
+  // Feature handlers (decisions feed, notifier) push through ctx.broadcast.
+  // Without this line it is a silent no-op: an open Decisions tab never gets
+  // 'decisions-all' (beads-lite-1bo5.6.49; dropped by accident in 4b64932).
+  FEATURE_BROADCAST = broadcast;
+
   // Heartbeat: track if client answered the last ping
   wss.on('connection', (ws, upgrade_req) => {
     log('client connected');
