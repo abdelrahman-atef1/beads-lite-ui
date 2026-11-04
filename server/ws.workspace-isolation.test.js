@@ -141,7 +141,7 @@ describe('per-connection workspace', () => {
     stall_ms = 150;
     const id = `r${++n}`;
     const pending = handleMessage(
-      sock,
+      /** @type {any} */ (sock),
       Buffer.from(
         JSON.stringify({
           id,
