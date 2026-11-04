@@ -5,12 +5,14 @@
  * to handlers; server/app.js mounts routes. Adding a feature = edit its own
  * file (and one line in FEATURE_MESSAGE_TYPES), never ws.js/app.js/protocol.js.
  */
-import * as decisionsFeed from './decisions-feed.js';
-import * as report from './report.js';
-import * as notifier from './notifier.js';
-import * as push from './push.js';
-import * as outputs from './outputs.js';
 import { allowPhoneFeatureType } from '../phone.js';
+import * as cards from './cards.js';
+import * as decisionsFeed from './decisions-feed.js';
+import * as localImg from './local-img.js';
+import * as notifier from './notifier.js';
+import * as outputs from './outputs.js';
+import * as push from './push.js';
+import * as report from './report.js';
 
 /**
  * Handler gets the request and a context; returns the reply payload (or
@@ -68,6 +70,14 @@ export function mountFeatureRoutes(app, config) {
   }
 }
 
-for (const f of [decisionsFeed, report, notifier, push, outputs]) {
+for (const f of [
+  decisionsFeed,
+  report,
+  localImg,
+  notifier,
+  push,
+  outputs,
+  cards
+]) {
   f.register({ registerHandler, registerRoute });
 }

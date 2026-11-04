@@ -122,8 +122,8 @@ async function loadSnapshot(cwd, priority) {
 export function createBoardData(options = {}) {
   const ttl_ms = options.ttl_ms ?? DEFAULT_TTL_MS;
   const watched_ttl_ms = options.watched_ttl_ms ?? DEFAULT_WATCHED_TTL_MS;
-  /** @type {string | null} */
-  let watched_key = null;
+  /** Workspaces a change watcher covers (one per project in use). @type {Set<string>} */
+  const watched_keys = new Set();
   const load = options.load ?? loadSnapshot;
   const now = options.now ?? Date.now;
 
@@ -218,7 +218,7 @@ export function createBoardData(options = {}) {
    */
   function getSnapshot(opts = {}) {
     const key = opts.cwd || '';
-    const max_age = key === watched_key ? watched_ttl_ms : ttl_ms;
+    const max_age = watched_keys.has(key) ? watched_ttl_ms : ttl_ms;
     if (fresh && fresh.key === key && now() - fresh.at < max_age) {
       return Promise.resolve(fresh.snapshot);
     }
@@ -344,14 +344,24 @@ export function createBoardData(options = {}) {
    * @param {string | undefined} cwd
    */
   function watch(cwd) {
-    watched_key = cwd || '';
+    watched_keys.add(cwd || '');
     getSnapshot({ cwd, priority: 'background' }).catch(() => undefined);
+  }
+
+  /**
+   * The watcher for this workspace was closed (last socket left).
+   *
+   * @param {string | undefined} cwd
+   */
+  function unwatch(cwd) {
+    watched_keys.delete(cwd || '');
   }
 
   return {
     getSnapshot,
     getColumn,
     watch,
+    unwatch,
     invalidate,
     /** @param {(() => void) | null} fn */
     set onRevalidated(fn) {

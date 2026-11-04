@@ -1,6 +1,7 @@
 import DOMPurify from 'dompurify';
 import { unsafeHTML } from 'lit-html/directives/unsafe-html.js';
 import { marked } from 'marked';
+import { attifyHtml, localifyHtml } from './att-images.js';
 import { linkifyHtml } from './linkify-ids.js';
 
 /**
@@ -12,6 +13,8 @@ import { linkifyHtml } from './linkify-ids.js';
  */
 export function renderMarkdown(markdown) {
   const parsed = /** @type {string} */ (marked.parse(markdown));
-  const html_string = linkifyHtml(DOMPurify.sanitize(parsed));
+  const html_string = linkifyHtml(
+    localifyHtml(attifyHtml(DOMPurify.sanitize(parsed)))
+  );
   return unsafeHTML(html_string);
 }

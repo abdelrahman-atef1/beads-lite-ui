@@ -64,6 +64,25 @@ export function lazyView(name, build) {
   };
 }
 
+/**
+ * Cheap change key of an issue snapshot: another bead, an update, or a new
+ * comment changes it; a re-render that changed nothing does not.
+ *
+ * @param {any} issue
+ * @returns {string}
+ */
+function issueStamp(issue) {
+  if (!issue) return '';
+  const n = Array.isArray(issue.comments) ? issue.comments.length : '';
+  return [
+    issue.id,
+    issue.updated_at,
+    issue.status,
+    issue.comment_count,
+    n
+  ].join('|');
+}
+
 /** slot name -> [view, exported mount function] */
 const SLOTS = {
   bell: ['notifications', 'mountBell'],
@@ -77,10 +96,15 @@ const SLOTS = {
  * (header: bell, report; bead detail: card, outputs). Detail renders call this
  * after they put a slot element in the page. An unknown slot name is ignored.
  *
+ * Slot contract: `mount(el, issue)`. Header slots get no issue. Detail slots
+ * are mounted again on the same element when the issue changes (another
+ * bead, an update or a new comment), so mount must update `el` in place.
+ *
  * @param {ParentNode} [root]
+ * @param {unknown} [issue]
  * @returns {Promise<void>}
  */
-export async function mountSlots(root = document) {
+export async function mountSlots(root = document, issue = undefined) {
   const els = /** @type {HTMLElement[]} */ (
     Array.from(root.querySelectorAll('[data-slot]'))
   );
@@ -89,13 +113,21 @@ export async function mountSlots(root = document) {
       const spec = /** @type {Record<string, string[]>} */ (SLOTS)[
         el.dataset.slot || ''
       ];
-      if (!spec || el.dataset.mounted) {
+      if (!spec) {
         return;
       }
+      const slot = /** @type {any} */ (el);
+      // No issue (header slots): mount once. With an issue (detail slots):
+      // mount again when the issue's stamp changes.
+      const stamp = issueStamp(issue);
+      if (issue === undefined ? el.dataset.mounted : slot._stamp === stamp) {
+        return;
+      }
+      slot._stamp = stamp;
       el.dataset.mounted = '1';
       try {
         const mod = await loadView(spec[0]);
-        mod[spec[1]](el);
+        mod[spec[1]](el, issue);
       } catch {
         delete el.dataset.mounted;
       }

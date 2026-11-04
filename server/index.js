@@ -39,21 +39,21 @@ if (workspace_database.source !== 'home-default' && workspace_database.exists) {
   });
 }
 
-// Watch the active beads DB and schedule subscription refresh for active lists
-const db_watcher = watchDb(config.root_dir, () => {
-  // Schedule subscription list refresh run for active subscriptions
-  log('db change detected → schedule refresh');
-  scheduleListRefresh();
-  // v2: all updates flow via subscription push envelopes only
-});
-
 const { scheduleListRefresh, broadcast } = attachWsServer(server, {
   path: '/ws',
   heartbeat_ms: 30000,
   // Coalesce DB change bursts into one refresh run
   refresh_debounce_ms: 75,
   root_dir: config.root_dir,
-  watcher: db_watcher
+  // One fs watcher per project that has a socket on it, closed with the last
+  // one (zero idle cost). A change refreshes only that project's lists.
+  watch_project: (root_dir, db_path) => {
+    const w = watchDb(root_dir, () => {
+      log('db change detected (%s) → schedule refresh', db_path);
+      scheduleListRefresh(db_path);
+    });
+    return () => w.close();
+  }
 });
 
 // Watch the global registry for workspace changes (e.g., when user starts

@@ -19,6 +19,7 @@ const item = (id, key, priority, updated_at) => ({
   priority,
   updated_at,
   project: { key, name: key.toUpperCase() },
+  sha: 'sha-' + id,
   metadata: card('Q ' + id + '?')
 });
 const SNAP = {
@@ -127,7 +128,7 @@ describe('decisions all-projects feed', () => {
     expect(ids(mount)).toEqual(['alpha-1']);
   });
 
-  test('tap answer in another project goes to answer-decision (option, then Confirm)', async () => {
+  test('tap answer in another project goes to card-answer with the sha (option, then Confirm)', async () => {
     const { mount, view, feed } = setup();
     await view.load();
     const a = mount.querySelector('[data-issue-id="alpha-1"]');
@@ -135,9 +136,10 @@ describe('decisions all-projects feed', () => {
     await flush();
     a.querySelector('.btn--primary').click();
     await flush();
-    expect(feed.send).toHaveBeenCalledWith('answer-decision', {
+    expect(feed.send).toHaveBeenCalledWith('card-answer', {
       id: 'alpha-1',
-      text: expect.stringContaining('Option 1: Yes')
+      option: 1,
+      sha: 'sha-alpha-1'
     });
     expect(ids(mount)).not.toContain('alpha-1');
   });

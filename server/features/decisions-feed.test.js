@@ -90,14 +90,6 @@ function rig(/** @type {any} */ over = {}) {
       return { close: () => cbs.delete(root) };
     },
     broadcast: (type, payload) => frames.push({ type, payload }),
-    runBd: /** @type {any} */ (
-      async (/** @type {string[]} */ args, /** @type {any} */ o) => {
-        calls.bd.push({ args, cwd: o.cwd, stdin: o.stdin });
-        return { code: 0, stdout: '', stderr: '' };
-      }
-    ),
-    author: async () => 'Owner',
-    prefixes: async (ws) => ws.map((w) => ({ ...w, prefix: w.path.slice(3) })),
     ...over
   });
   return {
@@ -233,74 +225,5 @@ describe('decisions-feed', () => {
     const snap = await r.feed.list();
     expect(snap.items).toEqual([]);
     expect(snap.rules_ok).toBe(false);
-  });
-
-  test('answer in another project writes comment, assignee, status there', async () => {
-    const r = rig();
-    await r.feed.list();
-    r.parked['/w/beta'] = []; // after the answer the bead is gone
-    await r.feed.answer(
-      'beta-1',
-      'OWNER DECISION via web board\nOption 1: Yes'
-    );
-    expect(r.calls.bd.map((c) => c.cwd)).toEqual([
-      '/w/beta',
-      '/w/beta',
-      '/w/beta'
-    ]);
-    expect(r.calls.bd[0].args).toEqual([
-      'comments',
-      'add',
-      'beta-1',
-      '-f',
-      '-',
-      '--author',
-      'Owner'
-    ]);
-    expect(r.calls.bd[0].stdin).toContain('Option 1: Yes');
-    expect(r.calls.bd[1].args).toEqual([
-      'update',
-      'beta-1',
-      '--assignee',
-      'swe'
-    ]);
-    expect(r.calls.bd[2].args).toEqual([
-      'update',
-      'beta-1',
-      '--status',
-      'open'
-    ]);
-    expect(
-      r.frames.at(-1)?.payload.items.map((/** @type {any} */ i) => i.id)
-    ).toEqual(['alpha-1']);
-  });
-
-  test('answer refuses a bead that is not a waiting decision in the feed', async () => {
-    const r = rig();
-    for (const id of ['alpha-2', 'alpha-3', 'nope-1']) {
-      await expect(r.feed.answer(id, 'x')).rejects.toMatchObject({
-        code: 'not_found'
-      });
-    }
-    await expect(r.feed.answer('bad id;', 'x')).rejects.toMatchObject({
-      code: 'bad_request'
-    });
-    await expect(r.feed.answer('alpha-1', '  ')).rejects.toMatchObject({
-      code: 'bad_request'
-    });
-    await expect(
-      r.feed.answer('alpha-1', 'x'.repeat(3000))
-    ).rejects.toMatchObject({
-      code: 'bad_request'
-    });
-    expect(r.calls.bd).toEqual([]);
-  });
-
-  test('same bead id in two projects: the id prefix picks the project', async () => {
-    const r = rig();
-    r.parked['/w/alpha'].push(bead('beta-1', card()));
-    await r.feed.list();
-    await r.feed.answer('beta-1', 'ok');
-    expect(r.calls.bd[0].cwd).toBe('/w/beta');
   });
 });

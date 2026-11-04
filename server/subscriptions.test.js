@@ -29,6 +29,16 @@ describe('subscriptions registry', () => {
     expect(d.removed).toEqual(['UI-1']);
   });
 
+  test('computeDelta flags a changed comment count with the same updated_at', () => {
+    const prev = toItemsMap([
+      { id: 'A', updated_at: 1, closed_at: null, comment_count: 1 }
+    ]);
+    const next = toItemsMap([
+      { id: 'A', updated_at: 1, closed_at: null, comment_count: 2 }
+    ]);
+    expect(computeDelta(prev, next).updated).toEqual(['A']);
+  });
+
   test('computeDelta returns no changes for unchanged maps', () => {
     const prev = toItemsMap([
       { id: 'A', updated_at: 10, closed_at: null },

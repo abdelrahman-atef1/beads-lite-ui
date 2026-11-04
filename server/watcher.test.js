@@ -93,7 +93,7 @@ describe('watchDb', () => {
     handle.close();
   });
 
-  test('ignores changes during cooldown window', () => {
+  test('defers a change in the cooldown window to its end, once', () => {
     const calls = [];
     const handle = watchDb('/repo', () => calls.push(null), {
       debounce_ms: 10,
@@ -107,13 +107,20 @@ describe('watchDb', () => {
     expect(calls.length).toBe(1);
 
     cb('change', 'ui.db');
+    cb('change', 'ui.db');
     vi.advanceTimersByTime(10);
     expect(calls.length).toBe(1);
+
+    // fires when the cooldown ends (100 ms after the first fire), once
+    vi.advanceTimersByTime(100);
+    expect(calls.length).toBe(2);
+    vi.advanceTimersByTime(500);
+    expect(calls.length).toBe(2);
 
     vi.advanceTimersByTime(100);
     cb('change', 'ui.db');
     vi.advanceTimersByTime(10);
-    expect(calls.length).toBe(2);
+    expect(calls.length).toBe(3);
 
     handle.close();
   });

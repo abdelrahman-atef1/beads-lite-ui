@@ -505,6 +505,26 @@ describe('phone door: servers', () => {
     }
   });
 
+  test('/api/local-img: served on the phone door, identity required, escape refused', async () => {
+    const f = path.join(att_root, 'proj', 'shot-li.png');
+    fs.writeFileSync(
+      f,
+      Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.alloc(32)
+      ])
+    );
+    const q = (/** @type {string} */ r) =>
+      `/api/local-img?ref=${encodeURIComponent(r)}`;
+    expect((await http(phone_port, q('shot-li.png'), good())).status).toBe(200);
+    expect(
+      (await http(phone_port, q('shot-li.png'), { Host: HOST })).status
+    ).toBe(403);
+    expect(
+      (await http(phone_port, q('../../../etc/hosts.png'), good())).status
+    ).toBe(404);
+  });
+
   test('/api/report: pc token does not open the phone door', async () => {
     const r = await http(
       phone_port,

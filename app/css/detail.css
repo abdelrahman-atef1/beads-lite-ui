@@ -1,1 +1,230 @@
-/* detail: filled by its own task (board v2). Empty on purpose; one owner per file. */
+/* Issue detail, B style (docs/design/v2-final/b.html): a side sheet on the
+   inline-end edge on desktop, the whole screen on a phone. Logical properties
+   only, so Arabic (RTL) mirrors by itself. Tokens from tokens.css. */
+
+/* --- Sheet shell (the native <dialog>) --- */
+#issue-dialog {
+  position: fixed;
+  inset-block: 0;
+  inset-inline: auto 0;
+  margin: 0;
+  width: min(480px, 100vw);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  border-inline-start: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-pop);
+}
+#issue-dialog::backdrop {
+  background: color-mix(in srgb, #000 28%, transparent);
+  backdrop-filter: none;
+}
+#issue-dialog .issue-dialog__container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+#issue-dialog .issue-dialog__header {
+  flex: none;
+  min-height: 48px;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--surface);
+}
+#issue-dialog .issue-dialog__close {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-s);
+  font-size: 20px;
+}
+#issue-dialog .issue-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 720px) {
+  #issue-dialog {
+    width: 100vw;
+    border-inline-start: 0;
+  }
+}
+
+/* --- Content: one column in the sheet --- */
+#issue-dialog #detail-root {
+  padding: var(--sp-4);
+}
+#issue-dialog .detail-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-5);
+}
+#issue-dialog .detail-side {
+  position: static;
+}
+#issue-dialog .detail-main h2 {
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 0 0 var(--sp-4);
+  overflow-wrap: anywhere;
+}
+#issue-dialog .detail-main {
+  min-width: 0;
+}
+#issue-dialog #detail-root .acceptance,
+#issue-dialog #detail-root .design,
+#issue-dialog #detail-root .notes {
+  margin-top: var(--sp-5);
+}
+#issue-dialog .props-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  margin-bottom: var(--sp-3);
+}
+#issue-dialog .props-card__title,
+#issue-dialog .comments > .props-card__title {
+  color: var(--text-2);
+  font-size: var(--fs-s);
+  font-weight: 650;
+}
+#issue-dialog .prop .label {
+  color: var(--text-3);
+}
+#issue-dialog .comment-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+#issue-dialog .comment-text {
+  overflow-wrap: anywhere;
+}
+
+/* Tap targets >= 44px on everything that acts */
+#issue-dialog button,
+#issue-dialog select,
+#issue-dialog input[type='text'] {
+  min-height: 44px;
+}
+#issue-dialog .editable,
+#issue-dialog .comment-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+/* Long text (description, design, notes, acceptance) keeps normal block flow:
+   paragraphs and lists stack; only the tap height is kept (1bo5.6.28.1). */
+#issue-dialog .md.editable {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#issue-dialog .comment-link {
+  justify-content: center;
+  min-width: 44px;
+}
+
+/* --- Slots: card (decision card + ask thread), outputs list --- */
+.detail-slot {
+  margin-bottom: var(--sp-3);
+}
+.detail-slot:empty {
+  display: none;
+}
+
+/* --- Skeleton: drawn at once, before any data --- */
+.detail-skeleton {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+.detail-skeleton .sk {
+  border-radius: var(--radius-s);
+  background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--surface) 70%, transparent),
+      transparent
+    )
+    color-mix(in srgb, var(--text) 9%, var(--surface));
+  background-size: 200% 100%;
+  animation: detail-sk 1.4s linear infinite;
+}
+.detail-skeleton .sk--title {
+  height: 28px;
+  inline-size: 70%;
+}
+.detail-skeleton .sk--line {
+  height: 14px;
+}
+.detail-skeleton .sk--short {
+  inline-size: 55%;
+}
+.detail-skeleton .sk--block {
+  height: 72px;
+  border-radius: var(--radius-m);
+}
+@keyframes detail-sk {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-skeleton .sk {
+    animation: none;
+  }
+}
+
+#issue-dialog textarea,
+#issue-dialog .comment-input {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+#issue-dialog .comment-input textarea {
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* report screenshots: inline thumbnail, tap to enlarge */
+.att-thumb {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.att-img {
+  max-width: min(100%, 360px);
+  max-height: 240px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #8884);
+  cursor: zoom-in;
+}
+.att-lightbox {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+.att-lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+.att-lightbox img {
+  display: block;
+  max-width: 96vw;
+  max-height: 96vh;
+  cursor: zoom-out;
+}

@@ -98,3 +98,132 @@
   min-height: 44px;
   padding-inline: 8px;
 }
+
+/* Decision card in the bead detail slot: answer, ask thread, wake state (1bo5.6.9) */
+.cd {
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--s-owner);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  padding: var(--sp-4);
+  display: grid;
+  gap: var(--sp-3);
+}
+.cd[data-state='asked'] {
+  border-inline-start-color: var(--s-progress);
+}
+.cd[data-state='answered'] {
+  border-inline-start-color: var(--s-ready);
+}
+.cd__title {
+  margin: 0;
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.cd__q {
+  margin: 0;
+  font-size: var(--fs-m, 1rem);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cd__line {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-s);
+  overflow-wrap: anywhere;
+}
+.cd__blk {
+  color: var(--text-3);
+}
+.cd__opts {
+  display: grid;
+  gap: var(--sp-2);
+}
+.cd__btn {
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--sp-2);
+  text-align: start;
+  white-space: normal;
+}
+.cd__btn small {
+  color: var(--text-3);
+}
+.cd__text,
+.cd__sel {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.cd__form {
+  display: grid;
+  gap: var(--sp-2);
+}
+.cd__lbl {
+  display: grid;
+  gap: var(--sp-1);
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.cd__note,
+.cd__rec,
+.cd__wake,
+.cd__err {
+  margin: 0;
+  font-size: var(--fs-s);
+}
+.cd__note {
+  color: var(--text-2);
+}
+.cd__rec small {
+  display: block;
+  color: var(--text-3);
+}
+.cd__wake {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-s);
+  background: var(--s-ready-bg);
+  color: var(--text);
+}
+.cd__wake[data-wake='queued'],
+.cd__wake[data-wake='queued-no-listener'] {
+  background: var(--s-owner-bg);
+}
+.cd__err {
+  color: var(--s-blocked);
+}
+.cd__thread {
+  display: grid;
+  gap: var(--sp-2);
+}
+.cd__msg {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+  font-size: var(--fs-s);
+}
+.cd__msg--a {
+  background: var(--accent-soft);
+}
+.cd__msg b {
+  font-size: var(--fs-xs, 0.75rem);
+  color: var(--text-3);
+}
+.cd__msg p,
+.cd__msg blockquote {
+  margin: var(--sp-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.cd__msg blockquote {
+  padding-inline-start: var(--sp-2);
+  border-inline-start: 2px solid var(--border);
+  color: var(--text-2);
+}

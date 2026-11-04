@@ -137,11 +137,19 @@ export function createSubscriptionStore(send) {
       set.add(client_id);
     }
     try {
-      await send('subscribe-list', {
-        id: client_id,
-        type: spec.type,
-        params: spec.params
-      });
+      // The server answers `stale` when the project changed while the list
+      // was loading (a reload restoring the saved project): nothing was
+      // attached, so ask again, now against the new project (1bo5.6.34).
+      for (let tries = 0; tries < 3; tries++) {
+        const reply = /** @type {any} */ (
+          await send('subscribe-list', {
+            id: client_id,
+            type: spec.type,
+            params: spec.params
+          })
+        );
+        if (!reply || !reply.stale) break;
+      }
     } catch (err) {
       const entry = subs_by_id.get(client_id) || null;
       if (entry) {
