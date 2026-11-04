@@ -9,7 +9,13 @@
  * sha the owner saw travels with the answer, so a changed card is refused.
  */
 import { html, nothing, render } from 'lit-html';
+import { commentAnchor } from '../utils/anchor.js';
 import { errorText, wakeLabel } from '../utils/card-text.js';
+import {
+  answerText,
+  decisionStates,
+  parseDecisionComment
+} from '../utils/decision-comment.js';
 import { t } from '../utils/i18n.js';
 import { showToast } from '../utils/toast.js';
 import { createWsClient } from '../ws.js';
@@ -48,6 +54,9 @@ function client() {
  * @property {string} error
  * @property {string} wake  wake result of the last write here
  * @property {string} failed  load failure
+ * @property {boolean} [inline]  drawn inside a thread comment
+ * @property {(body: any) => any} [frame]  inline: wraps the body in the comment card
+ * @property {() => any} [fallback]  inline: shown when the card is not waiting
  */
 
 /** @type {WeakMap<HTMLElement, Panel>} */
@@ -80,25 +89,30 @@ export function mountCard(el, issue) {
     return;
   }
   let p = panels.get(el);
-  if (!p || p.id !== issue.id) {
-    p = {
-      id: issue.id,
-      data: null,
-      seq: (p?.seq || 0) + 1,
-      pick: null,
-      typed: '',
-      asking: false,
-      scope: 'question',
-      quote: '',
-      question: '',
-      busy: false,
-      error: '',
-      wake: '',
-      failed: ''
-    };
+  if (!p || p.id !== issue.id || p.inline) {
+    p = newPanel(issue.id, p?.seq || 0);
     panels.set(el, p);
   }
   void load(el, p);
+}
+
+/** @param {string} id @param {number} seq */
+function newPanel(id, seq) {
+  return {
+    id,
+    data: null,
+    seq: seq + 1,
+    pick: null,
+    typed: '',
+    asking: false,
+    scope: 'question',
+    quote: '',
+    question: '',
+    busy: false,
+    error: '',
+    wake: '',
+    failed: ''
+  };
 }
 
 /**
@@ -171,6 +185,23 @@ function roundsLeft(data) {
  */
 function paint(el, p) {
   const d = p.data;
+  if (p.inline && p.frame) {
+    if (d && d.state === 'waiting') {
+      render(
+        p.frame(
+          html`${cardBody(d.card)}${answerArea(el, p, d)}
+          ${p.error
+            ? html`<p class="cd__err" role="alert">${p.error}</p>`
+            : nothing}`
+        ),
+        el
+      );
+    } else {
+      // answered or asked meanwhile: the thread copy is a plain card
+      render(p.frame(p.fallback?.()), el);
+    }
+    return;
+  }
   if (!d || d.state === 'none') {
     render(p.failed ? html`<p class="cd__err">${p.failed}</p>` : nothing, el);
     return;
@@ -472,4 +503,201 @@ function selectedCardText(el) {
     // no selection support
   }
   return '';
+}
+
+// ---- decision comment, inline in the thread (beads-lite-1bo5.6.46.7) ----
+
+/**
+ * @typedef {object} Inline
+ * @property {string} cid
+ * @property {number | null} pick
+ * @property {boolean} busy
+ * @property {string} error
+ * @property {string} done  answer text written here (non-blocking)
+ */
+/** @type {WeakMap<HTMLElement, Inline>} */
+const inlines = new WeakMap();
+
+/**
+ * @param {any} d parsed decision comment
+ * @param {string} answer
+ * @param {number | null} pickedN
+ * @param {boolean} [listOpts] false when the options are buttons below
+ */
+function staticCard(d, answer, pickedN, listOpts = true) {
+  return html`<div class="cd__body" dir="auto">
+    <p class="cd__q">${d.q}</p>
+    ${d.effect
+      ? html`<p class="cd__line"><b>${t('cd_effect')}:</b> ${d.effect}</p>`
+      : nothing}
+    ${d.show
+      ? html`<p class="cd__line"><b>${t('cd_show')}:</b> ${d.show}</p>`
+      : nothing}
+    ${d.blocks
+      ? html`<p class="cd__line cd__blk">${t('cd_blocks')}: ${d.blocks}</p>`
+      : nothing}
+    ${listOpts
+      ? html`<ol class="dc__opts">
+          ${d.opts.map(
+            (/** @type {any} */ o) =>
+              html`<li
+                class=${o.n === pickedN ? 'dc__opt is-picked' : 'dc__opt'}
+              >
+                ${o.n}. ${o.l}
+                ${o.rec ? html`<small>${t('cd_rec')}</small>` : nothing}
+                ${o.note ? html`<small dir="auto">${o.note}</small>` : nothing}
+              </li>`
+          )}
+        </ol>`
+      : nothing}
+    ${answer
+      ? html`<p class="cd__rec" data-answered dir="auto">
+          ${t('dc_answered')}: ${answer}
+        </p>`
+      : nothing}
+  </div>`;
+}
+
+/**
+ * Detail slot `dcard`: one decision comment, drawn as a card with a badge.
+ * el.dataset.cid is the comment anchor (c-<8hex>). Open and blocking: the
+ * same panel machinery as the side card (card-state, card-answer, tap then
+ * Confirm). Non-blocking: pick, Confirm, and the answer goes in as a comment.
+ *
+ * @param {HTMLElement} el
+ * @param {any} issue
+ */
+export function mountDecisionComment(el, issue) {
+  const cid = el.dataset.cid || '';
+  const comments = Array.isArray(issue?.comments) ? issue.comments : [];
+  const idx = comments.findIndex(
+    (/** @type {any} */ c) => commentAnchor(c) === cid
+  );
+  const d = idx < 0 ? null : parseDecisionComment(comments[idx].text);
+  if (!d) {
+    panels.delete(el);
+    inlines.delete(el);
+    render(nothing, el);
+    el.replaceChildren();
+    return;
+  }
+  const st = decisionStates(comments, issue).get(idx) || { kind: 'closed' };
+  const lang = /[\u0600-\u06FF]/.test(d.q) ? 'ar' : 'en';
+  const frame = (/** @type {any} */ body) =>
+    html`<section
+      class="cd dc"
+      data-state=${st.kind}
+      data-cid=${cid}
+      lang=${lang}
+    >
+      <h3 class="cd__title">
+        <span class="dc__badge">${t('dc_badge')}</span>
+        ${d.nonBlocking ? html`<small>${t('dc_nonblocking')}</small>` : nothing}
+      </h3>
+      ${body}
+    </section>`;
+
+  if (st.kind === 'open') {
+    inlines.delete(el);
+    let p = panels.get(el);
+    if (!p || p.id !== issue.id || !p.inline) {
+      p = newPanel(issue.id, p?.seq || 0);
+      p.inline = true;
+      panels.set(el, p);
+    }
+    p.frame = frame;
+    p.fallback = () => staticCard(d, '', null);
+    void load(el, p);
+    return;
+  }
+  panels.delete(el);
+  let s = inlines.get(el);
+  if (!s || s.cid !== cid) {
+    s = { cid, pick: null, busy: false, error: '', done: '' };
+    inlines.set(el, s);
+  }
+  const answer = st.answer || s.done;
+  if (st.kind !== 'nonblocking' || answer) {
+    const m = /^(\d+) - /.exec(answer || '');
+    render(frame(staticCard(d, answer, m ? Number(m[1]) : null)), el);
+    return;
+  }
+  paintNonBlocking(el, issue, d, cid, s, frame);
+}
+
+/**
+ * @param {HTMLElement} el @param {any} issue @param {any} d
+ * @param {string} cid @param {Inline} s @param {(b: any) => any} frame
+ */
+function paintNonBlocking(el, issue, d, cid, s, frame) {
+  const again = () => paintNonBlocking(el, issue, d, cid, s, frame);
+  const o =
+    s.pick === null
+      ? null
+      : d.opts.find((/** @type {any} */ x) => x.n === s.pick);
+  render(
+    frame(
+      html`${staticCard(d, '', null, false)}
+        <div class="cd__opts">
+          ${o
+            ? html`<button
+                  type="button"
+                  class="btn btn--primary cd__btn"
+                  data-act="confirm"
+                  ?disabled=${s.busy}
+                  @click=${async () => {
+                    s.busy = true;
+                    s.error = '';
+                    again();
+                    const text = answerText(o, cid);
+                    try {
+                      await client().send('add-comment', {
+                        id: issue.id,
+                        text
+                      });
+                      s.done = `${o.n} - ${o.l}`;
+                      showToast(t('cd_recorded'), 'success', 2000);
+                    } catch {
+                      s.error = t('cd_err_generic');
+                    }
+                    s.busy = false;
+                    mountDecisionComment(el, issue);
+                  }}
+                >
+                  ${t('cd_confirm')}: ${o.l}
+                </button>
+                <button
+                  type="button"
+                  class="btn cd__btn"
+                  data-act="back"
+                  ?disabled=${s.busy}
+                  @click=${() => {
+                    s.pick = null;
+                    again();
+                  }}
+                >
+                  ${t('cd_back')}
+                </button>`
+            : d.opts.map(
+                (/** @type {any} */ x) =>
+                  html`<button
+                    type="button"
+                    class="btn cd__btn ${x.rec ? 'btn--primary' : ''}"
+                    data-opt=${x.n}
+                    @click=${() => {
+                      s.pick = x.n;
+                      again();
+                    }}
+                  >
+                    <span>${x.n}. ${x.l}</span>
+                    ${x.rec ? html`<small>${t('cd_rec')}</small>` : nothing}
+                  </button>`
+              )}
+        </div>
+        ${s.error
+          ? html`<p class="cd__err" role="alert">${s.error}</p>`
+          : nothing}`
+    ),
+    el
+  );
 }

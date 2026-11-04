@@ -5,6 +5,8 @@ export const strings =
   /** @type {Record<string, { en: string, ar: string }>} */ (
     Object.fromEntries([
       s('Properties', 'الخصائص'),
+      s('line', 'سطر'),
+      s('lines', 'سطور'),
       s('Dates', 'التواريخ'),
       s('Labels', 'الوسوم'),
       s('Comments', 'التعليقات'),

@@ -1,6 +1,9 @@
 /* Decision card panel strings (en/ar), company-1bo5.6.9. Merged in utils/i18n.js. */
 export const strings =
   /** @type {Record<string, { en: string, ar: string }>} */ ({
+    dc_badge: { en: 'Decision', ar: 'قرار' },
+    dc_nonblocking: { en: 'not blocking', ar: 'لا يوقف العمل' },
+    dc_answered: { en: 'Answered', ar: 'تمت الإجابة' },
     cd_title: { en: 'Decision waiting', ar: 'قرار ينتظرك' },
     cd_asked_title: {
       en: 'Your question is with the asker',

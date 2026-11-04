@@ -134,7 +134,6 @@ a {
   }
 }
 
-
 .app-shell {
   /* Fill remaining viewport height below sticky header */
   height: calc(100% - 53px);
@@ -1767,6 +1766,8 @@ html[data-theme='dark'] {
 .comment-text {
   font-size: 14px;
   line-height: 1.5;
+}
+.comment-flat {
   white-space: pre-wrap;
 }
 
@@ -2385,4 +2386,79 @@ body {
 }
 .comment-link:hover {
   color: var(--accent);
+}
+
+/* Folded text (beads-lite-1bo5.6.46.1) */
+.fold {
+  white-space: normal;
+}
+.fold-title {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+}
+@media (max-width: 640px) {
+  .fold-title {
+    font-size: 16px;
+  }
+}
+.fold-lead {
+  margin: 4px 0 10px;
+  color: var(--fg);
+}
+.fold-lead > :first-child,
+.fold-body > :first-child {
+  margin-top: 0;
+}
+.fold-lead > :last-child,
+.fold-body > :last-child {
+  margin-bottom: 0;
+}
+.fold-sec {
+  border-top: 1px solid var(--control-border);
+}
+.fold-sec > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--fg);
+  -webkit-tap-highlight-color: transparent;
+}
+.fold-sec > summary::-webkit-details-marker {
+  display: none;
+}
+.fold-sec > summary::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  clip-path: polygon(30% 15%, 80% 50%, 30% 85%);
+  opacity: 0.7;
+  transition: transform 0.12s;
+}
+.fold-sec[open] > summary::before {
+  transform: rotate(90deg);
+}
+.fold-sec > summary:dir(rtl)::before {
+  transform: scaleX(-1);
+}
+.fold-sec[open] > summary:dir(rtl)::before {
+  transform: scaleX(-1) rotate(90deg);
+}
+.fold-sec > summary:active {
+  background: var(--control-border);
+}
+.fold-n {
+  unicode-bidi: isolate;
+  margin-inline-start: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fold-body {
+  padding: 0 0 8px;
 }

@@ -22,7 +22,7 @@ const comments = [
   }
 ];
 
-async function open(hash) {
+async function open(hash, design = 'the design') {
   window.location.hash = hash;
   document.body.innerHTML =
     '<section class="panel"><div id="mount"></div></section>';
@@ -31,7 +31,7 @@ async function open(hash) {
     id: 'UI-7',
     title: 't',
     description: 'line one\n\n- alpha item\n- beta item',
-    design: 'the design',
+    design,
     dependencies: [],
     dependents: [],
     comments
@@ -97,6 +97,17 @@ describe('detail deep-link anchors', () => {
     expect(c.mount.querySelector('.anchor-hit')?.textContent).toContain(
       'second line here'
     );
+  });
+
+  test('line anchor into a folded section opens it and highlights', async () => {
+    const { mount } = await open(
+      '#/issues?issue=UI-7&at=design.L5',
+      'Title\n\n## Sec\nalpha\nbeta line\ngamma'
+    );
+    const hit = mount.querySelector('.anchor-hit');
+    expect(hit?.textContent).toContain('beta line');
+    expect(hit?.closest('details.fold-sec')?.hasAttribute('open')).toBe(true);
+    expect(scroll).toHaveBeenCalledTimes(1);
   });
 
   test('unknown comment does nothing and does not break', async () => {

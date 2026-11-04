@@ -88,7 +88,8 @@ const SLOTS = {
   bell: ['notifications', 'mountBell'],
   report: ['report', 'mountReport'],
   outputs: ['outputs', 'mountOutputs'],
-  card: ['card', 'mountCard']
+  card: ['card', 'mountCard'],
+  dcard: ['card', 'mountDecisionComment']
 };
 
 /**

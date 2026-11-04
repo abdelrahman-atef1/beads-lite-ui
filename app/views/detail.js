@@ -8,6 +8,8 @@ import {
   parseAnchor
 } from '../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../utils/att-images.js';
+import { parseDecisionComment } from '../utils/decision-comment.js';
+import { renderFolded } from '../utils/fold.js';
 import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
@@ -23,6 +25,14 @@ import {
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
 import { mountSlots } from './registry.js';
+
+/**
+ * Flat comment text keeps its line breaks.
+ *
+ * @param {string} s
+ */
+const flatComment = (s) =>
+  html`<span class="comment-flat">${linkifyText(s)}</span>`;
 
 /**
  * Build a failure message that includes the server reason.
@@ -1313,7 +1323,7 @@ export function createDetailView(
             if (text.trim() === '') {
               return html`<div class="muted">${t('Description')}</div>`;
             }
-            return renderMarkdown(text);
+            return renderFolded(text, renderMarkdown);
           })()}
         </div>`;
 
@@ -1360,7 +1370,7 @@ export function createDetailView(
                 @keydown=${onAcceptEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">
                       ${t('Add acceptance criteria…')}
                     </div>`}
@@ -1402,7 +1412,7 @@ export function createDetailView(
                 @keydown=${onNotesEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">${t('Add notes…')}</div>`}
               </div>`;
           })()}
@@ -1517,7 +1527,7 @@ export function createDetailView(
                 @keydown=${onDesignEditableKeydown}
               >
                 ${has
-                  ? renderMarkdown(text)
+                  ? renderFolded(text, renderMarkdown)
                   : html`<div class="muted">${t('Add design…')}</div>`}
               </div>`;
           })()}
@@ -1568,7 +1578,15 @@ export function createDetailView(
                       >#</a
                     >
                   </div>
-                  <div class="comment-text">${linkifyText(c.text)}</div>
+                  <div class="comment-text">
+                    ${parseDecisionComment(c.text)
+                      ? html`<div
+                          class="detail-slot"
+                          data-slot="dcard"
+                          data-cid=${commentAnchor(c)}
+                        ></div>`
+                      : renderFolded(c.text, renderMarkdown, flatComment)}
+                  </div>
                 </div>
               `
             )}
@@ -1771,6 +1789,12 @@ export function createDetailView(
       }
     }
     const marks = hits.length ? hits : [root];
+    // A line inside a folded section: open the section first (its toggle
+    // handler records it as open, so it stays open across re-renders).
+    marks.forEach((m) => {
+      const d = m.closest('details.fold-sec');
+      if (d) /** @type {HTMLDetailsElement} */ (d).open = true;
+    });
     marks.forEach((m) => m.classList.add('anchor-hit'));
     marks[0].scrollIntoView({ block: 'start' });
   }
