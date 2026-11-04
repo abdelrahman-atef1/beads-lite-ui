@@ -5,11 +5,10 @@ import { pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { createNotifier } from './notifier.js';
 
+// The card core moved to the learner repo (company-8ce8.14.8).
 const CARDS = path.join(
-  os.homedir(),
-  'company',
-  'scripts',
-  'cards',
+  process.env.CARDS_DIR ||
+    path.join('E:', 'Projects', 'learner', 'scripts', 'cards'),
   'rules.mjs'
 );
 /** @type {any} */
@@ -129,7 +128,10 @@ describe('notifier', () => {
       'decision'
     ]);
     const ex = (/** @type {number} */ round) =>
-      bead('alpha-1', card({ ...q2, card_state: 'explained', card_round: round }));
+      bead(
+        'alpha-1',
+        card({ ...q2, card_state: 'explained', card_round: round })
+      );
     r.parked.alpha = [ex(1)];
     await r.n.scan('alpha', A);
     await r.n.scan('alpha', A);
@@ -152,18 +154,20 @@ describe('notifier', () => {
     expect(r.n.snapshot().events).toHaveLength(0);
   });
 
-  test('W3: desk, sec, legal, declared-desk and unreadable-parent beads carry no title', async () => {
+  test('W3: desk-label and sec/legal beads beads carry no title', async () => {
     const r = rig({
-      readBeadLabels: async (/** @type {string} */ _c, /** @type {string} */ id) =>
-        id === 'alpha-9' ? null : []
+      readBeadLabels: async (
+        /** @type {string} */ _c,
+        /** @type {string} */ id
+      ) => (id === 'alpha-9' ? null : [])
     });
     r.n.sync();
     await settle(); // first sight done (empty); now runtime single events
     const cases = [
       bead('alpha-1', card(), { labels: ['security'] }),
       bead('alpha-2', card(), { created_by: 'sec' }),
-      bead('alpha-3', card({ card_class: 'desk', card_opts: undefined })),
-      bead('alpha-9.1', card()),
+      // card_class=desk is retired (company-8ce8.15): such a card is invalid, no event.
+      // unreadable parent no longer makes a desk bead: rules.gate is always ok (company-8ce8.15).
       bead('alpha-6', card(), { labels: ['owner-pc-only'] }),
       bead('alpha-7', card(), { created_by: 'legal' })
     ];
@@ -295,7 +299,9 @@ describe('notifier', () => {
     const id = r.n.snapshot().events[0].id;
     expect(r.n.markRead({ ids: [id] }).unread).toBe(0);
     expect(() => r.n.markRead({})).toThrow();
-    const ok = new Date(Date.parse('2026-11-01T10:00:00Z') + 3600e3).toISOString();
+    const ok = new Date(
+      Date.parse('2026-11-01T10:00:00Z') + 3600e3
+    ).toISOString();
     expect(r.n.mute({ until: ok }).mute_until).toBe(ok);
     expect(() => r.n.mute({ until: '2027-01-01T00:00:00Z' })).toThrow();
     expect(r.n.mute({ until: null }).mute_until).toBeNull();

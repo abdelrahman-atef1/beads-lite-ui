@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createDetailView, formatDateValue } from './detail.js';
 
 /** @type {(impl: (type: string, payload?: unknown) => Promise<any>) => (type: string, payload?: unknown) => Promise<any>} */
@@ -62,6 +62,18 @@ function rowValue(card, label) {
   }
   return null;
 }
+
+// formatDateValue uses the viewer's locale on purpose (the board is Arabic).
+// Pin English so the month-name assertions do not depend on the machine.
+const realLocaleDate = Date.prototype.toLocaleDateString;
+beforeEach(() => {
+  vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(
+    /** @this {Date} */ function (_locale, opts) {
+      return realLocaleDate.call(this, 'en-US', opts);
+    }
+  );
+});
+afterAll(() => vi.restoreAllMocks());
 
 describe('formatDateValue', () => {
   test('formats a numeric epoch-ms timestamp', () => {

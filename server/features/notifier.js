@@ -46,16 +46,14 @@ export function projectKey(p) {
 }
 
 export function boardHome(env = process.env) {
-  return (
-    env.BDUI_BOARD_HOME || path.join(os.homedir(), '.codesters', 'board')
-  );
+  return env.BDUI_BOARD_HOME || path.join(os.homedir(), '.codesters', 'board');
 }
 
 /** Card core by full path (ADR 0006 D1); CARDS_DIR overrides for tests. */
 async function loadRules() {
   const dir =
     process.env.CARDS_DIR ||
-    path.join(os.homedir(), 'company', 'scripts', 'cards');
+    path.join('E:', 'Projects', 'learner', 'scripts', 'cards');
   return import(pathToFileURL(path.join(dir, 'rules.mjs')).href);
 }
 
@@ -325,7 +323,10 @@ export function createNotifier(opts = {}) {
         beads = await listParked(cwd);
       } catch (e) {
         const msg = String(/** @type {any} */ (e)?.message || e);
-        if (SPAWN_FAIL_RE.test(msg) || /** @type {any} */ (e)?.code === 'EPERM') {
+        if (
+          SPAWN_FAIL_RE.test(msg) ||
+          /** @type {any} */ (e)?.code === 'EPERM'
+        ) {
           // refused program start: stop this project's watcher, show it, no retry
           stopProject(key);
           degrade(key);
@@ -475,7 +476,9 @@ export function createNotifier(opts = {}) {
       if (p.all === true) {
         for (const e of store.events) e.read = true;
       } else if (Array.isArray(p.ids) && p.ids.length <= MAX_EVENTS) {
-        const ids = new Set(p.ids.filter((/** @type {any} */ x) => typeof x === 'string'));
+        const ids = new Set(
+          p.ids.filter((/** @type {any} */ x) => typeof x === 'string')
+        );
         for (const e of store.events) if (ids.has(e.id)) e.read = true;
       } else {
         throw bad('payload requires { ids: string[] } or { all: true }');
@@ -491,7 +494,9 @@ export function createNotifier(opts = {}) {
         typeof p.on !== 'boolean' ||
         !known().has(p.project)
       ) {
-        throw bad('payload requires { project: <registered key>, on: boolean }');
+        throw bad(
+          'payload requires { project: <registered key>, on: boolean }'
+        );
       }
       prefs.projects[p.project] = { on: p.on };
       savePrefs();
