@@ -252,4 +252,98 @@ describe('views/board', () => {
     expect(ids(mount, 'test')).toEqual(['T-1']);
     expect(mount.querySelectorAll('.chips .chip').length).toBeGreaterThan(3);
   });
+  test('draws the first 30 cards at once and the rest on the next tick', async () => {
+    const many = Array.from({ length: 45 }, (_, i) => ({
+      id: 'R-' + i,
+      title: 'r' + i,
+      status: 'in_progress'
+    }));
+    const { mount, view } = setup({
+      'tab:all': many,
+      'tab:board:ready': [],
+      'tab:board:blocked': [],
+      'tab:board:closed': []
+    });
+    await view.load();
+    expect(mount.querySelectorAll('.col .card').length).toBe(30);
+    // the header count is the true total, not the drawn part
+    expect(mount.querySelector('#progress-col .col__count')?.textContent).toBe(
+      '45'
+    );
+    await flush();
+    expect(mount.querySelectorAll('.col .card').length).toBe(45);
+  });
+
+  test('j and k move focus between cards; typing in a field is left alone', async () => {
+    const { mount, view } = setup({
+      'tab:all': [
+        { id: 'A-1', title: 'a', status: 'in_progress' },
+        { id: 'A-2', title: 'b', status: 'in_progress' }
+      ],
+      'tab:board:ready': [],
+      'tab:board:blocked': [],
+      'tab:board:closed': []
+    });
+    await view.load();
+    const key = (/** @type {string} */ k, /** @type {EventTarget} */ el) =>
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    key('j', document.body);
+    const first = /** @type {HTMLElement} */ (mount.querySelector('.card'));
+    expect(document.activeElement).toBe(first);
+    key('j', document.body);
+    expect(
+      /** @type {HTMLElement} */ (document.activeElement).dataset.issueId
+    ).toBe('A-2');
+    key('k', document.body);
+    expect(document.activeElement).toBe(first);
+    const input = document.createElement('input');
+    document.body.append(input);
+    input.focus();
+    key('j', input);
+    expect(document.activeElement).toBe(input);
+  });
+
+  test('chips: needs-decision and blocked filter the board; priority menu shows names, no P-numbers', async () => {
+    const filter = createFilterState(null);
+    const { mount, view } = setup(
+      {
+        'tab:all': [
+          { id: 'O-1', title: 'o', status: 'owner_decision', priority: 0 },
+          { id: 'P-1', title: 'p', status: 'in_progress', priority: 1 },
+          { id: 'B-2', title: 'status blocked', status: 'blocked' }
+        ],
+        'tab:board:ready': [],
+        'tab:board:blocked': [],
+        'tab:board:closed': []
+      },
+      filter
+    );
+    await view.load();
+    const text = mount.textContent || '';
+    expect(text).not.toMatch(/\bP[0-4]\b/);
+    const opts = Array.from(
+      mount.querySelectorAll('.chip--menu select option')
+    ).map((o) => o.textContent?.trim());
+    expect(opts).toEqual(
+      expect.arrayContaining(['Critical', 'High', 'Backlog'])
+    );
+    const chips = Array.from(mount.querySelectorAll('button.chip'));
+    const click = (/** @type {string} */ label) =>
+      /** @type {HTMLElement} */ (
+        chips.find((c) => c.textContent?.trim() === label)
+      ).click();
+    click('Needs decision');
+    await flush();
+    expect(mount.querySelectorAll('.col .card').length).toBe(1);
+    expect(ids(mount, 'owner')).toEqual(['O-1']);
+    filter.set({ chip: 'all' });
+    await flush();
+    const again = Array.from(mount.querySelectorAll('button.chip'));
+    /** @type {HTMLElement} */ (
+      again.find((c) => c.textContent?.trim() === 'Blocked')
+    ).click();
+    await flush();
+    expect(ids(mount, 'blocked')).toEqual(['B-2']);
+    expect(mount.querySelectorAll('.col .card').length).toBe(1);
+  });
 });

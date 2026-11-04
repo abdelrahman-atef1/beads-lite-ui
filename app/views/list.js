@@ -6,6 +6,7 @@ import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { createListSelectors } from '../data/list-selectors.js';
 import { cmpClosedDesc } from '../data/sort.js';
+import { t } from '../utils/i18n.js';
 import { ISSUE_TYPES, typeLabel } from '../utils/issue-type.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { debug } from '../utils/logging.js';
@@ -165,7 +166,7 @@ export function createListView(
    */
   const toggleTypeFilter = (type) => {
     if (type_filters.includes(type)) {
-      type_filters = type_filters.filter((t) => t !== type);
+      type_filters = type_filters.filter((ty) => ty !== type);
     } else {
       type_filters = [...type_filters, type];
     }
@@ -209,7 +210,7 @@ export function createListView(
    * @returns {string}
    */
   function getDropdownDisplayText(selected, label, formatter) {
-    if (selected.length === 0) return `${label}: Any`;
+    if (selected.length === 0) return `${label}: ${t('l_any')}`;
     if (selected.length === 1) return `${label}: ${formatter(selected[0])}`;
     return `${label} (${selected.length})`;
   }
@@ -272,7 +273,11 @@ export function createListView(
             class="filter-dropdown__trigger"
             @click=${toggleStatusDropdown}
           >
-            ${getDropdownDisplayText(status_filters, 'Status', statusLabel)}
+            ${getDropdownDisplayText(
+              status_filters,
+              t('l_status'),
+              statusLabel
+            )}
             <span class="filter-dropdown__arrow">▾</span>
           </button>
           <div class="filter-dropdown__menu">
@@ -283,12 +288,15 @@ export function createListView(
               that exclusivity visible before the click instead of silently
               clearing the checkboxes after it.
             -->
-            <div class="filter-dropdown__group-label">Scope</div>
+            <div class="filter-dropdown__group-label">${t('l_scope')}</div>
             ${[
               // "By status" names the mode, not the result: it stays accurate
               // once a checkbox narrows the list, where "All issues" would not.
-              { scope: /** @type {const} */ ('all'), label: 'By status' },
-              { scope: /** @type {const} */ ('ready'), label: 'Ready only' }
+              { scope: /** @type {const} */ ('all'), label: t('l_by_status') },
+              {
+                scope: /** @type {const} */ ('ready'),
+                label: t('l_ready_only')
+              }
             ].map(
               (opt) => html`
                 <label
@@ -307,7 +315,7 @@ export function createListView(
               `
             )}
             <div class="filter-dropdown__divider" role="separator"></div>
-            <div class="filter-dropdown__group-label">Status</div>
+            <div class="filter-dropdown__group-label">${t('l_status')}</div>
             ${FILTERABLE_STATUSES.map(
               (s) => html`
                 <label
@@ -331,19 +339,19 @@ export function createListView(
         </div>
         <div class="filter-dropdown ${type_dropdown_open ? 'is-open' : ''}">
           <button class="filter-dropdown__trigger" @click=${toggleTypeDropdown}>
-            ${getDropdownDisplayText(type_filters, 'Types', typeLabel)}
+            ${getDropdownDisplayText(type_filters, t('l_types'), typeLabel)}
             <span class="filter-dropdown__arrow">▾</span>
           </button>
           <div class="filter-dropdown__menu">
             ${ISSUE_TYPES.map(
-              (t) => html`
+              (ty) => html`
                 <label class="filter-dropdown__option">
                   <input
                     type="checkbox"
-                    .checked=${type_filters.includes(t)}
-                    @change=${() => toggleTypeFilter(t)}
+                    .checked=${type_filters.includes(ty)}
+                    @change=${() => toggleTypeFilter(ty)}
                   />
-                  ${typeLabel(t)}
+                  ${typeLabel(ty)}
                 </label>
               `
             )}
@@ -351,7 +359,8 @@ export function createListView(
         </div>
         <input
           type="search"
-          placeholder="Search…"
+          placeholder=${t('l_search')}
+          aria-label=${t('l_search')}
           @input=${onSearchInput}
           .value=${search_text}
         />
@@ -359,7 +368,7 @@ export function createListView(
       <div class="panel__body" id="list-root">
         ${filtered.length === 0
           ? html`<div class="issues-block">
-              <div class="muted" style="padding:10px 12px;">No issues</div>
+              <div class="muted" style="padding:10px 12px;">${t('l_none')}</div>
             </div>`
           : html`<div class="issues-block">
               <table
@@ -379,13 +388,13 @@ export function createListView(
                 </colgroup>
                 <thead>
                   <tr role="row">
-                    <th role="columnheader">ID</th>
-                    <th role="columnheader">Type</th>
-                    <th role="columnheader">Title</th>
-                    <th role="columnheader">Status</th>
-                    <th role="columnheader">Assignee</th>
-                    <th role="columnheader">Priority</th>
-                    <th role="columnheader">Deps</th>
+                    <th role="columnheader">${t('l_id')}</th>
+                    <th role="columnheader">${t('l_type')}</th>
+                    <th role="columnheader">${t('l_title')}</th>
+                    <th role="columnheader">${t('l_status')}</th>
+                    <th role="columnheader">${t('l_assignee')}</th>
+                    <th role="columnheader">${t('l_priority')}</th>
+                    <th role="columnheader">${t('l_deps')}</th>
                   </tr>
                 </thead>
                 <tbody role="rowgroup">
@@ -405,6 +414,7 @@ export function createListView(
   }
 
   // Initial render (header + body shell with current state)
+  window.addEventListener('bdui-lang', () => doRender());
   doRender();
   // no separate ready checkbox when using select option
 

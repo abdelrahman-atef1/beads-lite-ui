@@ -6,8 +6,9 @@
  */
 
 const KEY = 'beads-ui.board-filter';
+const CHIPS = ['mine', 'p01', 'decision', 'blocked'];
 
-/** @typedef {{ chip: 'all'|'mine'|'p01', type: string, label: string, search: string, assignee: string, prio: string }} BoardFilter */
+/** @typedef {{ chip: 'all'|'mine'|'p01'|'decision'|'blocked', type: string, label: string, search: string, assignee: string, prio: string }} BoardFilter */
 
 /** @returns {BoardFilter} */
 export function emptyFilter() {
@@ -40,8 +41,9 @@ export function isFiltering(f) {
  * @param {any} it
  * @param {BoardFilter} f
  * @param {string} me - assignee name for the "Mine" chip
+ * @param {Set<string>} [blocked_ids] - ids in `bd blocked` (dependency-blocked)
  */
-export function matchesFilter(it, f, me) {
+export function matchesFilter(it, f, me, blocked_ids) {
   if (!it) {
     return false;
   }
@@ -51,6 +53,16 @@ export function matchesFilter(it, f, me) {
     }
   } else if (f.chip === 'p01') {
     if (typeof it.priority !== 'number' || it.priority > 1) {
+      return false;
+    }
+  } else if (f.chip === 'decision') {
+    if (it.status !== 'owner_decision') {
+      return false;
+    }
+  } else if (f.chip === 'blocked') {
+    const waiting =
+      Array.isArray(it.blocked_by_detail) && it.blocked_by_detail.length > 0;
+    if (it.status !== 'blocked' && !waiting && !blocked_ids?.has(it.id)) {
       return false;
     }
   }
@@ -179,7 +191,7 @@ export function createFilterState(storage = safeStorage()) {
     if (raw) {
       const o = JSON.parse(raw);
       state = {
-        chip: o.chip === 'mine' || o.chip === 'p01' ? o.chip : 'all',
+        chip: CHIPS.includes(o.chip) ? o.chip : 'all',
         type: typeof o.type === 'string' ? o.type.slice(0, 40) : '',
         label: typeof o.label === 'string' ? o.label.slice(0, 80) : '',
         assignee: '',

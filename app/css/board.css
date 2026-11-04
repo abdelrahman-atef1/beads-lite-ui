@@ -1,1 +1,93 @@
-/* board: filled by its own task (board v2). Empty on purpose; one owner per file. */
+/* Board and filter chips, B style (design b.html). Overrides on top of styles.css; tokens from tokens.css. */
+
+/* Chips: one row, wraps, never a dead box. Needs-decision gets the owner colour, Blocked the red. */
+.chips {
+  gap: 6px;
+  padding-block-end: var(--sp-2);
+}
+.chip {
+  border-radius: 14px;
+  white-space: nowrap;
+}
+.chip:hover {
+  background: var(--hover, var(--surface-2));
+}
+.chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip--menu select:focus-visible {
+  outline: none; /* the chip shows the ring */
+}
+.chip--menu:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* Select options need a readable background in dark mode. */
+.chip--menu select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Cards */
+.col {
+  border-radius: var(--radius-m);
+}
+.col__head {
+  font-size: var(--fs-s);
+  font-weight: var(--fw-strong);
+}
+.card {
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: none;
+  transition: border-color 0.12s;
+}
+.card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.card__title {
+  overflow-wrap: anywhere;
+}
+
+/* Phone: columns scroll sideways inside the board, never the page. Room under
+   the last card for the floating Report button and the bottom tab bar. */
+.route.board > .board,
+.board {
+  overscroll-behavior-x: contain;
+}
+@media (max-width: 720px) {
+  .board {
+    padding-block-end: 96px;
+  }
+  .card {
+    min-height: var(--tap);
+  }
+  .chips {
+    padding-inline: var(--sp-3);
+  }
+  .chips .chip {
+    flex: 0 0 auto;
+  }
+}
+/* Phone held sideways: short screen, wide columns would push the page. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .route.board > .board,
+  .board {
+    grid-auto-columns: minmax(240px, 40vw);
+    max-width: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-block-end: 16px;
+  }
+}

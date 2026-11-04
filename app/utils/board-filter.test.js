@@ -129,3 +129,44 @@ describe('P1 filters: assignee, priority, URL state', () => {
     expect(stallHoursFromQuery('?stall=-3')).toBe(24);
   });
 });
+
+describe('needs-decision and blocked chips', () => {
+  const dec = { id: 'D-1', status: 'owner_decision', priority: 2 };
+  const blk = { id: 'B-1', status: 'blocked', priority: 2 };
+  const dep = { id: 'B-2', status: 'open', priority: 2 };
+  const waiting = {
+    id: 'B-3',
+    status: 'open',
+    blocked_by_detail: [{ id: 'X-1' }]
+  };
+  const open = { id: 'O-1', status: 'open', priority: 2 };
+
+  test('decision chip keeps only owner_decision', () => {
+    const f = { ...emptyFilter(), chip: /** @type {const} */ ('decision') };
+    expect(matchesFilter(dec, f, 'x')).toBe(true);
+    expect(matchesFilter(open, f, 'x')).toBe(false);
+    expect(matchesFilter(blk, f, 'x')).toBe(false);
+  });
+
+  test('blocked chip keeps status blocked, dependency-blocked and listed ids', () => {
+    const f = { ...emptyFilter(), chip: /** @type {const} */ ('blocked') };
+    expect(matchesFilter(blk, f, 'x')).toBe(true);
+    expect(matchesFilter(waiting, f, 'x')).toBe(true);
+    expect(matchesFilter(dep, f, 'x', new Set(['B-2']))).toBe(true);
+    expect(matchesFilter(dep, f, 'x')).toBe(false);
+    expect(matchesFilter(open, f, 'x', new Set(['B-2']))).toBe(false);
+  });
+
+  test('both chips persist across a reload', () => {
+    const mem = new Map();
+    const storage = /** @type {any} */ ({
+      getItem: (/** @type {string} */ k) => mem.get(k) ?? null,
+      setItem: (/** @type {string} */ k, /** @type {string} */ v) =>
+        mem.set(k, v)
+    });
+    for (const chip of /** @type {const} */ (['decision', 'blocked'])) {
+      createFilterState(storage).set({ chip });
+      expect(createFilterState(storage).get().chip).toBe(chip);
+    }
+  });
+});

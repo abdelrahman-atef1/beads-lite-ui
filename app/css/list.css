@@ -1,1 +1,122 @@
-/* list: filled by its own task (board v2). Empty on purpose; one owner per file. */
+/* List, backlog and epics, B style (design b.html). Overrides on top of styles.css. */
+
+.table th,
+.table td {
+  text-align: start; /* Arabic: columns read from the right */
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  font-weight: var(--fw-strong);
+  color: var(--text-3);
+  z-index: 1;
+}
+.table tbody tr:hover {
+  background: var(--hover, var(--surface-2));
+}
+.table tbody tr.selected {
+  box-shadow: inset 2px 0 var(--accent);
+}
+[dir='rtl'] .table tbody tr.selected {
+  box-shadow: inset -2px 0 var(--accent);
+}
+.table .pri-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel__header input[type='search'] {
+  min-width: 0;
+}
+.filter-dropdown__trigger:focus-visible,
+.panel__header input[type='search']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Phone: each row becomes a small card, so Title keeps a real width and
+   nothing overlaps (it was 0px wide in the 6-column table). */
+@media (max-width: 900px) {
+  .panel__header {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+  .panel__header .filter-dropdown__trigger,
+  .panel__header input[type='search'] {
+    min-height: var(--tap);
+  }
+  .panel__header input[type='search'] {
+    flex: 1 1 100%;
+  }
+  #list-root {
+    padding-block-end: 96px; /* clear of the Report button */
+  }
+  :is(#list-root, .epic-children) table.table,
+  :is(#list-root, .epic-children) .table tbody {
+    display: block;
+    width: 100%;
+  }
+  :is(#list-root, .epic-children) .table colgroup,
+  :is(#list-root, .epic-children) .table thead {
+    display: none;
+  }
+  :is(#list-root, .epic-children) .table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3);
+    border-block-end: 1px solid var(--border);
+  }
+  :is(#list-root, .epic-children) .table tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  /* order: id + type, title, status + priority, assignee, deps */
+  :is(#list-root, .epic-children) .table tbody td:nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: var(--tap);
+    overflow-wrap: anywhere;
+  }
+  :is(#list-root, .epic-children) .table tbody td:nth-child(4) {
+    grid-row: 3;
+  }
+  :is(#list-root, .epic-children) .table tbody td:nth-child(6) {
+    grid-row: 3;
+  }
+  :is(#list-root, .epic-children) .table tbody td:nth-child(5) {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    min-height: var(--tap);
+  }
+  :is(#list-root, .epic-children) .table tbody td:nth-child(7) {
+    grid-column: 1 / -1;
+    grid-row: 5;
+  }
+  :is(#list-root, .epic-children) .table tbody td:nth-child(7):empty,
+  :is(#list-root, .epic-children) .table tbody td:nth-child(7):not(:has(*)) {
+    display: none;
+  }
+  :is(#list-root, .epic-children) .table tbody select,
+  :is(#list-root, .epic-children) .table tbody .editable {
+    min-height: var(--tap);
+  }
+  :is(#list-root, .epic-children) .table .editable {
+    display: flex;
+    align-items: center;
+    height: auto;
+    min-height: var(--tap);
+  }
+  /* Titles wrap on a phone instead of clipping. */
+  :is(#list-root, .epic-children) .table tbody td:nth-child(3) .editable {
+    display: block;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    padding-block: 10px;
+  }
+}

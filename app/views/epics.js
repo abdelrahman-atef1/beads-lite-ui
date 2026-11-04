@@ -1,6 +1,7 @@
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { createListSelectors } from '../data/list-selectors.js';
+import { t } from '../utils/i18n.js';
 import { createIssueIdRenderer } from '../utils/issue-id-renderer.js';
 import { createIssueRowRenderer } from './issue-row.js';
 
@@ -121,7 +122,7 @@ export function createEpicsView(
           >
           <span
             class="epic-progress"
-            style="margin-left:auto; display:flex; align-items:center; gap:8px;"
+            style="margin-inline-start:auto; display:flex; align-items:center; gap:8px;"
           >
             <progress
               value=${Number(g.closed_children || 0)}
@@ -149,12 +150,12 @@ export function createEpicsView(
                       </colgroup>
                       <thead>
                         <tr>
-                          <th>ID</th>
-                          <th>Type</th>
-                          <th>Title</th>
-                          <th>Status</th>
-                          <th>Assignee</th>
-                          <th>Priority</th>
+                          <th>${t('l_id')}</th>
+                          <th>${t('l_type')}</th>
+                          <th>${t('l_title')}</th>
+                          <th>${t('l_status')}</th>
+                          <th>${t('l_assignee')}</th>
+                          <th>${t('l_priority')}</th>
                         </tr>
                       </thead>
                       <tbody>

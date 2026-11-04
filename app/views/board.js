@@ -7,7 +7,6 @@
  * here by status), `tab:board:ready` (`bd ready`), `tab:board:blocked`
  * (`bd blocked`), `tab:board:closed` (newest closed, shown 50 at a time).
  */
-import { createPriorityBadge } from '../utils/priority-badge.js';
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { createListSelectors } from '../data/list-selectors.js';
@@ -29,6 +28,8 @@ import {
 } from '../utils/board-model.js';
 import { getLang, t } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
+import { createPriorityBadge } from '../utils/priority-badge.js';
+import { priorityName } from '../utils/priority.js';
 
 /** Client ids the board listens to. */
 export const BOARD_CLIENT_IDS = [
@@ -39,6 +40,8 @@ export const BOARD_CLIENT_IDS = [
 ];
 
 const CLOSED_PAGE = 50;
+/** Cards drawn in the first paint; the rest follows on the next tick (B-PERF). */
+export const FIRST_PAINT_CARDS = 30;
 
 /**
  * @param {HTMLElement} mount_element
@@ -73,6 +76,10 @@ export function createBoardView(
   let facet_items = /** @type {any[]} */ ([]);
   let closed_open = false;
   let closed_shown = CLOSED_PAGE;
+  /** Cards still allowed in this paint (counts down across columns). */
+  let budget = Infinity;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let rest_timer = null;
 
   /**
    * @param {any} it
@@ -241,7 +248,7 @@ export function createBoardView(
         </h3>
         ${loaded
           ? repeat(
-              items,
+              takeBudget(items),
               (it) => it.id,
               (it) => cardTemplate(it, col)
             )
@@ -249,6 +256,22 @@ export function createBoardView(
               <div class="skeleton"></div>`}
       </section>
     `;
+  }
+
+  /**
+   * First paint draws at most FIRST_PAINT_CARDS cards across all columns;
+   * the counts in the headers stay true.
+   *
+   * @param {any[]} items
+   */
+  function takeBudget(items) {
+    if (budget >= items.length) {
+      budget -= items.length;
+      return items;
+    }
+    const part = items.slice(0, Math.max(0, budget));
+    budget = 0;
+    return part;
   }
 
   function closedTemplate() {
@@ -354,8 +377,9 @@ export function createBoardView(
     /**
      * @param {'type'|'label'|'assignee'|'prio'} name
      * @param {string[]} values
+     * @param {(v: string) => string} [show] - option text (value stays as is)
      */
-    const menu = (name, values) =>
+    const menu = (name, values, show = (v) => v) =>
       html`<label
         class="chip chip--menu"
         aria-pressed=${f[name] ? 'true' : 'false'}
@@ -371,14 +395,20 @@ export function createBoardView(
           <option value="" ?selected=${!f[name]}>${t('any')}</option>
           ${values.map(
             (v) =>
-              html`<option value=${v} ?selected=${f[name] === v}>${v}</option>`
+              html`<option value=${v} ?selected=${f[name] === v}>
+                ${show(v)}
+              </option>`
           )}
           ${f[name] && !values.includes(f[name])
             ? html`<option value=${f[name]} selected>${f[name]}</option>`
             : ''}
         </select>
       </label>`;
-    return html`<div class="chips" role="group" aria-label="Filters">
+    return html`<div
+      class="chips"
+      role="group"
+      aria-label=${t('filters_label')}
+    >
       ${chip(
         'chip_all',
         f.chip === 'all' && !f.type && !f.label && !f.assignee && f.prio === '',
@@ -397,8 +427,15 @@ export function createBoardView(
       ${chip('chip_p01', f.chip === 'p01', () =>
         filter.set({ chip: f.chip === 'p01' ? 'all' : 'p01' })
       )}
+      ${chip('chip_decision', f.chip === 'decision', () =>
+        filter.set({ chip: f.chip === 'decision' ? 'all' : 'decision' })
+      )}
+      ${chip('chip_blocked', f.chip === 'blocked', () =>
+        filter.set({ chip: f.chip === 'blocked' ? 'all' : 'blocked' })
+      )}
       ${menu('type', types)} ${menu('label', labels)}
-      ${menu('assignee', assignees)} ${menu('prio', ['0', '1', '2', '3', '4'])}
+      ${menu('assignee', assignees)}
+      ${menu('prio', ['0', '1', '2', '3', '4'], (v) => priorityName(Number(v)))}
       ${f.search.trim()
         ? html`<span class="chips__q" dir="auto">“${field(f.search)}”</span>`
         : ''}
@@ -417,8 +454,66 @@ export function createBoardView(
   }
 
   function doRender() {
+    if (rest_timer) {
+      clearTimeout(rest_timer);
+      rest_timer = null;
+    }
+    const total = Object.values(columns).reduce((n, c) => n + c.length, 0);
+    budget = FIRST_PAINT_CARDS;
     render(template(), mount_element);
+    if (loaded && total + other.length > FIRST_PAINT_CARDS) {
+      // The rest of the cards, once the first screen is on the glass.
+      rest_timer = setTimeout(() => {
+        rest_timer = null;
+        budget = Infinity;
+        render(template(), mount_element);
+      }, 0);
+    }
   }
+
+  /**
+   * Keys j and k move focus to the next and previous card (Enter opens it).
+   *
+   * @param {KeyboardEvent} ev
+   */
+  function onKey(ev) {
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) {
+      return;
+    }
+    const key = ev.key;
+    if (key !== 'j' && key !== 'k') {
+      return;
+    }
+    const tgt = /** @type {HTMLElement | null} */ (ev.target);
+    if (
+      tgt &&
+      tgt.closest &&
+      tgt.closest('input, textarea, select, [contenteditable]')
+    ) {
+      return;
+    }
+    if (!mount_element.isConnected || document.querySelector('dialog[open]')) {
+      return;
+    }
+    const cards = /** @type {HTMLElement[]} */ (
+      Array.from(mount_element.querySelectorAll('.col .card')).filter(
+        // Skip cards of a hidden route (checkVisibility is absent in jsdom).
+        (el) => el.checkVisibility?.() ?? true
+      )
+    );
+    if (cards.length === 0) {
+      return;
+    }
+    const cur = cards.indexOf(
+      /** @type {HTMLElement} */ (document.activeElement)
+    );
+    const next =
+      key === 'j' ? Math.min(cur + 1, cards.length - 1) : Math.max(cur - 1, 0);
+    ev.preventDefault();
+    cards[cur < 0 ? 0 : next].focus();
+    cards[cur < 0 ? 0 : next].scrollIntoView?.({ block: 'nearest' });
+  }
+  document.addEventListener('keydown', onKey);
 
   /** Compose columns from the subscription stores and render. */
   function refreshFromStores() {
@@ -437,7 +532,7 @@ export function createBoardView(
         facet_items = /** @type {any[]} */ (all);
         const me = currentUser();
         const keep = (/** @type {any} */ it) =>
-          !filter || matchesFilter(it, filter.get(), me);
+          !filter || matchesFilter(it, filter.get(), me, blocked_ids);
         const split = splitColumns(
           /** @type {any[]} */ (all).filter(keep),
           ready_ids,
