@@ -45,7 +45,7 @@ describe('local image refs in bead text (1bo5.6.28.2)', () => {
           '![alt](docs/qa/a.png)',
           '[see](b.png)',
           '`c.png`',
-          'prose d.png here and H:/Projects/qa-shots/e.jpg.',
+          '(docs/x/p.png, merged) prose d.png here and H:/Projects/qa-shots/e.jpg.',
           'remote https://tile.openstreetmap.org/z/x/y.png stays',
           'in a fence:\n\n```\nf.png\n```'
         ].join('\n\n')
@@ -57,6 +57,7 @@ describe('local image refs in bead text (1bo5.6.28.2)', () => {
       'docs/qa/a.png',
       'b.png',
       'c.png',
+      'docs/x/p.png',
       'd.png',
       'H:/Projects/qa-shots/e.jpg'
     ]);

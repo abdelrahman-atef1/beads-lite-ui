@@ -28,9 +28,9 @@ const alt = () => ALT[getLang() === 'ar' ? 'ar' : 'en'];
 
 const LOCAL_URL = '/api/local-img?';
 const LOCAL_RE =
-  /(?<![\w/\\.:%@~-])((?:[A-Za-z]:[\\/]|~\/)?(?:[\w.@()+-]+[\\/])*[\w.@()+-]+\.(?:png|jpe?g|webp|gif))(?![\w/-])/gi;
+  /(?<![\w/\\.:%@~-])((?:[A-Za-z]:[\\/]|~\/)?(?:[\w.@+-]+[\\/])*[\w.@+-]+\.(?:png|jpe?g|webp|gif))(?![\w/-])/gi;
 const LOCAL_ONE =
-  /^(?:[A-Za-z]:[\\/]|~\/)?(?:[\w.@()+-]+[\\/])*[\w.@()+-]+\.(?:png|jpe?g|webp|gif)$/i;
+  /^(?:[A-Za-z]:[\\/]|~\/)?(?:[\w.@+-]+[\\/])*[\w.@+-]+\.(?:png|jpe?g|webp|gif)$/i;
 
 /** Which bead / workspace the text being rendered belongs to. */
 const ctx = { bead: '', workspace: '' };
