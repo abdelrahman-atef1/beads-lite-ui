@@ -32,10 +32,13 @@ vi.mock('./registry-watcher.js', async (importOriginal) => {
 
 // Each project has its own issue ids, taken from the cwd the call is made in.
 let version = 1;
+/** Milliseconds the list call stalls (to hold a subscribe in flight). */
+let stall_ms = 0;
 vi.mock('./list-adapters.js', () => ({
   fetchListForSubscription: vi.fn(
     async (/** @type {any} */ _spec, /** @type {any} */ opts) => {
       const name = path.basename(String(opts?.cwd || ''));
+      if (stall_ms) await new Promise((r) => setTimeout(r, stall_ms));
       return {
         ok: true,
         items: [{ id: `${name}-1`, updated_at: version, closed_at: null }]
@@ -130,6 +133,39 @@ describe('per-connection workspace', () => {
     // list-workspaces reports each socket's own current project
     const l_pc = await call(pc, 'list-workspaces', {});
     expect(l_pc.payload.current.root_dir).toBe(a);
+  });
+
+  test('a subscribe still loading when the socket switches project is dropped quietly (1bo5.6.34)', async () => {
+    const sock = makeSock();
+    srv.wss.clients.add(/** @type {any} */ (sock));
+    stall_ms = 150;
+    const id = `r${++n}`;
+    const pending = handleMessage(
+      sock,
+      Buffer.from(
+        JSON.stringify({
+          id,
+          type: 'subscribe-list',
+          payload: { id: 'stale', type: 'all-issues' }
+        })
+      )
+    );
+    // The reload restores the saved project while the first list is loading.
+    await call(sock, 'set-workspace', { path: b });
+    await pending;
+    stall_ms = 0;
+    const reply = sock.sent.find((/** @type {any} */ m) => m.id === id);
+    // Not an error the client treats as fatal, and nothing attached/published.
+    expect(reply.ok).toBe(true);
+    expect(
+      sock.sent.some((m) => m.type === 'snapshot' && m.payload.id === 'stale')
+    ).toBe(false);
+    // The re-subscribe the client sends next fills from the NEW project.
+    await call(sock, 'subscribe-list', { id: 'fresh', type: 'all-issues' });
+    const snap = sock.sent.find(
+      (m) => m.type === 'snapshot' && m.payload.id === 'fresh'
+    );
+    expect(snap.payload.issues[0].id).toBe(`${path.basename(b)}-1`);
   });
 
   test('each socket lists and refreshes its own project only', async () => {

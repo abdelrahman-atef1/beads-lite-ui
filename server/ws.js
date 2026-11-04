@@ -1103,8 +1103,10 @@ async function handleMessageUnsafe(ws, data) {
 
     if (ctxFor(ws) !== sub_ctx) {
       // The socket switched project while the list loaded: this answer is for
-      // the old project. The client re-subscribes after switching.
-      replyWithError('workspace_changed', 'Workspace changed', { key });
+      // the old project. Drop it quietly: attach nothing, publish nothing, and
+      // answer ok so the client does not show a load failure. The client
+      // re-subscribes after switching (beads-lite-1bo5.6.34).
+      ws.send(JSON.stringify(makeOk(req, { id: client_id, key, stale: true })));
       return;
     }
     const s = ensureSubs(ws);
