@@ -56,7 +56,10 @@ export function renderDetailHeader(issue, opts = {}) {
       ? html`<ul class="dh-chips" aria-label=${t('Worked on by')}>
           ${shown.map(chip)}
           <li class="dh-chip dh-more" data-n=${more} ?hidden=${more <= 0}>
-            ${more > 0 ? `+${num(more)}` : ''}
+            <span
+              class="dh-more-n"
+              .textContent=${more > 0 ? `+${num(more)}` : ''}
+            ></span>
           </li>
         </ul>`
       : ''}
@@ -116,18 +119,22 @@ export function fitChips(root, fmt = (n) => String(n)) {
   ]);
   const forced = Number(more?.dataset.n || 0);
   for (const c of chips) c.hidden = false;
-  if (more) {
+  // Only the inner span's text is touched: lit owns the li's children.
+  const label = /** @type {HTMLElement|null} */ (
+    more ? more.querySelector('.dh-more-n') : null
+  );
+  if (more && label) {
     more.hidden = true;
-    more.textContent = '';
+    label.textContent = '';
   }
   if (chips.length === 0) return;
   const tops = chips.map((c) => c.offsetTop);
   const show = (/** @type {number} */ k) => {
     chips.forEach((c, i) => (c.hidden = i >= k));
-    if (!more) return;
+    if (!more || !label) return;
     const hid = chips.length - k + forced;
     more.hidden = hid <= 0;
-    more.textContent = hid > 0 ? `+${fmt(hid)}` : '';
+    label.textContent = hid > 0 ? `+${fmt(hid)}` : '';
   };
   const k = fitCount(tops, (n) => {
     show(n);
