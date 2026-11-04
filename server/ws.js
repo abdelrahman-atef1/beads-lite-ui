@@ -5,7 +5,6 @@
  */
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
-import { WS_DEFLATE } from './features/perf.js';
 import {
   SETTABLE_STATUSES,
   isRequest,
@@ -17,6 +16,7 @@ import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
+import { WS_DEFLATE } from './features/perf.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
 import { MUTATING_TYPES, checkUpgrade } from './guard.js';
 import { fetchListForSubscription } from './list-adapters.js';
@@ -24,8 +24,14 @@ import { debug } from './logging.js';
 import { allMovedIds, resolveMovedId } from './moved-alias.js';
 import { installPhoneSocket } from './phone.js';
 import { getAvailableWorkspaces } from './registry-watcher.js';
-import { keyOf, registry } from './subscriptions.js';
+import { SubscriptionRegistry, keyOf, registry } from './subscriptions.js';
 import { validateSubscribeListPayload } from './validators.js';
+import {
+  ctxFor,
+  getDefaultWorkspace,
+  setCtx,
+  setDefaultWorkspace
+} from './workspace-context.js';
 import { withCounts } from './workspace-counts.js';
 import { withPrefixes } from './workspace-prefix.js';
 
@@ -78,7 +84,7 @@ let REFRESH_DEBOUNCE_MS = 75;
  * @property {(reason: 'watcher'|'timeout') => void} resolve
  * @property {ReturnType<typeof setTimeout>} timer
  */
-/** @type {MutationGate | null} */
+/** @type {(MutationGate & { dbs: Set<string> }) | null} */
 let MUTATION_GATE = null;
 
 /**
@@ -91,9 +97,10 @@ let MUTATION_GATE = null;
  *
  * @param {number} [timeout_ms]
  */
-function triggerMutationRefreshOnce(timeout_ms = 500) {
+function triggerMutationRefreshOnce(timeout_ms = 500, db_path = '') {
   clearDetailCaches();
   if (MUTATION_GATE) {
+    if (db_path) MUTATION_GATE.dbs.add(db_path);
     return;
   }
   /** @type {(r: 'watcher'|'timeout') => void} */
@@ -102,6 +109,7 @@ function triggerMutationRefreshOnce(timeout_ms = 500) {
     doResolve = resolve;
   });
   MUTATION_GATE = {
+    dbs: new Set(db_path ? [db_path] : []),
     resolved: false,
     resolve: (reason) => {
       if (!MUTATION_GATE || MUTATION_GATE.resolved) {
@@ -125,10 +133,13 @@ function triggerMutationRefreshOnce(timeout_ms = 500) {
   MUTATION_GATE.timer.unref?.();
 
   // After resolution, run a single refresh across active subs and clear gate
+  const gate_dbs = MUTATION_GATE.dbs;
   void p.then(async () => {
     log('mutation window resolved → refresh active subs');
     try {
-      await refreshAllActiveListSubscriptions();
+      await refreshAllActiveListSubscriptions(
+        gate_dbs.size > 0 ? gate_dbs : null
+      );
     } catch {
       // ignore refresh errors
     } finally {
@@ -145,12 +156,14 @@ function triggerMutationRefreshOnce(timeout_ms = 500) {
 }
 
 /**
- * Collect unique active list subscription specs across all connected clients.
+ * Collect unique active list subscriptions across all connected clients, one
+ * per (project, spec). Optionally only for the given projects (db paths).
  *
- * @returns {Array<{ type: string, params?: Record<string,string|number|boolean> }>}
+ * @param {Set<string> | null} [only_dbs]
+ * @returns {Array<{ spec: { type: string, params?: Record<string,string|number|boolean> }, ctx: { root_dir: string, db_path: string } }>}
  */
-function collectActiveListSpecs() {
-  /** @type {Array<{ type: string, params?: Record<string,string|number|boolean> }>} */
+function collectActiveListSpecs(only_dbs = null) {
+  /** @type {Array<{ spec: { type: string, params?: Record<string,string|number|boolean> }, ctx: { root_dir: string, db_path: string } }>} */
   const specs = [];
   /** @type {Set<string>} */
   const seen = new Set();
@@ -161,36 +174,54 @@ function collectActiveListSpecs() {
     if (ws.readyState !== ws.OPEN) {
       continue;
     }
+    const ctx = ctxFor(ws);
+    if (!ctx || (only_dbs && !only_dbs.has(ctx.db_path))) {
+      continue;
+    }
     const s = ensureSubs(/** @type {any} */ (ws));
     if (!s.list_subs) {
       continue;
     }
     for (const { key, spec } of s.list_subs.values()) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        specs.push(spec);
+      const scoped = ctx.db_path + '\0' + key;
+      if (!seen.has(scoped)) {
+        seen.add(scoped);
+        specs.push({ spec, ctx });
       }
     }
   }
   return specs;
 }
 
+/** Projects (db paths) with a refresh waiting; PENDING_ALL means every project. */
+const PENDING_DBS = new Set();
+let PENDING_ALL = false;
+
 /**
- * Run refresh for all active list subscription specs and publish deltas.
+ * Run refresh for active list subscriptions and publish deltas. With `dbs`
+ * only those projects are refreshed (a change in X never touches Y).
+ *
+ * @param {Set<string> | null} [dbs]
  */
-async function refreshAllActiveListSubscriptions() {
+async function refreshAllActiveListSubscriptions(dbs = null) {
+  if (dbs) {
+    for (const d of dbs) PENDING_DBS.add(d);
+  } else {
+    PENDING_ALL = true;
+  }
   // At most one refresh in flight; a change during one schedules exactly one
   // more (contract board-data.md).
   if (REFRESH_RUNNING) {
-    REFRESH_AGAIN = true;
     return REFRESH_RUNNING;
   }
   REFRESH_RUNNING = (async () => {
     try {
-      do {
-        REFRESH_AGAIN = false;
-        await refreshAllOnce();
-      } while (REFRESH_AGAIN);
+      while (PENDING_ALL || PENDING_DBS.size > 0) {
+        const filter = PENDING_ALL ? null : new Set(PENDING_DBS);
+        PENDING_ALL = false;
+        PENDING_DBS.clear();
+        await refreshAllOnce(filter);
+      }
     } finally {
       REFRESH_RUNNING = null;
     }
@@ -200,16 +231,16 @@ async function refreshAllActiveListSubscriptions() {
 
 /** @type {Promise<void> | null} */
 let REFRESH_RUNNING = null;
-let REFRESH_AGAIN = false;
 
-async function refreshAllOnce() {
+/** @param {Set<string> | null} filter */
+async function refreshAllOnce(filter) {
   clearDetailCaches();
-  const specs = collectActiveListSpecs();
+  const specs = collectActiveListSpecs(filter);
   // Run refreshes concurrently; locking is handled per key in the registry
   await Promise.all(
-    specs.map(async (spec) => {
+    specs.map(async ({ spec, ctx }) => {
       try {
-        await refreshAndPublish(spec);
+        await refreshAndPublish(spec, ctx);
       } catch {
         // ignore refresh errors per spec
       }
@@ -221,17 +252,25 @@ async function refreshAllOnce() {
 // background reload finishes: publish the fresh items to every subscriber.
 // No cache clearing here, or the fresh snapshot would be thrown away.
 boardData.onRevalidated = () => {
-  for (const spec of collectActiveListSpecs()) {
-    void refreshAndPublish(spec).catch(() => undefined);
+  for (const { spec, ctx } of collectActiveListSpecs()) {
+    void refreshAndPublish(spec, ctx).catch(() => undefined);
   }
 };
 
+/** Projects waiting on the debounce timer. */
+const SCHEDULED_DBS = new Set();
+let SCHEDULED_ALL = false;
+
 /**
- * Schedule a coalesced refresh of all active list subscriptions.
+ * Schedule a coalesced refresh of active list subscriptions: of one project
+ * (`db_path`, from its watcher) or, without it, of all.
+ *
+ * @param {string} [db_path]
  */
-export function scheduleListRefresh() {
-  // Suppress watcher-driven refreshes during an active mutation gate; resolve gate once
-  if (MUTATION_GATE) {
+export function scheduleListRefresh(db_path) {
+  // Suppress watcher-driven refreshes during an active mutation gate; resolve
+  // gate once. A change in a project the gate is not about is not suppressed.
+  if (MUTATION_GATE && (!db_path || MUTATION_GATE.dbs.has(db_path))) {
     try {
       MUTATION_GATE.resolve('watcher');
     } catch {
@@ -239,13 +278,21 @@ export function scheduleListRefresh() {
     }
     return;
   }
+  if (db_path) {
+    SCHEDULED_DBS.add(db_path);
+  } else {
+    SCHEDULED_ALL = true;
+  }
   if (REFRESH_TIMER) {
     clearTimeout(REFRESH_TIMER);
   }
   REFRESH_TIMER = setTimeout(() => {
     REFRESH_TIMER = null;
+    const dbs = SCHEDULED_ALL ? null : new Set(SCHEDULED_DBS);
+    SCHEDULED_ALL = false;
+    SCHEDULED_DBS.clear();
     // Fire and forget; callers don't await scheduling
-    void refreshAllActiveListSubscriptions();
+    void refreshAllActiveListSubscriptions(dbs);
   }, REFRESH_DEBOUNCE_MS);
   REFRESH_TIMER.unref?.();
 }
@@ -280,21 +327,97 @@ function allClients() {
 }
 
 /**
- * Current workspace configuration.
+ * One subscription registry per project (db path), so two projects never share
+ * entries or deltas. The server-default project uses the exported singleton.
  *
- * @type {{ root_dir: string, db_path: string } | null}
+ * @type {Map<string, SubscriptionRegistry>}
  */
-let CURRENT_WORKSPACE = null;
+let REGISTRIES = new Map();
+
+/**
+ * @param {{ db_path: string } | null} ctx
+ * @returns {SubscriptionRegistry}
+ */
+function registryFor(ctx) {
+  const db = ctx?.db_path || '';
+  let r = REGISTRIES.get(db);
+  if (!r) {
+    r =
+      db === getDefaultWorkspace()?.db_path
+        ? registry
+        : new SubscriptionRegistry();
+    REGISTRIES.set(db, r);
+  }
+  return r;
+}
+
+/**
+ * Sockets per project and the watcher release callbacks. A project's fs
+ * watcher exists only while a socket is on it (zero idle cost).
+ *
+ * @type {Map<string, Set<WebSocket>>}
+ */
+const PROJECT_SOCKETS = new Map();
+/** @type {Map<string, () => void>} */
+const PROJECT_RELEASE = new Map();
+/** Set by attachWsServer; starts a watcher for one project, returns its closer. @type {((root_dir: string, db_path: string) => () => void) | null} */
+let WATCH_PROJECT = null;
+
+/**
+ * Put a socket on a project (leaving its previous one).
+ *
+ * @param {WebSocket} ws
+ * @param {{ root_dir: string, db_path: string }} ctx
+ */
+function joinProject(ws, ctx) {
+  leaveProject(ws);
+  setCtx(ws, ctx);
+  let set = PROJECT_SOCKETS.get(ctx.db_path);
+  if (!set) {
+    set = new Set();
+    PROJECT_SOCKETS.set(ctx.db_path, set);
+  }
+  set.add(ws);
+  if (WATCH_PROJECT && !PROJECT_RELEASE.has(ctx.db_path)) {
+    PROJECT_RELEASE.set(ctx.db_path, WATCH_PROJECT(ctx.root_dir, ctx.db_path));
+    boardData.watch(ctx.root_dir);
+  }
+}
+
+/**
+ * Drop a socket from its project: its subscriptions, and the project's
+ * registry and watcher when it was the last one.
+ *
+ * @param {WebSocket} ws
+ */
+function leaveProject(ws) {
+  const ctx = ctxFor(ws);
+  if (!ctx) return;
+  const db = ctx.db_path;
+  const reg = REGISTRIES.get(db);
+  try {
+    reg?.onDisconnect(ws);
+  } catch {
+    // ignore cleanup errors
+  }
+  const set = PROJECT_SOCKETS.get(db);
+  if (!set || !set.delete(ws) || set.size > 0) return;
+  PROJECT_SOCKETS.delete(db);
+  if (reg && reg !== registry) REGISTRIES.delete(db);
+  const release = PROJECT_RELEASE.get(db);
+  if (release) {
+    PROJECT_RELEASE.delete(db);
+    try {
+      release();
+    } catch {
+      // ignore
+    }
+    boardData.unwatch(ctx.root_dir);
+  }
+}
 
 /** Set by attachWsServer; lets feature handlers broadcast. @type {((type: string, payload?: unknown) => void) | null} */
 let FEATURE_BROADCAST = null;
-
-/**
- * Reference to the database watcher for rebinding on workspace change.
- *
- * @type {{ rebind: (opts?: { root_dir?: string }) => void, path: string } | null}
- */
-let DB_WATCHER = null;
 
 /**
  * Clear issue-detail and comments caches whenever the database may have
@@ -310,10 +433,11 @@ function clearDetailCaches() {
 
 /**
  * @param {string} issue_id
+ * @param {{ root_dir: string, db_path: string } | null} ctx
  */
-function issueDetailCacheKey(issue_id) {
-  const root_dir = CURRENT_WORKSPACE?.root_dir || '';
-  const db_path = CURRENT_WORKSPACE?.db_path || '';
+function issueDetailCacheKey(issue_id, ctx) {
+  const root_dir = ctx?.root_dir || '';
+  const db_path = ctx?.db_path || '';
   return `${root_dir}\0${db_path}\0${issue_id}`;
 }
 
@@ -336,8 +460,9 @@ function evictOldestCacheEntry(cache, limit) {
  * @param {{ type: string, params?: Record<string, string|number|boolean> }} spec
  * @param {SubscriptionIssue[]} items
  * @param {number} generation
+ * @param {{ root_dir: string, db_path: string } | null} ctx
  */
-function populateIssueDetailCache(spec, items, generation) {
+function populateIssueDetailCache(spec, items, generation, ctx) {
   if (generation !== DETAIL_CACHE_GENERATION) {
     return;
   }
@@ -345,7 +470,7 @@ function populateIssueDetailCache(spec, items, generation) {
   if (issue_id.length === 0) {
     return;
   }
-  ISSUE_DETAIL_CACHE.set(issueDetailCacheKey(issue_id), {
+  ISSUE_DETAIL_CACHE.set(issueDetailCacheKey(issue_id, ctx), {
     items: items.slice()
   });
   evictOldestCacheEntry(ISSUE_DETAIL_CACHE, DETAIL_CACHE_LIMIT);
@@ -353,39 +478,41 @@ function populateIssueDetailCache(spec, items, generation) {
 
 /**
  * @param {{ type: string, params?: Record<string, string|number|boolean> }} spec
+ * @param {{ root_dir: string, db_path: string } | null} ctx
  * @returns {Promise<FetchListResult>}
  */
-async function fetchCachedIssueDetail(spec) {
+async function fetchCachedIssueDetail(spec, ctx) {
   const issue_id = String(spec.params?.id || '').trim();
   if (issue_id.length === 0) {
     return fetchListForSubscription(spec, {
-      cwd: CURRENT_WORKSPACE?.root_dir
+      cwd: ctx?.root_dir
     });
   }
-  const cached = ISSUE_DETAIL_CACHE.get(issueDetailCacheKey(issue_id));
+  const cached = ISSUE_DETAIL_CACHE.get(issueDetailCacheKey(issue_id, ctx));
   if (cached) {
     return { ok: true, items: cached.items.slice() };
   }
   const generation = DETAIL_CACHE_GENERATION;
   const result = await fetchListForSubscription(spec, {
-    cwd: CURRENT_WORKSPACE?.root_dir
+    cwd: ctx?.root_dir
   });
   if (result.ok) {
-    populateIssueDetailCache(spec, result.items, generation);
+    populateIssueDetailCache(spec, result.items, generation, ctx);
   }
   return result;
 }
 
 /**
  * @param {{ type: string, params?: Record<string, string|number|boolean> }} spec
+ * @param {{ root_dir: string, db_path: string } | null} ctx
  * @returns {Promise<FetchListResult>}
  */
-function fetchInitialListForSubscription(spec) {
+function fetchInitialListForSubscription(spec, ctx) {
   if (String(spec.type) === 'issue-detail') {
-    return fetchCachedIssueDetail(spec);
+    return fetchCachedIssueDetail(spec, ctx);
   }
   return fetchListForSubscription(spec, {
-    cwd: CURRENT_WORKSPACE?.root_dir,
+    cwd: ctx?.root_dir,
     allow_stale: true
   });
 }
@@ -521,14 +648,16 @@ function emitSubscriptionDelete(ws, client_id, key, issue_id) {
  * per-subscription full-issue envelopes to subscribers. Serialized per key.
  *
  * @param {{ type: string, params?: Record<string, string|number|boolean> }} spec
+ * @param {{ root_dir: string, db_path: string }} ctx the project to refresh
  */
-async function refreshAndPublish(spec) {
+async function refreshAndPublish(spec, ctx) {
   const key = keyOf(spec);
-  await registry.withKeyLock(key, async () => {
+  const reg = registryFor(ctx);
+  await reg.withKeyLock(key, async () => {
     const is_detail = String(spec.type) === 'issue-detail';
     const detail_cache_generation = DETAIL_CACHE_GENERATION;
     const res = await fetchListForSubscription(spec, {
-      cwd: CURRENT_WORKSPACE?.root_dir,
+      cwd: ctx?.root_dir,
       priority: is_detail ? 'interactive' : 'background'
     });
     if (!res.ok) {
@@ -537,11 +666,11 @@ async function refreshAndPublish(spec) {
     }
     const items = applyClosedIssuesFilter(spec, res.items);
     if (is_detail) {
-      populateIssueDetailCache(spec, items, detail_cache_generation);
+      populateIssueDetailCache(spec, items, detail_cache_generation, ctx);
     }
-    const prev_size = registry.get(key)?.itemsById.size || 0;
-    const delta = registry.applyItems(key, items);
-    const entry = registry.get(key);
+    const prev_size = reg.get(key)?.itemsById.size || 0;
+    const delta = reg.applyItems(key, items);
+    const entry = reg.get(key);
     if (!entry || entry.subscribers.size === 0) {
       return;
     }
@@ -613,8 +742,8 @@ function applyClosedIssuesFilter(spec, items) {
  * Attach a WebSocket server to an existing HTTP server.
  *
  * @param {Server} http_server
- * @param {{ path?: string, heartbeat_ms?: number, refresh_debounce_ms?: number, root_dir?: string, watcher?: { rebind: (opts?: { root_dir?: string }) => void, path: string } }} [options]
- * @returns {{ wss: WebSocketServer, broadcast: (type: MessageType, payload?: unknown) => void, scheduleListRefresh: () => void, setWorkspace: (root_dir: string) => { changed: boolean, workspace: { root_dir: string, db_path: string } } }}
+ * @param {{ path?: string, heartbeat_ms?: number, refresh_debounce_ms?: number, root_dir?: string, watch_project?: (root_dir: string, db_path: string) => () => void }} [options]
+ * @returns {{ wss: WebSocketServer, broadcast: (type: MessageType, payload?: unknown) => void, scheduleListRefresh: (db_path?: string) => void, setWorkspace: (root_dir: string) => { changed: boolean, workspace: { root_dir: string, db_path: string } } }}
  */
 export function attachWsServer(http_server, options = {}) {
   const ws_path = options.path || '/ws';
@@ -622,18 +751,10 @@ export function attachWsServer(http_server, options = {}) {
   // Initialize workspace state
   const initial_root = options.root_dir || process.cwd();
   const initial_db = resolveWorkspaceDatabase({ cwd: initial_root });
-  CURRENT_WORKSPACE = {
-    root_dir: initial_root,
-    db_path: initial_db.path
-  };
+  setDefaultWorkspace({ root_dir: initial_root, db_path: initial_db.path });
+  REGISTRIES = new Map([[initial_db.path, registry]]);
+  WATCH_PROJECT = options.watch_project || null;
   clearDetailCaches();
-
-  if (options.watcher) {
-    DB_WATCHER = options.watcher;
-  }
-  if (options.watcher) {
-    boardData.watch(CURRENT_WORKSPACE.root_dir);
-  }
   const heartbeat_ms = options.heartbeat_ms ?? 30000;
   if (typeof options.refresh_debounce_ms === 'number') {
     const n = options.refresh_debounce_ms;
@@ -675,6 +796,9 @@ export function attachWsServer(http_server, options = {}) {
 
     // Initialize subscription state for this connection
     ensureSubs(ws);
+    // Every socket starts on the server default and keeps its own project.
+    const start = getDefaultWorkspace();
+    if (start) joinProject(ws, start);
 
     ws.on('pong', () => {
       // @ts-expect-error marker
@@ -686,11 +810,7 @@ export function attachWsServer(http_server, options = {}) {
     });
 
     ws.on('close', () => {
-      try {
-        registry.onDisconnect(ws);
-      } catch {
-        // ignore cleanup errors
-      }
+      leaveProject(ws);
     });
   });
 
@@ -734,7 +854,8 @@ export function attachWsServer(http_server, options = {}) {
   }
 
   /**
-   * Change the current workspace and rebind the database watcher.
+   * Change the project NEW connections start on. Open sockets keep theirs:
+   * the server never moves one client because of another.
    *
    * @param {string} new_root_dir - Absolute path to the new workspace root.
    * @returns {{ changed: boolean, workspace: { root_dir: string, db_path: string } }}
@@ -742,41 +863,11 @@ export function attachWsServer(http_server, options = {}) {
   function setWorkspace(new_root_dir) {
     const resolved_root = path.resolve(new_root_dir);
     const new_db = resolveWorkspaceDatabase({ cwd: resolved_root });
-    const old_path = CURRENT_WORKSPACE?.db_path || '';
-
-    CURRENT_WORKSPACE = {
-      root_dir: resolved_root,
-      db_path: new_db.path
-    };
-
-    const changed = new_db.path !== old_path;
-
-    if (changed) {
-      log('workspace changed: %s → %s', old_path, new_db.path);
-
-      // Rebind the database watcher to the new workspace
-      if (DB_WATCHER) {
-        DB_WATCHER.rebind({ root_dir: resolved_root });
-      }
-
-      // Clear existing registry entries and refresh all subscriptions
-      registry.clear();
-      clearDetailCaches();
-      if (DB_WATCHER) {
-        boardData.watch(resolved_root);
-      }
-
-      // Broadcast workspace-changed event to all clients
-      broadcast('workspace-changed', CURRENT_WORKSPACE);
-
-      // Schedule refresh of all active list subscriptions
-      scheduleListRefresh();
-    }
-
-    return { changed, workspace: CURRENT_WORKSPACE };
+    const old_path = getDefaultWorkspace()?.db_path || '';
+    const workspace = { root_dir: resolved_root, db_path: new_db.path };
+    setDefaultWorkspace(workspace);
+    return { changed: new_db.path !== old_path, workspace };
   }
-
-  FEATURE_BROADCAST = broadcast;
 
   return {
     wss,
@@ -829,6 +920,8 @@ export function attachPhoneDoor(http_server, options = {}) {
     m.hostHeader = upgrade_req?.headers?.host;
     installPhoneSocket(ws);
     ensureSubs(ws);
+    const start = getDefaultWorkspace();
+    if (start) joinProject(ws, start);
     ws.on('pong', () => {
       m.isAlive = true;
     });
@@ -836,11 +929,7 @@ export function attachPhoneDoor(http_server, options = {}) {
       handleMessage(ws, data);
     });
     ws.on('close', () => {
-      try {
-        registry.onDisconnect(ws);
-      } catch {
-        // ignore cleanup errors
-      }
+      leaveProject(ws);
     });
   });
   const interval = setInterval(() => {
@@ -950,7 +1039,7 @@ async function handleMessageUnsafe(ws, data) {
   // Without this, runBd/runBdJson fall back to process.cwd() and bd reports
   // "no beads database found" for any workspace selected via set-workspace.
   // See mantoni/beads-ui#87.
-  const bd_options = { cwd: CURRENT_WORKSPACE?.root_dir };
+  const bd_options = { cwd: ctxFor(ws)?.root_dir };
 
   // Dispatch known types here as we implement them. For now, only a ping utility.
   if (req.type === /** @type {MessageType} */ ('ping')) {
@@ -974,6 +1063,7 @@ async function handleMessageUnsafe(ws, data) {
     const client_id = validation.id;
     const spec = validation.spec;
     const key = keyOf(spec);
+    const sub_ctx = ctxFor(ws);
 
     /**
      * Reply with an error and avoid attaching the subscription when
@@ -990,7 +1080,7 @@ async function handleMessageUnsafe(ws, data) {
     /** @type {FetchListResult | null} */
     let initial = null;
     try {
-      initial = await fetchInitialListForSubscription(spec);
+      initial = await fetchInitialListForSubscription(spec, sub_ctx);
     } catch (err) {
       log('subscribe-list snapshot error for %s: %o', key, err);
       const message =
@@ -1011,24 +1101,31 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
 
+    if (ctxFor(ws) !== sub_ctx) {
+      // The socket switched project while the list loaded: this answer is for
+      // the old project. The client re-subscribes after switching.
+      replyWithError('workspace_changed', 'Workspace changed', { key });
+      return;
+    }
     const s = ensureSubs(ws);
-    const { key: attached_key } = registry.attach(spec, ws);
+    const reg = registryFor(sub_ctx);
+    const { key: attached_key } = reg.attach(spec, ws);
     s.list_subs?.set(client_id, { key: attached_key, spec });
 
     try {
-      await registry.withKeyLock(attached_key, async () => {
+      await reg.withKeyLock(attached_key, async () => {
         const items = applyClosedIssuesFilter(
           spec,
           initial ? initial.items : []
         );
-        void registry.applyItems(attached_key, items);
+        void reg.applyItems(attached_key, items);
         emitSubscriptionSnapshot(ws, client_id, attached_key, items);
       });
     } catch (err) {
       log('subscribe-list snapshot error for %s: %o', attached_key, err);
       s.list_subs?.delete(client_id);
       try {
-        registry.detach(spec, ws);
+        reg.detach(spec, ws);
       } catch {
         // ignore detach errors
       }
@@ -1057,7 +1154,7 @@ async function handleMessageUnsafe(ws, data) {
     let removed = false;
     if (sub) {
       try {
-        removed = registry.detach(sub.spec, ws);
+        removed = registryFor(ctxFor(ws)).detach(sub.spec, ws);
       } catch {
         removed = false;
       }
@@ -1114,7 +1211,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, assignee })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1158,7 +1255,7 @@ async function handleMessageUnsafe(ws, data) {
     ws.send(JSON.stringify(makeOk(req, { id, status })));
     // After mutation, refresh active subscriptions once (watcher or timeout)
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1202,7 +1299,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, priority })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1250,7 +1347,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, issue_type: type })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1323,7 +1420,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, [field]: value })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1397,7 +1494,7 @@ async function handleMessageUnsafe(ws, data) {
     ws.send(JSON.stringify(makeOk(req, { created: true, wake })));
     // Refresh active subscriptions once (watcher or timeout)
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1437,7 +1534,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1477,7 +1574,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1516,7 +1613,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1555,7 +1652,7 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1573,7 +1670,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    const cache_key = issueDetailCacheKey(id);
+    const cache_key = issueDetailCacheKey(id, ctxFor(ws));
     const cached = COMMENTS_CACHE.get(cache_key);
     if (cached !== undefined) {
       ws.send(JSON.stringify(makeOk(req, cached)));
@@ -1650,7 +1747,10 @@ async function handleMessageUnsafe(ws, data) {
       ? comments.stdoutJson
       : [];
     if (generation === DETAIL_CACHE_GENERATION) {
-      COMMENTS_CACHE.set(issueDetailCacheKey(id), comment_list.slice());
+      COMMENTS_CACHE.set(
+        issueDetailCacheKey(id, ctxFor(ws)),
+        comment_list.slice()
+      );
       evictOldestCacheEntry(COMMENTS_CACHE, DETAIL_CACHE_LIMIT);
     }
     ws.send(JSON.stringify(makeOk(req, comment_list)));
@@ -1680,7 +1780,7 @@ async function handleMessageUnsafe(ws, data) {
     }
     ws.send(JSON.stringify(makeOk(req, { deleted: true, id })));
     try {
-      triggerMutationRefreshOnce();
+      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
     } catch {
       // ignore
     }
@@ -1702,7 +1802,7 @@ async function handleMessageUnsafe(ws, data) {
       JSON.stringify(
         makeOk(req, {
           workspaces,
-          current: CURRENT_WORKSPACE
+          current: ctxFor(ws)
         })
       )
     );
@@ -1724,7 +1824,7 @@ async function handleMessageUnsafe(ws, data) {
   // get-workspace: returns the current workspace
   if (req.type === 'get-workspace') {
     log('get-workspace');
-    ws.send(JSON.stringify(makeOk(req, CURRENT_WORKSPACE)));
+    ws.send(JSON.stringify(makeOk(req, ctxFor(ws))));
     return;
   }
 
@@ -1759,16 +1859,12 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
 
-    // Update workspace (this will rebind watcher, clear registry, broadcast change)
+    // Per-connection: only THIS socket changes project. Its subscriptions
+    // leave the old project; the client re-subscribes (clearAndResubscribe).
     const new_db = resolveWorkspaceDatabase({ cwd: resolved });
-    const old_path = CURRENT_WORKSPACE?.db_path || '';
-
-    CURRENT_WORKSPACE = {
-      root_dir: resolved,
-      db_path: new_db.path
-    };
-
+    const old_path = ctxFor(ws)?.db_path || '';
     const changed = new_db.path !== old_path;
+    const workspace = { root_dir: resolved, db_path: new_db.path };
 
     if (changed) {
       log(
@@ -1776,28 +1872,15 @@ async function handleMessageUnsafe(ws, data) {
         old_path,
         new_db.path
       );
-
-      // Rebind the database watcher
-      if (DB_WATCHER) {
-        DB_WATCHER.rebind({ root_dir: resolved });
-      }
-
-      // Clear existing registry entries
-      registry.clear();
-      clearDetailCaches();
-      if (DB_WATCHER) {
-        boardData.watch(resolved);
-      }
-
-      // Schedule refresh of all active list subscriptions
-      scheduleListRefresh();
+      ensureSubs(ws).list_subs?.clear();
+      joinProject(ws, workspace);
     }
 
     ws.send(
       JSON.stringify(
         makeOk(req, {
           changed,
-          workspace: CURRENT_WORKSPACE
+          workspace: changed ? workspace : ctxFor(ws)
         })
       )
     );
@@ -1810,7 +1893,7 @@ async function handleMessageUnsafe(ws, data) {
     try {
       const out = await feature(req, {
         ws,
-        root_dir: CURRENT_WORKSPACE?.root_dir,
+        root_dir: ctxFor(ws)?.root_dir,
         broadcast: (type, payload) => FEATURE_BROADCAST?.(type, payload)
       });
       ws.send(JSON.stringify(makeOk(req, out === undefined ? null : out)));
