@@ -54,7 +54,7 @@ export function boardHome(env = process.env) {
 async function loadRules() {
   const dir =
     process.env.CARDS_DIR ||
-    path.join(os.homedir(), 'company', 'scripts', 'cards');
+    path.join('E:', 'Projects', 'learner', 'scripts', 'cards');
   return import(pathToFileURL(path.join(dir, 'rules.mjs')).href);
 }
 

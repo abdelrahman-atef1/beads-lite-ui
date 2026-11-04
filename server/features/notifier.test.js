@@ -5,11 +5,10 @@ import { pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { createNotifier } from './notifier.js';
 
+// The card core moved to the learner repo (company-8ce8.14.8).
 const CARDS = path.join(
-  os.homedir(),
-  'company',
-  'scripts',
-  'cards',
+  process.env.CARDS_DIR ||
+    path.join('E:', 'Projects', 'learner', 'scripts', 'cards'),
   'rules.mjs'
 );
 /** @type {any} */
@@ -155,7 +154,7 @@ describe('notifier', () => {
     expect(r.n.snapshot().events).toHaveLength(0);
   });
 
-  test('W3: desk, sec, legal, declared-desk and unreadable-parent beads carry no title', async () => {
+  test('W3: desk-label and sec/legal beads beads carry no title', async () => {
     const r = rig({
       readBeadLabels: async (
         /** @type {string} */ _c,
@@ -167,8 +166,8 @@ describe('notifier', () => {
     const cases = [
       bead('alpha-1', card(), { labels: ['security'] }),
       bead('alpha-2', card(), { created_by: 'sec' }),
-      bead('alpha-3', card({ card_class: 'desk', card_opts: undefined })),
-      bead('alpha-9.1', card()),
+      // card_class=desk is retired (company-8ce8.15): such a card is invalid, no event.
+      // unreadable parent no longer makes a desk bead: rules.gate is always ok (company-8ce8.15).
       bead('alpha-6', card(), { labels: ['owner-pc-only'] }),
       bead('alpha-7', card(), { created_by: 'legal' })
     ];
