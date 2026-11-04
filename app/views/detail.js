@@ -8,6 +8,7 @@ import {
   parseAnchor
 } from '../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../utils/att-images.js';
+import { parseDecisionComment } from '../utils/decision-comment.js';
 import { renderFolded } from '../utils/fold.js';
 import { t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
@@ -1578,7 +1579,13 @@ export function createDetailView(
                     >
                   </div>
                   <div class="comment-text">
-                    ${renderFolded(c.text, renderMarkdown, flatComment)}
+                    ${parseDecisionComment(c.text)
+                      ? html`<div
+                          class="detail-slot"
+                          data-slot="dcard"
+                          data-cid=${commentAnchor(c)}
+                        ></div>`
+                      : renderFolded(c.text, renderMarkdown, flatComment)}
                   </div>
                 </div>
               `

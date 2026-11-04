@@ -227,3 +227,44 @@
   border-inline-start: 2px solid var(--border);
   color: var(--text-2);
 }
+
+/* Decision comment inline in the thread (beads-lite-1bo5.6.46.7) */
+.dc {
+  margin: var(--sp-2) 0;
+}
+.dc__badge {
+  display: inline-block;
+  padding: 2px var(--sp-3);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+.dc[data-state='answered'] .dc__badge,
+.dc[data-state='closed'] .dc__badge {
+  background: var(--text-3);
+}
+.dc__opts {
+  margin: var(--sp-2) 0;
+  padding-inline-start: var(--sp-5);
+}
+.dc__opt small {
+  margin-inline-start: var(--sp-2);
+  color: var(--text-3);
+}
+.dc__opt.is-picked {
+  font-weight: 700;
+  color: var(--accent);
+}
+.dc {
+  white-space: normal; /* inside .comment-text, which keeps line breaks */
+}
+.dc__opts {
+  list-style: none;
+  padding: 0;
+}
+.cd .btn--primary small {
+  color: inherit;
+  opacity: 0.85;
+}
