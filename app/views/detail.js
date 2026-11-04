@@ -10,7 +10,7 @@ import {
 import { bindAttClicks, setImgContext } from '../utils/att-images.js';
 import { parseDecisionComment } from '../utils/decision-comment.js';
 import { renderFolded } from '../utils/fold.js';
-import { t } from '../utils/i18n.js';
+import { getLang, t } from '../utils/i18n.js';
 import { issueHashFor } from '../utils/issue-url.js';
 import { linkifyText } from '../utils/linkify-ids.js';
 import { debug } from '../utils/logging.js';
@@ -24,8 +24,8 @@ import {
 } from '../utils/status.js';
 import { showToast } from '../utils/toast.js';
 import { createTypeBadge } from '../utils/type-badge.js';
+import { fitChips, renderDetailHeader } from './detail-header.js';
 import { mountSlots } from './registry.js';
-import { renderDetailHeader } from './detail-header.js';
 
 /**
  * Flat comment text keeps its line breaks.
@@ -1615,8 +1615,7 @@ export function createDetailView(
           <div class="detail-main">
             ${title_zone}
             ${renderDetailHeader(issue, {
-              weights: weights_by_id.get(String(issue.id)),
-              max_chips: window.innerWidth < 600 ? 4 : 8
+              weights: weights_by_id.get(String(issue.id))
             })}
             ${desc_block} ${design_block} ${notes_block}
             ${accept_block} ${comments_block}
@@ -1733,8 +1732,27 @@ export function createDetailView(
   /** Explicit child weights (metadata.weight) by bead id; fetched lazily. */
   /** @type {Map<string, Record<string, number|string>>} */
   const weights_by_id = new Map();
-  /** @type {Set<string>} */
-  const weights_asked = new Set();
+  /** @type {Map<string, string>} */
+  const weights_asked = new Map();
+
+  /**
+   * Fingerprint of the children (id, status, updated_at): a child closing or
+   * its weight changing makes it differ, so the bar refreshes while the parent
+   * stays open (beads-lite-1bo5.6.47.1).
+   *
+   * @param {any} issue
+   */
+  function childrenSig(issue) {
+    return (issue.dependents || [])
+      .filter(
+        (/** @type {any} */ d) => d && d.dependency_type === 'parent-child'
+      )
+      .map(
+        (/** @type {any} */ d) => `${d.id}:${d.status}:${d.updated_at || ''}`
+      )
+      .sort()
+      .join('|');
+  }
 
   /**
    * One lazy read-only call after first paint, only for beads with children.
@@ -1747,10 +1765,11 @@ export function createDetailView(
     const has_children = (issue.dependents || []).some(
       (/** @type {any} */ d) => d && d.dependency_type === 'parent-child'
     );
-    if (!has_children || weights_asked.has(id)) {
+    const sig = childrenSig(issue);
+    if (!has_children || weights_asked.get(id) === sig) {
       return;
     }
-    weights_asked.add(id);
+    weights_asked.set(id, sig);
     setTimeout(async () => {
       try {
         const w = await sendFn('get-weights', { id });
@@ -1778,8 +1797,16 @@ export function createDetailView(
     // detail. The registry calls mount(el, issue) again when the issue changes.
     void mountSlots(mount_element, current);
     ensureWeightsLoaded(current);
+    fitChips(mount_element, fmtNum);
     applyAnchor();
   }
+
+  /** @param {number} n */
+  function fmtNum(n) {
+    return new Intl.NumberFormat(getLang() === 'ar' ? 'ar-EG' : 'en').format(n);
+  }
+  const onResize = () => fitChips(mount_element, fmtNum);
+  window.addEventListener('resize', onResize);
 
   // Deep link `&at=<anchor>`: scroll to and highlight one section, comment or
   // line, once per (bead, anchor); retried on later renders until it exists.
@@ -2042,6 +2069,7 @@ export function createDetailView(
     },
     destroy() {
       window.removeEventListener('hashchange', applyAnchor);
+      window.removeEventListener('resize', onResize);
       mount_element.replaceChildren();
       if (unsubscribe_issue_stores) {
         unsubscribe_issue_stores();

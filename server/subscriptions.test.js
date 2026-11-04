@@ -39,6 +39,20 @@ describe('subscriptions registry', () => {
     expect(computeDelta(prev, next).updated).toEqual(['A']);
   });
 
+  test('computeDelta flags a parent whose child closed (same updated_at)', () => {
+    const mk = (/** @type {string} */ st) =>
+      toItemsMap([
+        {
+          id: 'P',
+          updated_at: 1,
+          closed_at: null,
+          dependents: [{ id: 'P.1', status: st, updated_at: st }]
+        }
+      ]);
+    expect(computeDelta(mk('open'), mk('open')).updated).toEqual([]);
+    expect(computeDelta(mk('open'), mk('closed')).updated).toEqual(['P']);
+  });
+
   test('computeDelta returns no changes for unchanged maps', () => {
     const prev = toItemsMap([
       { id: 'A', updated_at: 10, closed_at: null },

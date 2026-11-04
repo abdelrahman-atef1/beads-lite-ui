@@ -22,7 +22,7 @@
  */
 
 /**
- * @typedef {{ updated_at: number, closed_at: number | null, comment_count?: number }} ItemMeta
+ * @typedef {{ updated_at: number, closed_at: number | null, comment_count?: number, deps_sig?: string }} ItemMeta
  */
 
 /**
@@ -93,7 +93,8 @@ export function computeDelta(prev, next) {
     if (
       p.updated_at !== meta.updated_at ||
       p.closed_at !== meta.closed_at ||
-      p.comment_count !== meta.comment_count
+      p.comment_count !== meta.comment_count ||
+      p.deps_sig !== meta.deps_sig
     ) {
       updated.push(id);
     }
@@ -133,6 +134,16 @@ export function toItemsMap(items) {
     const count = Number(/** @type {any} */ (it).comment_count);
     if (Number.isFinite(count)) {
       meta.comment_count = count;
+    }
+    // A child closing does not bump the parent's updated_at, but the open
+    // parent's header progress must follow: dependents count as a change too
+    // (beads-lite-1bo5.6.47.1).
+    const deps = /** @type {any} */ (it).dependents;
+    if (Array.isArray(deps) && deps.length > 0) {
+      meta.deps_sig = deps
+        .map((d) => `${d && d.id}:${d && d.status}:${d && d.updated_at}`)
+        .sort()
+        .join('|');
     }
     map.set(it.id, meta);
   }

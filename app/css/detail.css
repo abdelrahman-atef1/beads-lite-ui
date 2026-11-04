@@ -256,6 +256,9 @@
   font-size: 13px;
   max-inline-size: 100%;
 }
+.dh-chip[hidden] {
+  display: none;
+}
 .dh-chip--current {
   border-color: var(--accent, #2563eb);
   background: color-mix(in srgb, var(--accent, #2563eb) 14%, transparent);

@@ -1,6 +1,6 @@
 import { render } from 'lit-html';
 import { afterEach, describe, expect, test } from 'vitest';
-import { renderDetailHeader } from './detail-header.js';
+import { fitCount, renderDetailHeader } from './detail-header.js';
 
 /**
  * @param {any} issue
@@ -41,7 +41,7 @@ const q = (el, sel) => /** @type {Element} */ (el.querySelector(sel));
 describe('detail header', () => {
   test('chips from comment authors + assignee; assignee first and highlighted', () => {
     const el = mount(issue);
-    const chips = Array.from(el.querySelectorAll('.dh-chip'));
+    const chips = Array.from(el.querySelectorAll('.dh-chip:not(.dh-more)'));
     expect(chips.map((c) => c.getAttribute('data-actor'))).toEqual([
       'cto',
       'zed',
@@ -71,7 +71,7 @@ describe('detail header', () => {
       { max_chips: 2 }
     );
     expect(el.querySelector('[role=progressbar]')).toBeNull();
-    expect(el.querySelectorAll('.dh-chip').length).toBe(3);
+    expect(el.querySelectorAll('.dh-chip:not(.dh-more)').length).toBe(2);
     expect(q(el, '.dh-more').textContent).toContain('+1');
   });
   test('nothing to show renders nothing', () => {
@@ -81,5 +81,18 @@ describe('detail header', () => {
     localStorage.setItem('beads-ui.lang', 'ar');
     const text = q(mount(issue), '.dh-text').textContent || '';
     expect(text).toMatch(/٤ من ٧ وزن/);
+  });
+});
+
+describe('fitCount (chips cap at 2 lines by layout)', () => {
+  test('everything fits in 2 rows -> all shown', () => {
+    expect(fitCount([0, 0, 30, 30], () => 30)).toBe(4);
+  });
+  test('third row hidden', () => {
+    expect(fitCount([0, 0, 30, 30, 60, 60], () => 30)).toBe(4);
+  });
+  test('+N must fit in row 2, else more chips drop', () => {
+    // with 4 shown, +N would wrap to row 3; with 3 it fits
+    expect(fitCount([0, 0, 30, 30, 60], (n) => (n >= 4 ? 60 : 30))).toBe(3);
   });
 });

@@ -29,8 +29,9 @@ export function renderDetailHeader(issue, opts = {}) {
     issue.acceptance || issue.acceptance_criteria
   );
   const pr = progress(children, steps, opts.weights || {});
-  const max = opts.max_chips ?? 6;
-  const shown = actors.slice(0, max);
+  // Chips are capped by layout (2 lines), not by count: fitChips() hides the
+  // overflow after render. max_chips stays only as a hard test/escape hatch.
+  const shown = opts.max_chips ? actors.slice(0, opts.max_chips) : actors;
   const more = actors.length - shown.length;
 
   const chip = (/** @type {string} */ a) => {
@@ -53,9 +54,10 @@ export function renderDetailHeader(issue, opts = {}) {
   return html`<div class="detail-header" data-testid="detail-header">
     ${actors.length
       ? html`<ul class="dh-chips" aria-label=${t('Worked on by')}>
-          ${shown.map(chip)}${more > 0
-            ? html`<li class="dh-chip dh-more">+${num(more)}</li>`
-            : ''}
+          ${shown.map(chip)}
+          <li class="dh-chip dh-more" data-n=${more} ?hidden=${more <= 0}>
+            ${more > 0 ? `+${num(more)}` : ''}
+          </li>
         </ul>`
       : ''}
     ${pr.total > 0
@@ -76,4 +78,60 @@ export function renderDetailHeader(issue, opts = {}) {
         </div>`
       : ''}
   </div>`;
+}
+
+/**
+ * Pure: given each chip's row (offsetTop) and the +N chip's, how many chips
+ * stay visible so everything fits in `lines` rows. The +N chip must itself sit
+ * inside the last allowed row, so chips are dropped from the end until it does.
+ *
+ * @param {number[]} tops - offsetTop of each chip in order
+ * @param {(visible: number) => number} moreTop - offsetTop the +N chip would
+ *   get if only `visible` chips were shown
+ * @param {number} [lines]
+ * @returns {number} visible chip count
+ */
+export function fitCount(tops, moreTop, lines = 2) {
+  const rows = [...new Set(tops)].sort((a, b) => a - b);
+  if (rows.length <= lines) return tops.length;
+  const limit = rows[lines - 1];
+  let n = tops.filter((t) => t <= limit).length;
+  while (n > 0 && moreTop(n) > limit) n--;
+  return n;
+}
+
+/**
+ * Hide chips beyond two lines and show "+N" for them. Layout-based, so it is
+ * right on PC and phone and in LTR and RTL. Call after every render.
+ *
+ * @param {ParentNode} root
+ * @param {(n: number) => string} [fmt]
+ */
+export function fitChips(root, fmt = (n) => String(n)) {
+  const ul = /** @type {HTMLElement|null} */ (root.querySelector('.dh-chips'));
+  if (!ul) return;
+  const more = /** @type {HTMLElement|null} */ (ul.querySelector('.dh-more'));
+  const chips = /** @type {HTMLElement[]} */ ([
+    ...Array.from(ul.querySelectorAll('.dh-chip:not(.dh-more)'))
+  ]);
+  const forced = Number(more?.dataset.n || 0);
+  for (const c of chips) c.hidden = false;
+  if (more) {
+    more.hidden = true;
+    more.textContent = '';
+  }
+  if (chips.length === 0) return;
+  const tops = chips.map((c) => c.offsetTop);
+  const show = (/** @type {number} */ k) => {
+    chips.forEach((c, i) => (c.hidden = i >= k));
+    if (!more) return;
+    const hid = chips.length - k + forced;
+    more.hidden = hid <= 0;
+    more.textContent = hid > 0 ? `+${fmt(hid)}` : '';
+  };
+  const k = fitCount(tops, (n) => {
+    show(n);
+    return more ? more.offsetTop : 0;
+  });
+  show(k);
 }
