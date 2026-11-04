@@ -5,6 +5,13 @@ import { describe, expect, test, vi } from 'vitest';
 import { createSubscriptionStore } from './subscriptions-store.js';
 
 describe('client subscription store', () => {
+  test('a stale subscribe reply is asked again (1bo5.6.34)', async () => {
+    const replies = [{ ok: true, stale: true }, { ok: true }];
+    const send = vi.fn(async () => replies.shift());
+    const store = createSubscriptionStore(/** @type {any} */ (send));
+    await store.subscribeList('s1', { type: 'all-issues' });
+    expect(send).toHaveBeenCalledTimes(2);
+  });
   test('applies delta sequences to itemsById', async () => {
     /** @type {(type: any, payload?: any) => Promise<any>} */
     const send = async () => ({ ok: true });

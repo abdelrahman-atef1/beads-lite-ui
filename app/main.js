@@ -214,6 +214,10 @@ export function bootstrap(root_element) {
         'tab:board:blocked'
       ];
       for (const id of storeIds) {
+        // A subscribe still in flight (reload restoring a saved project) keeps
+        // its store: the server drops that reply as stale and the store layer
+        // asks again, so the answer must find the store (1bo5.6.34).
+        if (pending_subscriptions.has(id)) continue;
         try {
           sub_issue_stores.unregister(id);
         } catch {
