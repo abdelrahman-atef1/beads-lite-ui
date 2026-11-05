@@ -24,5 +24,8 @@ export const FEATURE_MESSAGE_TYPES = [
   // decision card: answer, ask, thread, wake state (company-1bo5.6.9)
   'card-state',
   'card-answer',
-  'card-ask'
+  'card-ask',
+  // outputs panel (beads-lite-1bo5.6.18)
+  'outputs-get',
+  'outputs-project'
 ];
