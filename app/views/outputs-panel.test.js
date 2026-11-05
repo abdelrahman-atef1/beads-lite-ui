@@ -230,9 +230,7 @@ describe('detail slot', () => {
       send: vi.fn(() => new Promise((r) => (done = r)))
     };
     const p = mountOutputs(el, { id: 'tc-4' }, { client });
-    expect(el.querySelector('[role=status]')?.textContent).toContain(
-      'Loading'
-    );
+    expect(el.querySelector('[role=status]')?.textContent).toContain('Loading');
     done({ items: [], has_more: false });
     await p;
     expect(el.childElementCount).toBe(0);

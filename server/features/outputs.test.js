@@ -473,7 +473,9 @@ describe('one export instead of one bd call per bead', () => {
       status: 'open',
       comment_count: 1,
       dependencies: [{ type: 'parent-child', depends_on_id: 'tc-1' }],
-      comments: [{ author: 'swe', created_at: '2026-11-01T10:00:00Z', text: 'hi' }]
+      comments: [
+        { author: 'swe', created_at: '2026-11-01T10:00:00Z', text: 'hi' }
+      ]
     },
     {
       id: 'tc-1.1.1',
