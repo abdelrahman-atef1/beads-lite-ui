@@ -401,7 +401,12 @@ async function loadSecurity() {
  */
 export function createOutputs(opts = {}) {
   const listProjects = opts.listProjects || getAvailableWorkspaces;
-  const bdJson = opts.runBdJson || runBdJson;
+  const rawBd = opts.runBdJson || runBdJson;
+  /** @type {typeof runBdJson} */
+  const bdJson = (args, o) => {
+    log('bd %s', args.slice(0, 3).join(' '));
+    return rawBd(args, o);
+  };
   const gitIndex = createGitIndex({ git: opts.git || realGit });
   const watch =
     opts.watch ||
@@ -409,6 +414,9 @@ export function createOutputs(opts = {}) {
   /** @type {Promise<any> | null} */
   let secP = null;
   const security = () => (secP ??= (opts.security || loadSecurity)());
+
+  /** @type {Map<string, Promise<any>>} */
+  const inflight = new Map();
 
   /** @type {Map<string, { version: number, close: () => void, beads: Map<string, any>, kids: Map<string, any[]>, roots: Map<string, any> }>} */
   const projects = new Map();
@@ -666,7 +674,25 @@ export function createOutputs(opts = {}) {
      * @param {any} payload
      * @param {{ ws?: any, root_dir?: string }} ctx
      */
-    async get(payload, ctx) {
+    get(payload, ctx) {
+      // one read per identical request in flight (a re-mount must not double the bd calls)
+      const key = [
+        ctx.root_dir,
+        payload?.id,
+        payload?.more,
+        payload?.rollup,
+        isPhone(ctx.ws)
+      ].join('|');
+      let p = inflight.get(key);
+      if (!p) {
+        p = this.getOnce(payload, ctx);
+        inflight.set(key, p);
+        const done = () => inflight.delete(key);
+        p.then(done, done);
+      }
+      return p;
+    },
+    async getOnce(payload, ctx) {
       const id = payload?.id;
       if (typeof id !== 'string' || id.length > 64 || !BEAD_ID_RE.test(id)) {
         throw refuse('bad_input');
