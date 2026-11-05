@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
+  codeRepos,
   commitUrl,
   createGitIndex,
   createOutputs,
@@ -415,5 +416,132 @@ describe('outputs-get rollup', () => {
     const at = r.items.map((/** @type {any} */ i) => i.at);
     expect([...at].sort((a, b) => b - a)).toEqual(at);
     expect(r.items.length).toBeGreaterThan(3);
+  });
+});
+
+describe('git index drops rewritten history (beads-lite-1bo5.6.51)', () => {
+  const subjects = (/** @type {any} */ r, /** @type {string} */ id) =>
+    (r.byId.get(id) || []).map((/** @type {any} */ c) => c.subject);
+
+  test('amend: the old subject goes, the new one stays', async () => {
+    initRepo();
+    commit('base (x-0)');
+    commit('old words (x-1)');
+    const idx = createGitIndex({ git: countingGit().fn });
+    expect(subjects(await idx.read(dir), 'x-1')).toEqual(['old words (x-1)']);
+    git(['commit', '-q', '--amend', '-m', 'new words (x-1)']);
+    expect(subjects(await idx.read(dir), 'x-1')).toEqual(['new words (x-1)']);
+  });
+
+  test('a deleted branch takes its commits with it; landed ones stay', async () => {
+    initRepo();
+    commit('base (x-0)');
+    git(['checkout', '-q', '-b', 'feat']);
+    commit('only on feat (x-2)');
+    git(['checkout', '-q', 'main']);
+    const idx = createGitIndex({ git: countingGit().fn });
+    expect(subjects(await idx.read(dir), 'x-2')).toHaveLength(1);
+    git(['branch', '-q', '-D', 'feat']);
+    const r = await idx.read(dir);
+    expect(subjects(r, 'x-2')).toEqual([]);
+    expect(subjects(r, 'x-0')).toEqual(['base (x-0)']);
+  });
+
+  test('a fast-forward is not a rewrite: no full rescan', async () => {
+    initRepo();
+    commit('one (x-1)');
+    const g = countingGit();
+    const idx = createGitIndex({ git: g.fn });
+    await idx.read(dir);
+    commit('two (x-1)');
+    const before = g.calls.length;
+    const r = await idx.read(dir);
+    expect(subjects(r, 'x-1')).toHaveLength(2);
+    const logs = g.calls.slice(before).filter((c) => c[0] === 'log');
+    // incremental: the old tip is still excluded
+    expect(logs[0].some((a) => a.includes('--stdin'))).toBe(true);
+    expect(r.commits.size).toBe(2);
+  });
+});
+
+describe('one export instead of one bd call per bead', () => {
+  const lines = [
+    { id: 'tc-1', title: 'Story', status: 'open', comment_count: 0 },
+    {
+      id: 'tc-1.1',
+      title: 'A',
+      status: 'open',
+      comment_count: 1,
+      dependencies: [{ type: 'parent-child', depends_on_id: 'tc-1' }],
+      comments: [{ author: 'swe', created_at: '2026-11-01T10:00:00Z', text: 'hi' }]
+    },
+    {
+      id: 'tc-1.1.1',
+      title: 'B',
+      status: 'closed',
+      comment_count: 0,
+      parent: 'tc-1.1'
+    }
+  ];
+
+  test('a 3-level rollup runs zero per-bead bd calls', async () => {
+    const { out, calls } = rig({
+      exportIssues: async () =>
+        lines.map((l) => JSON.stringify({ _type: 'issue', ...l })).join('\n'),
+      security: async () => ({ validator: null, scan: () => [] })
+    });
+    const r = await out.get({ id: 'tc-1' }, pc());
+    expect(r.beads.map((/** @type {any} */ b) => b.id)).toEqual([
+      'tc-1',
+      'tc-1.1',
+      'tc-1.1.1'
+    ]);
+    expect(calls.bd).toEqual([]);
+  });
+
+  test('a failed export falls back to the per-bead path', async () => {
+    const { out, calls } = rig({
+      exportIssues: async () => null,
+      security: async () => ({ validator: null, scan: () => [] })
+    });
+    const r = await out.get({ id: 'tc-1' }, pc());
+    expect(r.beads.length).toBe(3);
+    expect(calls.bd.length).toBeGreaterThan(0);
+  });
+});
+
+describe('code repos of a project (.beads/code-repos)', () => {
+  test('commits of a listed repo show with its name; bad lines are ignored', async () => {
+    const code = fs.mkdtempSync(path.join(os.tmpdir(), 'outputscode-'));
+    try {
+      git(['init', '-q', '-b', 'main'], code);
+      git(['config', 'user.email', 't@t.t'], code);
+      git(['config', 'user.name', 'T'], code);
+      git(['config', 'commit.gpgsign', 'false'], code);
+      fs.writeFileSync(path.join(code, 'f'), '1');
+      git(['add', '.'], code);
+      git(['commit', '-q', '-m', 'ui change (tc-1.1)'], code);
+      fs.mkdirSync(path.join(dir, '.beads'));
+      fs.writeFileSync(
+        path.join(dir, '.beads', 'code-repos'),
+        ['# code', code, '../does-not-exist', ''].join('\n')
+      );
+      expect(codeRepos(dir)).toEqual([path.resolve(code)]);
+      const { out } = rig({
+        git: undefined,
+        security: async () => ({ validator: null, scan: () => [] })
+      });
+      const r = await out.get({ id: 'tc-1.1', rollup: false }, pc());
+      const c = r.items.filter((/** @type {any} */ i) => i.src === 'commit');
+      expect(c).toHaveLength(1);
+      expect(c[0].repo).toBe(path.basename(code));
+      expect(c[0].label).toBe('ui change (tc-1.1)');
+    } finally {
+      fs.rmSync(code, { recursive: true, force: true });
+    }
+  });
+
+  test('no file means no extra repos', () => {
+    expect(codeRepos(dir)).toEqual([]);
   });
 });

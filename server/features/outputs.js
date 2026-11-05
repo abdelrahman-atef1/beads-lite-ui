@@ -34,7 +34,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { runBdJson } from '../bd.js';
+import { runBd, runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
@@ -50,6 +50,7 @@ const MAX_ITEMS = 400;
 const MAX_MENTIONS_PER_BEAD = 20;
 const MAX_COMMITS_PER_BEAD = 100;
 const GIT_MAX_COMMITS = 20000;
+const MAX_CODE_REPOS = 5;
 const SUBJECT_MAX = 200;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const ID_TOKEN_RE = /[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+(?:\.\d+)*/g;
@@ -230,19 +231,46 @@ export function createGitIndex(deps) {
       }
     }
     try {
+      if (await rewritten(cwd, repo, list)) reset(repo);
       await scan(cwd, repo, list);
     } catch (e) {
       // an old tip vanished (gc, rewrite): start this repo over once
       log('git scan failed, rescanning: %o', e);
-      repo.commits.clear();
-      repo.byId.clear();
-      repo.landed.clear();
-      repo.landedTip = '';
-      repo.tips = [];
+      reset(repo);
       await scan(cwd, repo, list);
     }
     repo.stamp = stamp;
     return repo;
+  }
+
+  /** @param {any} repo */
+  function reset(repo) {
+    repo.commits.clear();
+    repo.byId.clear();
+    repo.landed.clear();
+    repo.landedTip = '';
+    repo.tips = [];
+  }
+
+  /**
+   * True when a tip we indexed before is no longer reachable from any ref
+   * (amend, rebase, deleted branch). A plain fast-forward is not a rewrite.
+   *
+   * @param {string} cwd
+   * @param {any} repo
+   * @param {Array<{sha:string,ref:string}>} list
+   */
+  async function rewritten(cwd, repo, list) {
+    const now = new Set(list.map((x) => x.sha));
+    const gone = /** @type {string[]} */ (repo.tips).filter((t) => !now.has(t));
+    if (!gone.length) return false;
+    const input = [...gone, ...list.map((x) => `^${x.sha}`)].join('\n');
+    const out = await deps.git(
+      cwd,
+      ['rev-list', '--max-count=1', '--stdin'],
+      input + '\n'
+    );
+    return out.trim().length > 0;
   }
 
   /**
@@ -357,6 +385,86 @@ function realGit(
   });
 }
 
+/** `bd export` output of one project; null on any failure. */
+async function realExport(/** @type {string} */ cwd) {
+  const r = await runBd(['export'], {
+    cwd,
+    timeout_ms: 60000,
+    priority: 'background'
+  });
+  return r.code === 0 ? r.stdout : null;
+}
+
+/**
+ * Index the JSON lines of `bd export`.
+ *
+ * @param {string} text
+ */
+export function parseExport(text) {
+  /** @type {Map<string, any>} */
+  const rows = new Map();
+  /** @type {Map<string, any[]>} */
+  const kids = new Map();
+  /** @type {Map<string, any[]>} */
+  const comments = new Map();
+  for (const line of text.split('\n')) {
+    if (!line.startsWith('{')) continue;
+    let o;
+    try {
+      o = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!o || typeof o.id !== 'string' || o._type === 'memory') continue;
+    rows.set(o.id, o);
+    comments.set(o.id, Array.isArray(o.comments) ? o.comments : []);
+    let parent = typeof o.parent === 'string' ? o.parent : '';
+    if (!parent && Array.isArray(o.dependencies)) {
+      const d = o.dependencies.find(
+        (/** @type {any} */ x) => x?.type === 'parent-child'
+      );
+      parent = d && typeof d.depends_on_id === 'string' ? d.depends_on_id : '';
+    }
+    if (parent) {
+      const arr = kids.get(parent) || [];
+      arr.push(o);
+      kids.set(parent, arr);
+    }
+  }
+  return { rows, kids, comments };
+}
+
+/**
+ * Code repos of a project besides its own folder: one path per line in
+ * `.beads/code-repos` (relative paths resolve from the project folder; `#`
+ * comments). Only folders with a `.git`, at most MAX_CODE_REPOS. No secrets.
+ *
+ * @param {string} root
+ * @returns {string[]}
+ */
+export function codeRepos(root) {
+  let text = '';
+  try {
+    text = fs.readFileSync(path.join(root, '.beads', 'code-repos'), 'utf8');
+  } catch {
+    return [];
+  }
+  const seen = new Set([path.resolve(root).toLowerCase()]);
+  /** @type {string[]} */
+  const out = [];
+  for (const raw of text.split('\n').slice(0, 50)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#') || line.length > 300) continue;
+    const dir = path.resolve(root, line);
+    const key = dir.toLowerCase();
+    if (seen.has(key) || !fs.existsSync(path.join(dir, '.git'))) continue;
+    seen.add(key);
+    out.push(dir);
+    if (out.length >= MAX_CODE_REPOS) break;
+  }
+  return out;
+}
+
 /** Shared validator + secret scanner; null parts = fail closed. */
 async function loadSecurity() {
   /** @type {{ validator: any, scan: ((s: string) => any[]) | null }} */
@@ -394,6 +502,7 @@ async function loadSecurity() {
  *   listProjects?: () => Array<{ path: string }>,
  *   runBdJson?: typeof runBdJson,
  *   git?: (cwd: string, args: string[], input?: string) => Promise<string>,
+ *   exportIssues?: ((cwd: string) => Promise<string | null>) | null,
  *   security?: () => Promise<{ validator: any, scan: ((s: string) => any[]) | null }>,
  *   watch?: (root: string, cb: () => void) => { close: () => void },
  *   now?: () => number
@@ -408,6 +517,14 @@ export function createOutputs(opts = {}) {
     return rawBd(args, o);
   };
   const gitIndex = createGitIndex({ git: opts.git || realGit });
+  // one `bd export` gives every bead, its parent and its comments (one process
+  // instead of one per bead); a test that injects its own bd opts out
+  const exportIssues =
+    opts.exportIssues !== undefined
+      ? opts.exportIssues
+      : opts.runBdJson
+        ? null
+        : realExport;
   const watch =
     opts.watch ||
     ((root, cb) => watchDb(root, cb, { debounce_ms: 1500, cooldown_ms: 1000 }));
@@ -418,7 +535,7 @@ export function createOutputs(opts = {}) {
   /** @type {Map<string, Promise<any>>} */
   const inflight = new Map();
 
-  /** @type {Map<string, { version: number, close: () => void, beads: Map<string, any>, kids: Map<string, any[]>, roots: Map<string, any> }>} */
+  /** @type {Map<string, { version: number, close: () => void, beads: Map<string, any>, kids: Map<string, any[]>, roots: Map<string, any>, snap: Promise<any> | null }>} */
   const projects = new Map();
 
   /** @param {string} root */
@@ -432,7 +549,8 @@ export function createOutputs(opts = {}) {
       close: () => {},
       beads: new Map(),
       kids: new Map(),
-      roots: new Map()
+      roots: new Map(),
+      snap: null
     };
     try {
       const w = watch(root, () => {
@@ -440,6 +558,7 @@ export function createOutputs(opts = {}) {
         np.beads.clear();
         np.kids.clear();
         np.roots.clear();
+        np.snap = null;
       });
       np.close = () => w.close();
     } catch (e) {
@@ -561,6 +680,34 @@ export function createOutputs(opts = {}) {
   }
 
   /**
+   * The whole project in memory (rows, children, comments), or null when the
+   * export is unavailable (then the per bead path below is used).
+   *
+   * @param {{ path: string }} proj
+   * @param {any} p - cache entry
+   * @returns {Promise<{ rows: Map<string, any>, kids: Map<string, any[]>, comments: Map<string, any[]> } | null>}
+   */
+  function snapshot(proj, p) {
+    if (!exportIssues) return Promise.resolve(null);
+    if (p.snap) return p.snap;
+    const version = p.version;
+    const pr = exportIssues(proj.path)
+      .then((text) => (text ? parseExport(text) : null))
+      .catch((e) => {
+        log('export failed, reading per bead: %o', e);
+        return null;
+      });
+    if (!p.nocache) {
+      p.snap = pr;
+      // a failed export is not remembered
+      void pr.then((v) => {
+        if (!v && p.version === version) p.snap = null;
+      });
+    }
+    return pr;
+  }
+
+  /**
    * @param {{ path: string }} proj
    * @param {any} p - cache entry
    * @param {any} row
@@ -572,7 +719,10 @@ export function createOutputs(opts = {}) {
     if (hit && hit.stamp === stamp) return hit;
     /** @type {any[]} */
     let comments = [];
-    if (Number(row.comment_count) > 0) {
+    const snap = await snapshot(proj, p);
+    if (snap) {
+      comments = snap.comments.get(row.id) || [];
+    } else if (Number(row.comment_count) > 0) {
       const r = await bdJson(['comments', row.id, '--json'], {
         cwd: proj.path,
         timeout_ms: 30000,
@@ -594,6 +744,8 @@ export function createOutputs(opts = {}) {
   async function children(proj, p, id) {
     const hit = p.kids.get(id);
     if (hit) return hit;
+    const snap = await snapshot(proj, p);
+    if (snap) return snap.kids.get(id) || [];
     const r = await bdJson(
       ['list', '--parent', id, '--status', 'all', '--json', '-n', '0'],
       { cwd: proj.path, timeout_ms: 30000, priority: 'background' }
@@ -613,10 +765,19 @@ export function createOutputs(opts = {}) {
   async function collect(sec, proj, rows, phone) {
     const p = project(proj.path);
     const version = p.version;
-    const git = await gitIndex.read(proj.path).catch((e) => {
-      log('git unreadable: %o', e);
-      return null;
-    });
+    const gits = (
+      await Promise.all(
+        [proj.path, ...codeRepos(proj.path)].map((dir, i) =>
+          gitIndex
+            .read(dir)
+            .then((g) => ({ g, name: i ? path.basename(dir) : '' }))
+            .catch((e) => {
+              log('git unreadable: %o', e);
+              return null;
+            })
+        )
+      )
+    ).filter((x) => x !== null);
     /** @type {any[]} */
     const items = [];
     /** @type {any[]} */
@@ -626,11 +787,19 @@ export function createOutputs(opts = {}) {
       if (phone && e.desk) continue;
       beads.push(e.row);
       items.push(...e.items);
-      const commits = git?.byId.get(String(row.id).toLowerCase()) || [];
-      for (const c of commits.slice(0, MAX_COMMITS_PER_BEAD)) {
+      const lid = String(row.id).toLowerCase();
+      const commits = gits
+        .flatMap((x) =>
+          (x.g.byId.get(lid) || []).map((/** @type {any} */ c) => ({
+            c,
+            repo: x.g,
+            name: x.name
+          }))
+        )
+        .sort((a, b) => b.c.at - a.c.at);
+      for (const { c, repo, name } of commits.slice(0, MAX_COMMITS_PER_BEAD)) {
         const subject = clean(c.subject, SUBJECT_MAX);
         const blocked = !sec.scan || sec.scan(subject).length > 0;
-        const repo = git;
         items.push({
           src: 'commit',
           kind: 'commit',
@@ -646,7 +815,8 @@ export function createOutputs(opts = {}) {
             c.ref.replace(/^refs\/(?:heads|remotes|tags)\//, ''),
             60
           ),
-          remote: commitUrl(repo.remote, c.sha) || null
+          remote: commitUrl(repo.remote, c.sha) || null,
+          repo: clean(name, 60)
         });
       }
     }
@@ -655,6 +825,7 @@ export function createOutputs(opts = {}) {
       p.beads.clear();
       p.kids.clear();
       p.roots.clear();
+      p.snap = null;
     }
     items.sort((a, b) => b.at - a.at);
     return { beads, items: items.slice(0, MAX_ITEMS) };
@@ -742,12 +913,28 @@ export function createOutputs(opts = {}) {
       const proj = locateRoot(ctx.root_dir);
       const sec = await security();
       const cap = (pages(payload?.more) + 1) * PAGE_BEADS;
-      const r = await bdJson(
-        ['list', '--all', '--sort', 'updated', '--json', '-n', String(cap + 1)],
-        { cwd: proj.path, timeout_ms: 30000, priority: 'background' }
-      );
-      const all =
-        r.code === 0 && Array.isArray(r.stdoutJson) ? r.stdoutJson : [];
+      const snap = await snapshot(proj, project(proj.path));
+      /** @type {any[]} */
+      let all;
+      if (snap) {
+        all = [...snap.rows.values()]
+          .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+          .slice(0, cap + 1);
+      } else {
+        const r = await bdJson(
+          [
+            'list',
+            '--all',
+            '--sort',
+            'updated',
+            '--json',
+            '-n',
+            String(cap + 1)
+          ],
+          { cwd: proj.path, timeout_ms: 30000, priority: 'background' }
+        );
+        all = r.code === 0 && Array.isArray(r.stdoutJson) ? r.stdoutJson : [];
+      }
       const rows = all.slice(0, cap);
       const out = await collect(sec, proj, rows, isPhone(ctx.ws));
       return {
@@ -769,6 +956,8 @@ export function createOutputs(opts = {}) {
   async function rootRowOf(proj, p, id) {
     const hit = p.roots.get(id);
     if (hit) return hit;
+    const snap = await snapshot(proj, p);
+    if (snap) return snap.rows.get(id) || null;
     const r = await bdJson(['show', id, '--json'], {
       cwd: proj.path,
       timeout_ms: 30000,

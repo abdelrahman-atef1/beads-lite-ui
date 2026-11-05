@@ -25,6 +25,7 @@ export const strings =
       ar: 'لم يُنتج شيء بعد. تظهر هنا الـ commits والنشر والروابط والصور.'
     },
     ou_loading: { en: 'Loading outputs…', ar: 'جارٍ تحميل المخرجات…' },
+    ou_retry: { en: 'Retry', ar: 'إعادة المحاولة' },
     ou_failed: {
       en: 'Outputs could not be loaded.',
       ar: 'تعذر تحميل المخرجات.'

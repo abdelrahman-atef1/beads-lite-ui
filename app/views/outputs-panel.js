@@ -104,6 +104,11 @@ function day(at) {
   return at > 0 ? new Date(at).toISOString().slice(0, 10) : '';
 }
 
+/** Latin ids and names keep their own direction inside Arabic text. */
+function iso(/** @type {string} */ text) {
+  return h('bdi', { dir: 'ltr' }, [text]);
+}
+
 /** @param {string} kind */
 function kindName(kind) {
   return KINDS.includes(kind) ? tr('ou_' + kind) : kind;
@@ -112,7 +117,7 @@ function kindName(kind) {
 /**
  * @typedef {{ src: string, kind: string, label: string, bead: string, at: number,
  *   by: string, href: string | null, sha?: string | null, landed?: boolean,
- *   branch?: string, remote?: string | null, att?: string, path?: string | null }} Item
+ *   branch?: string, remote?: string | null, att?: string, path?: string | null, repo?: string }} Item
  */
 
 /**
@@ -122,6 +127,7 @@ function kindName(kind) {
 export function rowOf(it, root) {
   const label = h('div', { class: 'ou-label' });
   const meta = h('div', { class: 'ou-meta' });
+  /** @type {Array<Node | string>} */
   const parts = [kindName(it.kind)];
   if (it.src === 'mention') parts.push(tr('ou_mentioned'));
   const badge = h('span', { class: 'ou-badge', 'aria-hidden': 'true' }, [
@@ -151,21 +157,22 @@ export function rowOf(it, root) {
     const sha = String(it.sha || '');
     const remote = safeHref(it.remote);
     parts.push(it.landed ? tr('ou_landed') : tr('ou_not_landed'));
-    if (it.branch) parts.push(it.branch);
+    if (it.repo) parts.push(iso(it.repo));
+    if (it.branch) parts.push(iso(it.branch));
     if (remote && /^[0-9a-f]{7,40}$/.test(sha)) {
       meta.append(link(remote, sha), ' · ');
     } else if (sha) {
-      parts.unshift(sha);
+      parts.unshift(iso(sha));
     }
   }
   if (it.src === 'record' && it.path) parts.push(it.path);
   if (it.bead && it.bead !== root && BEAD_RE.test(it.bead)) {
-    parts.push('#' + it.bead);
+    parts.push(iso('#' + it.bead));
   }
   if (it.by) parts.push(it.by);
   const d = day(it.at);
   if (d) parts.push(d);
-  meta.append(parts.join(' · '));
+  parts.forEach((x, i) => meta.append(...(i ? [' · ', x] : [x])));
   return h('li', { class: 'ou-row', 'data-src': it.src }, [
     badge,
     h('div', { class: 'ou-main' }, [label, meta])
@@ -178,7 +185,7 @@ export function rowOf(it, root) {
  * @param {any} data - Result
  * @param {{ root: string, kind: string, onKind: (k: string) => void,
  *   rollup?: boolean | null, onRollup?: (on: boolean) => void,
- *   onMore: () => void, more_label?: string }} ui
+ *   onMore: () => void, more_label?: string, note?: Node | null }} ui
  */
 export function bodyOf(data, ui) {
   const items = /** @type {Item[]} */ (
@@ -215,6 +222,7 @@ export function bodyOf(data, ui) {
   const list = h('ul', { class: 'ou-list' });
   for (const it of shown) list.append(rowOf(it, ui.root));
   const box = h('div', { class: 'ou-body' }, [chips]);
+  if (ui.note) box.append(ui.note);
   if (data?.degraded) {
     box.append(h('p', { class: 'ou-note' }, [tr('ou_degraded')]));
   }
@@ -254,7 +262,9 @@ export function mountOutputs(el, issue, opts = {}) {
       rollup: true,
       pages: 0,
       open: false,
-      data: null
+      data: null,
+      busy: false,
+      failed: false
     }
   );
   if (st.id !== id) {
@@ -264,20 +274,40 @@ export function mountOutputs(el, issue, opts = {}) {
       rollup: true,
       pages: 0,
       open: false,
-      data: null
+      data: null,
+      busy: false,
+      failed: false
     });
     el.replaceChildren();
   }
   const client = opts.client ?? createWsClient();
 
   function paint() {
-    const data = st.data;
-    if (!data || !Array.isArray(data.items) || !data.items.length) {
-      // nothing yet: keep a started panel, hide an empty one
-      if (!data || !data.has_more) {
-        el.replaceChildren();
-        return;
+    const data = st.data || { items: [] };
+    if (!st.busy && !st.failed) {
+      if (!Array.isArray(data.items) || !data.items.length) {
+        // loaded and nothing: keep a started panel, hide an empty one
+        if (!data.has_more) {
+          el.replaceChildren();
+          return;
+        }
       }
+    }
+    // loading or failed: say so, never an empty hole
+    /** @type {Node | null} */
+    let note = null;
+    if (st.failed) {
+      const retry = h('button', { type: 'button', class: 'ou-more' }, [
+        tr('ou_retry')
+      ]);
+      retry.addEventListener('click', () => void load());
+      note = h('p', { class: 'ou-note', role: 'alert' }, [
+        tr('ou_failed'),
+        ' ',
+        retry
+      ]);
+    } else if (st.busy) {
+      note = h('p', { class: 'ou-note', role: 'status' }, [tr('ou_loading')]);
     }
     const d = h('details', { class: 'ou' });
     if (st.open) d.setAttribute('open', '');
@@ -285,8 +315,13 @@ export function mountOutputs(el, issue, opts = {}) {
       st.open = /** @type {HTMLDetailsElement} */ (d).open;
     });
     d.append(
-      h('summary', {}, [tr('ou_title_n', { n: data.items.length })]),
+      h('summary', {}, [
+        data.items.length
+          ? tr('ou_title_n', { n: data.items.length })
+          : tr('ou_title')
+      ]),
       bodyOf(data, {
+        note,
         root: id,
         kind: st.kind,
         onKind: (k) => {
@@ -311,6 +346,9 @@ export function mountOutputs(el, issue, opts = {}) {
 
   async function load() {
     const seq = ++st.seq;
+    st.busy = true;
+    st.failed = false;
+    paint();
     try {
       const r = await client.send(T_GET, {
         id,
@@ -320,9 +358,10 @@ export function mountOutputs(el, issue, opts = {}) {
       if (seq !== st.seq || st.id !== id) return;
       st.data = r;
     } catch {
-      if (seq !== st.seq) return;
-      st.data = null;
+      if (seq !== st.seq || st.id !== id) return;
+      st.failed = true;
     }
+    st.busy = false;
     paint();
   }
 

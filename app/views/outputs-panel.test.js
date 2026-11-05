@@ -203,13 +203,77 @@ describe('detail slot', () => {
     expect(el.childElementCount).toBe(0);
   });
 
-  test('a failed fetch never throws and shows nothing', async () => {
+  test('a failed fetch never throws and says so, with a retry', async () => {
     const el = document.createElement('div');
     const client = { send: vi.fn(async () => Promise.reject(new Error('x'))) };
     await expect(
       mountOutputs(el, { id: 'tc-3' }, { client })
     ).resolves.toBeUndefined();
+    expect(el.querySelector('[role=alert]')?.textContent).toContain(
+      'could not be loaded'
+    );
+    client.send.mockImplementationOnce(async () => ({
+      items: [item()],
+      has_more: false
+    }));
+    /** @type {HTMLElement} */ (el.querySelector('.ou-note button')).click();
+    await tick();
+    expect(el.querySelector('[role=alert]')).toBe(null);
+    expect(el.querySelectorAll('.ou-row')).toHaveLength(1);
+  });
+
+  test('while loading the panel shows a loading line, not nothing', async () => {
+    const el = document.createElement('div');
+    /** @type {(v: any) => void} */
+    let done = () => {};
+    const client = {
+      send: vi.fn(() => new Promise((r) => (done = r)))
+    };
+    const p = mountOutputs(el, { id: 'tc-4' }, { client });
+    expect(el.querySelector('[role=status]')?.textContent).toContain(
+      'Loading'
+    );
+    done({ items: [], has_more: false });
+    await p;
     expect(el.childElementCount).toBe(0);
+  });
+
+  test('a failed rollup toggle keeps the list and shows the error', async () => {
+    const el = document.createElement('div');
+    const client = fake({ items: [item()], has_more: false });
+    await mountOutputs(el, { id: 'tc-5' }, { client });
+    client.send.mockImplementationOnce(async () => {
+      throw new Error('x');
+    });
+    el.querySelector('details')?.setAttribute('open', '');
+    const cb = /** @type {HTMLInputElement} */ (
+      el.querySelector('.ou-roll-cb')
+    );
+    cb.checked = false;
+    cb.dispatchEvent(new Event('change'));
+    await tick();
+    expect(el.querySelector('[role=alert]')).not.toBe(null);
+    expect(el.querySelectorAll('.ou-row')).toHaveLength(1);
+  });
+
+  test('ids, branches and repo names are direction-isolated', () => {
+    const li = rowOf(
+      item({
+        src: 'commit',
+        kind: 'commit',
+        sha: 'abc1234',
+        branch: 'swe/x',
+        repo: 'beads-lite-ui',
+        landed: true
+      }),
+      'tc-9'
+    );
+    const bdis = [...li.querySelectorAll('bdi[dir=ltr]')].map(
+      (b) => b.textContent
+    );
+    expect(bdis).toEqual(
+      expect.arrayContaining(['beads-lite-ui', 'swe/x', '#tc-1.1'])
+    );
   });
 
   test('kind chips filter; open state survives a re-mount of the same bead', async () => {
