@@ -88,6 +88,7 @@ const SLOTS = {
   bell: ['notifications', 'mountBell'],
   report: ['report', 'mountReport'],
   outputs: ['outputs', 'mountOutputs'],
+  'outputs-project': ['outputs', 'mountProjectOutputs'],
   card: ['card', 'mountCard'],
   dcard: ['card', 'mountDecisionComment']
 };
