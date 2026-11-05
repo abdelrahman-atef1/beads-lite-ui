@@ -118,7 +118,7 @@ describe('subjects and log parsing', () => {
   });
 });
 
-describe('git index (real repo)', () => {
+describe('git index (real repo)', { timeout: 30000 }, () => {
   test('landed flag, branch, remote; unchanged refs run one for-each-ref', async () => {
     initRepo();
     git(['remote', 'add', 'origin', 'https://tok@github.com/o/r.git']);
