@@ -51,11 +51,11 @@ function failMsg(base, err) {
  * @param {string} [dateStr]
  * @returns {string}
  */
-function formatCommentDate(dateStr) {
+export function formatCommentDate(dateStr) {
   if (!dateStr) return '';
   try {
     const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(getLang() === 'ar' ? 'ar-EG' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -84,7 +84,7 @@ export function formatDateValue(value) {
   try {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(getLang() === 'ar' ? 'ar-EG' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

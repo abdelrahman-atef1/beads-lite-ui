@@ -96,9 +96,11 @@ let MUTATION_GATE = null;
  * Fire-and-forget; callers should not await this.
  *
  * @param {number} [timeout_ms]
+ * @param {string} [db_path] project the change is in
+ * @param {string} [root_dir] its workspace root: only its board snapshot is invalidated
  */
-function triggerMutationRefreshOnce(timeout_ms = 500, db_path = '') {
-  clearDetailCaches();
+function triggerMutationRefreshOnce(timeout_ms = 500, db_path = '', root_dir) {
+  clearDetailCaches(root_dir ? [root_dir] : undefined);
   if (MUTATION_GATE) {
     if (db_path) MUTATION_GATE.dbs.add(db_path);
     return;
@@ -232,9 +234,25 @@ async function refreshAllActiveListSubscriptions(dbs = null) {
 /** @type {Promise<void> | null} */
 let REFRESH_RUNNING = null;
 
+/**
+ * Workspace roots of the connected clients on the given projects (db paths).
+ *
+ * @param {Set<string>} dbs
+ * @returns {Set<string>}
+ */
+function rootsOfDbs(dbs) {
+  /** @type {Set<string>} */
+  const roots = new Set();
+  for (const ws of allClients()) {
+    const ctx = ctxFor(ws);
+    if (ctx && dbs.has(ctx.db_path)) roots.add(ctx.root_dir);
+  }
+  return roots;
+}
+
 /** @param {Set<string> | null} filter */
 async function refreshAllOnce(filter) {
-  clearDetailCaches();
+  clearDetailCaches(filter ? rootsOfDbs(filter) : undefined);
   const specs = collectActiveListSpecs(filter);
   // Run refreshes concurrently; locking is handled per key in the registry
   await Promise.all(
@@ -251,8 +269,9 @@ async function refreshAllOnce(filter) {
 // A page load answered from a stale board snapshot is corrected as soon as the
 // background reload finishes: publish the fresh items to every subscriber.
 // No cache clearing here, or the fresh snapshot would be thrown away.
-boardData.onRevalidated = () => {
+boardData.onRevalidated = (root_dir) => {
   for (const { spec, ctx } of collectActiveListSpecs()) {
+    if (ctx.root_dir !== root_dir) continue;
     void refreshAndPublish(spec, ctx).catch(() => undefined);
   }
 };
@@ -422,13 +441,21 @@ let FEATURE_BROADCAST = null;
 /**
  * Clear issue-detail and comments caches whenever the database may have
  * changed. Incrementing the generation prevents stale in-flight reads from
- * repopulating either cache.
+ * repopulating either cache. `roots` (workspace roots) limits the board
+ * snapshot invalidation to those projects; without it all are invalidated.
+ *
+ * @param {Iterable<string | undefined>} [roots]
  */
-function clearDetailCaches() {
+function clearDetailCaches(roots) {
   ISSUE_DETAIL_CACHE.clear();
   COMMENTS_CACHE.clear();
   DETAIL_CACHE_GENERATION += 1;
-  boardData.invalidate();
+  if (!roots) {
+    boardData.invalidate();
+    return;
+  }
+  // Board snapshots are per project: only the changed projects reload.
+  for (const root_dir of roots) boardData.invalidate({ cwd: root_dir });
 }
 
 /**
@@ -1206,7 +1233,7 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
     // Pass empty string to clear assignee when requested
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['update', id, '--assignee', assignee], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1218,7 +1245,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, assignee })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1249,7 +1280,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['update', id, '--status', status], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1262,7 +1293,11 @@ async function handleMessageUnsafe(ws, data) {
     ws.send(JSON.stringify(makeOk(req, { id, status })));
     // After mutation, refresh active subscriptions once (watcher or timeout)
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1291,7 +1326,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(
       ['update', id, '--priority', String(priority)],
       bd_options
@@ -1306,7 +1341,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, priority })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1342,7 +1381,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['update', id, '--type', type], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1354,7 +1393,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, issue_type: type })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1402,7 +1445,7 @@ async function handleMessageUnsafe(ws, data) {
             : field === 'notes'
               ? '--notes'
               : '--design';
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     // description/design can be 100K+: send them on stdin (never the command
     // line). Other fields have no file option in bd; the arg cap covers them.
     const file_flag =
@@ -1427,7 +1470,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id, [field]: value })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1472,7 +1519,7 @@ async function handleMessageUnsafe(ws, data) {
       long_description = description;
     }
     // '--' so a title like '--help' is a title, never a bd flag.
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     // D6: a board-created task is marked and wakes CoS (agents never pass here).
     const res = await runBd(
       [
@@ -1501,7 +1548,11 @@ async function handleMessageUnsafe(ws, data) {
     ws.send(JSON.stringify(makeOk(req, { created: true, wake })));
     // Refresh active subscriptions once (watcher or timeout)
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1528,7 +1579,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['dep', 'add', a, b], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1541,7 +1592,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1568,7 +1623,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['dep', 'remove', a, b], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1581,7 +1636,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1608,7 +1667,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['label', 'add', id, label.trim()], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1620,7 +1679,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1647,7 +1710,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['label', 'remove', id, label.trim()], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1659,7 +1722,11 @@ async function handleMessageUnsafe(ws, data) {
     // pushes the new state to every subscriber; the reply only echoes the change.
     ws.send(JSON.stringify(makeOk(req, { id })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }
@@ -1767,7 +1834,7 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
 
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
 
     // Get git user name for author attribution
     const author = await getGitUserName(bd_options);
@@ -1783,7 +1850,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
 
     // Return updated comments list
     const generation = DETAIL_CACHE_GENERATION;
@@ -1821,7 +1888,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       return;
     }
-    clearDetailCaches();
+    clearDetailCaches([bd_options.cwd]);
     const res = await runBd(['delete', id, '--force'], bd_options);
     if (res.code !== 0) {
       ws.send(
@@ -1833,7 +1900,11 @@ async function handleMessageUnsafe(ws, data) {
     }
     ws.send(JSON.stringify(makeOk(req, { deleted: true, id })));
     try {
-      triggerMutationRefreshOnce(500, ctxFor(ws)?.db_path);
+      triggerMutationRefreshOnce(
+        500,
+        ctxFor(ws)?.db_path,
+        ctxFor(ws)?.root_dir
+      );
     } catch {
       // ignore
     }

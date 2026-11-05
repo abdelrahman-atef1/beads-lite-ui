@@ -65,6 +65,9 @@ export function createWorkspacePicker(
   /** @type {(() => void) | null} */
   let unsubscribe = null;
   let is_switching = false;
+  /** Newest requested target while a switch is in flight (last click wins). */
+  let pending_path = '';
+  let in_flight = 0;
   let open = false;
   let active = 0;
 
@@ -96,10 +99,16 @@ export function createWorkspacePicker(
 
   /** @param {string} new_path */
   async function choose(new_path) {
-    const current_path = store.getState().workspace?.current?.path || '';
+    // Compare with the pending target: the store only updates after the
+    // server reply, so a quick click back to the old project must not be
+    // dropped as 'already current' (beads-lite-1bo5.6.48).
+    const current_path =
+      pending_path || store.getState().workspace?.current?.path || '';
     open = false;
     if (new_path && new_path !== current_path) {
       log('switching workspace to %s', new_path);
+      pending_path = new_path;
+      in_flight++;
       is_switching = true;
       doRender();
       try {
@@ -107,7 +116,11 @@ export function createWorkspacePicker(
       } catch (err) {
         log('workspace switch failed: %o', err);
       } finally {
-        is_switching = false;
+        in_flight--;
+        if (in_flight === 0) {
+          is_switching = false;
+          pending_path = '';
+        }
         doRender();
       }
     } else {

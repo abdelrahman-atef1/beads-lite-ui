@@ -63,3 +63,59 @@ describe('views/workspace-picker', () => {
     expect(mount.querySelector('.pop')).toBeNull();
   });
 });
+
+describe('views/workspace-picker rapid clicks (beads-lite-1bo5.6.48)', () => {
+  test('click X then back to the current Y before the reply: last click wins', async () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const y = fx.current.root_dir;
+    const x = fx.workspaces.find((w) => w.path !== y).path;
+    const state = {
+      workspace: { current: { path: y }, available: fx.workspaces }
+    };
+    const store = { getState: () => state, subscribe: () => () => {} };
+    /** @type {Array<() => void>} */
+    const resolvers = [];
+    const change = vi.fn(
+      () => new Promise((res) => resolvers.push(() => res(undefined)))
+    );
+    createWorkspacePicker(mount, store, change, () => null, { list: true });
+    const row = (/** @type {string} */ p) =>
+      /** @type {HTMLElement} */ (
+        Array.from(mount.querySelectorAll('.ws-row')).find(
+          (r) => r.getAttribute('data-path') === p
+        )
+      );
+    row(x).click();
+    row(y).click(); // store still says Y (no reply yet)
+    expect(change.mock.calls.map((c) => c[0])).toEqual([x, y]);
+    resolvers.forEach((r) => r());
+    await Promise.resolve();
+    // after settling, a click on the same target as the store is a no-op
+    row(y).click();
+    expect(change).toHaveBeenCalledTimes(2);
+  });
+
+  test('a repeated click on the pending target is not sent twice', () => {
+    document.body.innerHTML = '<div id="m"></div>';
+    const mount = /** @type {HTMLElement} */ (document.getElementById('m'));
+    const state = {
+      workspace: {
+        current: { path: fx.current.root_dir },
+        available: fx.workspaces
+      }
+    };
+    const store = { getState: () => state, subscribe: () => () => {} };
+    const change = vi.fn(() => new Promise(() => {}));
+    createWorkspacePicker(mount, store, change, () => null, { list: true });
+    const x = fx.workspaces.find((w) => w.path !== fx.current.root_dir).path;
+    const r = /** @type {HTMLElement} */ (
+      Array.from(mount.querySelectorAll('.ws-row')).find(
+        (e) => e.getAttribute('data-path') === x
+      )
+    );
+    r.click();
+    r.click();
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+});
