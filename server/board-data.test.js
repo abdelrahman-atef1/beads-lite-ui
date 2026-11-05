@@ -344,6 +344,34 @@ describe('board data layer', () => {
       expect(bd.cachedProjects).toBe(2);
     });
 
+    test('an unwatched project is reloaded on return, not served as fresh', async () => {
+      const { calls, load } = multi();
+      let t = 0;
+      const bd = createBoardData({ load, ttl_ms: 1500, now: () => t });
+      bd.watch('/x');
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(1);
+      t = 60_000; // watched TTL would still serve it
+      bd.unwatch('/x');
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(2);
+      // while watched, the speed win stays
+      bd.watch('/x');
+      t = 120_000;
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(2);
+    });
+
+    test('a load in flight at unwatch is not cached as fresh', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      const p = bd.getSnapshot({ cwd: '/x' });
+      bd.unwatch('/x');
+      await p;
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(2);
+    });
+
     test('allow_stale and revalidation are per project', async () => {
       const { calls, load } = multi();
       const bd = createBoardData({ load, ttl_ms: 60_000 });

@@ -405,6 +405,10 @@ export function createBoardData(options = {}) {
    */
   function unwatch(cwd) {
     watched_keys.delete(cwd || '');
+    // Nobody is listening for changes now, so the snapshot may go stale
+    // unseen: it must not count as fresh (30 min watched TTL) on return. The
+    // old one stays only as `last` (stale-while-revalidate, then republished).
+    invalidate({ cwd });
   }
 
   return {
