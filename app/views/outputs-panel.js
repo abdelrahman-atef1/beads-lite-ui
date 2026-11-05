@@ -14,6 +14,7 @@
  * with rel="noopener noreferrer". Images only from the strict /att/ shape.
  * Fetched when a detail renders (fire and forget); never polled.
  */
+import { boardClient } from '../board-client.js';
 import { getLang, t } from '../utils/i18n.js';
 import { createWsClient } from '../ws.js';
 
@@ -280,7 +281,7 @@ export function mountOutputs(el, issue, opts = {}) {
     });
     el.replaceChildren();
   }
-  const client = opts.client ?? createWsClient();
+  const client = opts.client ?? boardClient() ?? createWsClient();
 
   function paint() {
     const data = st.data || { items: [] };
@@ -379,7 +380,7 @@ export function mountOutputs(el, issue, opts = {}) {
  * @param {{ client?: any }} [opts]
  */
 export function mountProjectOutputs(el, opts = {}) {
-  const client = opts.client ?? createWsClient();
+  const client = opts.client ?? boardClient() ?? createWsClient();
   /** @type {any} */
   const st = { open: false, kind: 'all', pages: 0, data: null, failed: false };
   /** @type {HTMLElement | null} */

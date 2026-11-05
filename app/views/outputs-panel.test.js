@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { boardClient } from '../board-client.js';
 import {
   T_GET,
   T_PROJECT,
@@ -343,5 +344,18 @@ describe('project view', () => {
     expect(document.querySelectorAll('.ou-panel li.ou-row')).toHaveLength(2);
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(document.querySelector('.ou-panel')).toBeNull();
+  });
+});
+
+describe('socket (beads-lite-1bo5.6.51)', () => {
+  test('a panel with no client uses the board socket, which carries the selected project', async () => {
+    const client = fake({ items: [item()], has_more: false });
+    boardClient(client);
+    const el = document.createElement('span');
+    document.body.append(el);
+    mountProjectOutputs(el, {});
+    /** @type {HTMLElement} */ (el.querySelector('button')).click();
+    await tick();
+    expect(client.send.mock.calls[0][0]).toBe(T_PROJECT);
   });
 });

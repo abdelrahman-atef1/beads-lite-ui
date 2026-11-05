@@ -3,6 +3,7 @@
  * @import { StatusFilter } from './utils/status.js'
  */
 import { html, render } from 'lit-html';
+import { boardClient } from './board-client.js';
 import { createListSelectors } from './data/list-selectors.js';
 import { createDataLayer } from './data/providers.js';
 import { createSubscriptionIssueStores } from './data/subscription-issue-stores.js';
@@ -125,6 +126,7 @@ export function bootstrap(root_element) {
     }
 
     const client = createWsClient();
+    boardClient(client); // slots (outputs panel) share this socket's project
     const tracked_send = activity.wrapSend((type, payload) =>
       client.send(type, payload)
     );
