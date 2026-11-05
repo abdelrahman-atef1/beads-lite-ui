@@ -212,4 +212,151 @@ describe('board data layer', () => {
     await bd.getColumn({ type: 'ready-issues' }, {});
     expect(state.calls).toBe(3);
   });
+  describe('per-project cache', () => {
+    /** Load that tags items with the project, counts per cwd, and can change data. */
+    function multi() {
+      const calls = /** @type {Record<string, number>} */ ({});
+      const rev = /** @type {Record<string, number>} */ ({});
+      const load = async (/** @type {string | undefined} */ cwd) => {
+        const k = cwd || '';
+        calls[k] = (calls[k] || 0) + 1;
+        rev[k] = rev[k] || 0;
+        const tag = k + ':' + rev[k];
+        return {
+          open: ok([{ id: tag, status: 'open' }]),
+          closed: ok([]),
+          ready: ok([]),
+          blocked: ok([])
+        };
+      };
+      return { calls, rev, load };
+    }
+
+    test('two projects each hit their cache, no cross-project eviction', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      for (let i = 0; i < 3; i++) {
+        await bd.getColumn({ type: 'all-issues' }, { cwd: '/x' });
+        await bd.getColumn({ type: 'all-issues' }, { cwd: '/y' });
+      }
+      expect(calls).toEqual({ '/x': 1, '/y': 1 });
+    });
+
+    test('invalidate({cwd}) reloads only that project, no stale data', async () => {
+      const { calls, rev, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      await bd.getColumn({ type: 'all-issues' }, { cwd: '/x' });
+      await bd.getColumn({ type: 'all-issues' }, { cwd: '/y' });
+      rev['/x'] = 1;
+      bd.invalidate({ cwd: '/x' });
+      const x = await bd.getColumn({ type: 'all-issues' }, { cwd: '/x' });
+      const y = await bd.getColumn({ type: 'all-issues' }, { cwd: '/y' });
+      expect(ids(x)).toEqual(['/x:1']);
+      expect(ids(y)).toEqual(['/y:0']);
+      expect(calls).toEqual({ '/x': 2, '/y': 1 });
+      rev['/y'] = 1;
+      bd.invalidate({ cwd: '/y' });
+      expect(
+        ids(await bd.getColumn({ type: 'all-issues' }, { cwd: '/y' }))
+      ).toEqual(['/y:1']);
+      expect(calls).toEqual({ '/x': 2, '/y': 2 });
+    });
+
+    test('invalidate() without scope still invalidates every project', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      await bd.getSnapshot({ cwd: '/x' });
+      await bd.getSnapshot({ cwd: '/y' });
+      bd.invalidate();
+      await bd.getSnapshot({ cwd: '/x' });
+      await bd.getSnapshot({ cwd: '/y' });
+      expect(calls).toEqual({ '/x': 2, '/y': 2 });
+    });
+
+    test('a slow load in X does not block Y, and a change in Y during it leaves X cached', async () => {
+      let release = () => {};
+      const gate = new Promise((r) => (release = () => r(undefined)));
+      const calls = /** @type {Record<string, number>} */ ({});
+      const load = async (/** @type {string | undefined} */ cwd) => {
+        const k = cwd || '';
+        calls[k] = (calls[k] || 0) + 1;
+        if (k === '/x') await gate;
+        return {
+          open: ok([{ id: k, status: 'open' }]),
+          closed: ok([]),
+          ready: ok([]),
+          blocked: ok([])
+        };
+      };
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      const px = bd.getSnapshot({ cwd: '/x' });
+      await bd.getSnapshot({ cwd: '/y' });
+      bd.invalidate({ cwd: '/y' });
+      release();
+      await px;
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(1);
+    });
+
+    test('a load in flight when its own project changes is not cached', async () => {
+      let release = () => {};
+      const gate = new Promise((r) => (release = () => r(undefined)));
+      const calls = /** @type {Record<string, number>} */ ({});
+      const load = async (/** @type {string | undefined} */ cwd) => {
+        const k = cwd || '';
+        calls[k] = (calls[k] || 0) + 1;
+        if (calls[k] === 1) await gate;
+        return { open: ok([]), closed: ok([]), ready: ok([]), blocked: ok([]) };
+      };
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      const p = bd.getSnapshot({ cwd: '/x' });
+      bd.invalidate({ cwd: '/x' });
+      release();
+      await p;
+      await bd.getSnapshot({ cwd: '/x' });
+      expect(calls['/x']).toBe(2);
+    });
+
+    test('memory is bounded: least recently used idle project is dropped', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000, max_projects: 3 });
+      for (const k of ['/a', '/b', '/c']) await bd.getSnapshot({ cwd: k });
+      await bd.getSnapshot({ cwd: '/a' }); // /a is now most recent; /b is oldest
+      await bd.getSnapshot({ cwd: '/d' });
+      expect(bd.cachedProjects).toBe(3);
+      await bd.getSnapshot({ cwd: '/a' });
+      await bd.getSnapshot({ cwd: '/c' });
+      expect(calls['/a']).toBe(1);
+      expect(calls['/c']).toBe(1);
+      await bd.getSnapshot({ cwd: '/b' });
+      expect(calls['/b']).toBe(2);
+    });
+
+    test('watched projects are dropped last', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000, max_projects: 2 });
+      bd.watch('/w');
+      await bd.getSnapshot({ cwd: '/w' });
+      await bd.getSnapshot({ cwd: '/b' });
+      await bd.getSnapshot({ cwd: '/c' });
+      await bd.getSnapshot({ cwd: '/w' });
+      expect(calls['/w']).toBe(1);
+      expect(bd.cachedProjects).toBe(2);
+    });
+
+    test('allow_stale and revalidation are per project', async () => {
+      const { calls, load } = multi();
+      const bd = createBoardData({ load, ttl_ms: 60_000 });
+      const keys = /** @type {string[]} */ ([]);
+      bd.onRevalidated = (k) => keys.push(k);
+      await bd.getSnapshot({ cwd: '/x' });
+      await bd.getSnapshot({ cwd: '/y' });
+      bd.invalidate({ cwd: '/x' });
+      await bd.getSnapshot({ cwd: '/x', allow_stale: true });
+      await bd.getSnapshot({ cwd: '/y', allow_stale: true });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(keys).toEqual(['/x']);
+      expect(calls).toEqual({ '/x': 2, '/y': 1 });
+    });
+  });
 });

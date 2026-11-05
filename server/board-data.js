@@ -9,8 +9,10 @@ const log = debug('board-data');
  *
  * One refresh = four `bd` calls (open+all custom statuses, closed, ready,
  * blocked) shared by every column subscription, split by status here. At most
- * one refresh is in flight; a request that arrives after `invalidate()` while
- * one is running waits for exactly one follow-up refresh. Works with upstream
+ * one refresh per project is in flight; a request that arrives after
+ * `invalidate()` while one is running waits for exactly one follow-up
+ * refresh. State is kept per project (bounded LRU), so projects never evict
+ * each other. Works with upstream
  * bd today: only documented flags are used.
  */
 
@@ -116,69 +118,115 @@ async function loadSnapshot(cwd, priority) {
   return { open, closed, ready, blocked };
 }
 
+/** Most projects whose snapshot is kept at once (LRU); each holds four bd lists, so this bounds memory. */
+const DEFAULT_MAX_PROJECTS = 8;
+
 /**
- * @param {{ ttl_ms?: number, watched_ttl_ms?: number, load?: typeof loadSnapshot, now?: () => number }} [options]
+ * Cache state of one project (one workspace root). Projects never share or
+ * evict each other's state: a change in X invalidates only X.
+ *
+ * @typedef {{
+ *   inflight: { generation: number, promise: Promise<Snapshot> } | null,
+ *   queued: { promise: Promise<Snapshot> } | null,
+ *   fresh: { snapshot: Snapshot, at: number } | null,
+ *   last: Snapshot | null,
+ *   revalidating: boolean,
+ *   generation: number
+ * }} ProjectState
+ */
+
+/**
+ * @param {{ ttl_ms?: number, watched_ttl_ms?: number, max_projects?: number, load?: typeof loadSnapshot, now?: () => number }} [options]
  */
 export function createBoardData(options = {}) {
   const ttl_ms = options.ttl_ms ?? DEFAULT_TTL_MS;
   const watched_ttl_ms = options.watched_ttl_ms ?? DEFAULT_WATCHED_TTL_MS;
+  const max_projects = Math.max(
+    1,
+    options.max_projects ?? DEFAULT_MAX_PROJECTS
+  );
   /** Workspaces a change watcher covers (one per project in use). @type {Set<string>} */
   const watched_keys = new Set();
   const load = options.load ?? loadSnapshot;
   const now = options.now ?? Date.now;
 
-  /** @type {{ key: string, generation: number, promise: Promise<Snapshot> } | null} */
-  let inflight = null;
-  /** @type {{ key: string, generation: number, promise: Promise<Snapshot> } | null} */
-  let queued = null;
-  /** @type {{ key: string, snapshot: Snapshot, at: number } | null} */
-  let fresh = null;
   /**
-   * The newest finished snapshot, kept past invalidate(). An initial page load
-   * with `allow_stale` is answered from it at once while one real reload runs
-   * (stale-while-revalidate), so a load after any write does not wait for four
-   * bd spawns. Zero idle cost: nothing reloads unless a page asks.
+   * Per-project state, least recently used first (Map keeps insertion order;
+   * touch() re-inserts). `last` is the newest finished snapshot, kept past
+   * invalidate(): an initial page load with `allow_stale` is answered from it
+   * at once while one real reload runs (stale-while-revalidate). Zero idle
+   * cost: nothing reloads unless a page asks.
    *
-   * @type {{ key: string, snapshot: Snapshot } | null}
+   * @type {Map<string, ProjectState>}
    */
-  let last = null;
-  let revalidating = false;
-  /** @type {(() => void) | null} Called when a stale answer has been replaced by a fresh load. */
+  const states = new Map();
+  /** @type {((key: string) => void) | null} Called when a stale answer has been replaced by a fresh load. */
   let on_revalidated = null;
   let spawned = 0;
-  /** Bumped by invalidate(); a load that started earlier is never cached. */
-  let generation = 0;
 
   /**
+   * State of one project, marked most recently used. Over the cap, the least
+   * recently used idle project is dropped (unwatched ones first), never this
+   * one and never one with a load in flight.
+   *
    * @param {string} key
+   * @returns {ProjectState}
+   */
+  function touch(key) {
+    let st = states.get(key);
+    if (st) {
+      states.delete(key);
+    } else {
+      st = {
+        inflight: null,
+        queued: null,
+        fresh: null,
+        last: null,
+        revalidating: false,
+        generation: 0
+      };
+    }
+    states.set(key, st);
+    if (states.size > max_projects) {
+      for (const pass of [false, true]) {
+        for (const [k, v] of states) {
+          if (states.size <= max_projects) break;
+          if (k === key || v.inflight || v.queued) continue;
+          if (!pass && watched_keys.has(k)) continue;
+          states.delete(k);
+        }
+      }
+    }
+    return st;
+  }
+
+  /**
+   * @param {ProjectState} st
    * @param {string | undefined} cwd
    * @param {'interactive' | 'background' | undefined} priority
    * @returns {Promise<Snapshot>}
    */
-  function start(key, cwd, priority) {
+  function start(st, cwd, priority) {
     spawned += 1;
-    const started_generation = generation;
-    /** @type {{ key: string, generation: number, promise: Promise<Snapshot> }} */
+    const started_generation = st.generation;
+    const key = cwd || '';
+    /** @type {{ generation: number, promise: Promise<Snapshot> }} */
     const entry = {
-      key,
       generation: started_generation,
-      promise: load(cwd, priority).then(
-        (snapshot) => {
-          if (started_generation === generation) {
-            fresh = { key, snapshot, at: now() };
-          }
-          last = { key, snapshot };
-          return snapshot;
-        },
-        (err) => {
-          throw err;
+      promise: load(cwd, priority).then((snapshot) => {
+        // A load that started before the last change is never cached.
+        if (started_generation === st.generation) {
+          st.fresh = { snapshot, at: now() };
         }
-      )
+        // Only keep it if the project was not evicted meanwhile.
+        if (states.get(key) === st) st.last = snapshot;
+        return snapshot;
+      })
     };
-    inflight = entry;
+    st.inflight = entry;
     const done = () => {
-      if (inflight === entry) {
-        inflight = null;
+      if (st.inflight === entry) {
+        st.inflight = null;
       }
     };
     entry.promise.then(done, done);
@@ -189,26 +237,24 @@ export function createBoardData(options = {}) {
    * Run one more load after the one in flight, whatever its outcome. Callers
    * that arrive meanwhile share it.
    *
-   * @param {string} key
+   * @param {ProjectState} st
    * @param {string | undefined} cwd
    * @param {'interactive' | 'background' | undefined} priority
    * @returns {Promise<Snapshot>}
    */
-  function chain(key, cwd, priority) {
-    const prev = /** @type {{ promise: Promise<Snapshot> }} */ (inflight)
+  function chain(st, cwd, priority) {
+    const prev = /** @type {{ promise: Promise<Snapshot> }} */ (st.inflight)
       .promise;
-    /** @type {{ key: string, generation: number, promise: Promise<Snapshot> }} */
+    /** @type {{ promise: Promise<Snapshot> }} */
     const entry = {
-      key,
-      generation,
       promise: prev
         .catch(() => undefined)
         .then(() => {
-          if (queued === entry) queued = null;
-          return start(key, cwd, priority);
+          if (st.queued === entry) st.queued = null;
+          return start(st, cwd, priority);
         })
     };
-    queued = entry;
+    st.queued = entry;
     return entry.promise;
   }
 
@@ -218,51 +264,55 @@ export function createBoardData(options = {}) {
    */
   function getSnapshot(opts = {}) {
     const key = opts.cwd || '';
+    const st = touch(key);
     const max_age = watched_keys.has(key) ? watched_ttl_ms : ttl_ms;
-    if (fresh && fresh.key === key && now() - fresh.at < max_age) {
-      return Promise.resolve(fresh.snapshot);
+    if (st.fresh && now() - st.fresh.at < max_age) {
+      return Promise.resolve(st.fresh.snapshot);
     }
-    if (opts.allow_stale && last && last.key === key) {
-      if (!revalidating) {
-        revalidating = true;
+    if (opts.allow_stale && st.last) {
+      if (!st.revalidating) {
+        st.revalidating = true;
         getSnapshot({ cwd: opts.cwd, priority: 'background' }).then(
           () => {
-            revalidating = false;
-            on_revalidated?.();
+            st.revalidating = false;
+            on_revalidated?.(key);
           },
           () => {
-            revalidating = false;
+            st.revalidating = false;
           }
         );
       }
-      return Promise.resolve(last.snapshot);
+      return Promise.resolve(st.last);
     }
-    if (queued && queued.key === key) {
-      return queued.promise;
+    if (st.queued) {
+      return st.queued.promise;
     }
-    if (
-      inflight &&
-      inflight.key === key &&
-      inflight.generation === generation
-    ) {
-      return inflight.promise;
+    if (st.inflight && st.inflight.generation === st.generation) {
+      return st.inflight.promise;
     }
-    if (inflight) {
-      // Another workspace, or a run that started before the last change, is
-      // in flight: wait for it, then run exactly one more.
-      return chain(key, opts.cwd, opts.priority);
+    if (st.inflight) {
+      // A run that started before the last change is in flight: wait for it,
+      // then run exactly one more.
+      return chain(st, opts.cwd, opts.priority);
     }
-    return start(key, opts.cwd, opts.priority);
+    return start(st, opts.cwd, opts.priority);
   }
 
   /**
    * Data changed. Lazy: nothing runs until the next request, which then
    * shares exactly one new load (after the one in flight, if any). A load
-   * that started earlier is never cached.
+   * that started earlier is never cached. With `{ cwd }` only that project is
+   * invalidated (others keep their cache); without arguments, all of them.
+   *
+   * @param {{ cwd?: string }} [scope]
    */
-  function invalidate() {
-    fresh = null;
-    generation += 1;
+  function invalidate(scope) {
+    const one = scope ? states.get(scope.cwd || '') : null;
+    const targets = scope ? (one ? [one] : []) : [...states.values()];
+    for (const st of targets) {
+      st.fresh = null;
+      st.generation += 1;
+    }
   }
 
   /** @type {WeakMap<Snapshot, ReturnType<typeof buildIndex>>} */
@@ -363,9 +413,13 @@ export function createBoardData(options = {}) {
     watch,
     unwatch,
     invalidate,
-    /** @param {(() => void) | null} fn */
+    /** @param {((key: string) => void) | null} fn */
     set onRevalidated(fn) {
       on_revalidated = fn;
+    },
+    /** Projects currently cached; for tests and logs. */
+    get cachedProjects() {
+      return states.size;
     },
     /** Number of snapshot loads started (4 bd calls each); for tests and logs. */
     get loads() {

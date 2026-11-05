@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { runBdJson } from './bd.js';
+import { boardData } from './board-data.js';
 import {
   fetchListForSubscription,
   mapSubscriptionToBdArgs
@@ -9,6 +10,8 @@ vi.mock('./bd.js', () => ({ runBdJson: vi.fn() }));
 
 describe('list adapters for subscription types', () => {
   beforeEach(() => {
+    // Snapshots are cached per project for the life of the process: no test sees another test's data.
+    boardData.invalidate();
     /** @type {import('vitest').Mock} */ (runBdJson).mockReset();
   });
 
