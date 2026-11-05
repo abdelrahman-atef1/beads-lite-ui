@@ -31,3 +31,13 @@ Success: a story's panel shows children's commits (id in subject, landed flag, r
 - S2 EN and AR (RTL): layout mirrored, text not clipped, shas/URLs stay LTR.
 - S3 Phone door socket end to end: panel data arrives via the phone socket, with O3 applied.
 - R1 Regression: header, folded comments, decision card, live Decisions view still work.
+
+## Mapping (added after the cases above were committed; QA 2026-11-05, build e04e2b7)
+Scripts live in `.work/scratch/beads-lite-1bo5.6.18-qa/` (server.qa.test.mjs = node --test, ui.spec.mjs / ux2.spec.mjs = Playwright, timing.mjs, cold.mjs, remotes.mjs); reports in `.work/out/beads-lite-1bo5.6.18/qa/`.
+- C1 C1b -> server.qa.test C1, C1b, R-real | C2 -> C2, R-real | C3 O4 -> C3/O4 + remotes.mjs (20 remote forms) + U1 (link in DOM)
+- C4 C5 O1 -> C4/C5/O1, O1b | C6 -> C6 | C7 -> C7, U1 (image loads) | C8 -> C8, C8b, U3 | C9 -> C9, U4 | C10 -> C10, U2
+- O2 -> O2 hrefs, O2 no endpoint, U1/U2 anchors, U5 (hostile server data, client defence) | O3 -> O3, O3b | O4 -> as C3
+- P1 -> P1 (bd shim log) | P2 -> P2, P2b, P2c, P2d | P3 -> timing.mjs, cold.mjs | P4 -> P4
+- S1 -> U1/U2 pc 1440 + phone 360 | S2 -> same, ar | S3 -> S3, O3 (socket on the phone door, own server) | R1 -> R1, D3
+- Degraded: D1 slow 3G, D2 failed request, D3 idle cost.
+- NOT EXERCISED: phone door rendered in a browser (door needs an https Origin on a tailnet host; socket-level only); validator-missing degraded banner (swe unit test only); live production data (db copy only).
