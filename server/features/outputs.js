@@ -44,6 +44,8 @@ import { cardsDirs, projectKey } from './decisions-feed.js';
 const log = debug('outputs');
 
 export const PAGE_BEADS = 50;
+/** After a failed `bd export`, wait this long before trying it again. */
+const FAIL_RETRY_MS = 30000;
 const MAX_PAGES = 20;
 const MAX_DEPTH = 4;
 const MAX_ITEMS = 400;
@@ -535,7 +537,7 @@ export function createOutputs(opts = {}) {
   /** @type {Map<string, Promise<any>>} */
   const inflight = new Map();
 
-  /** @type {Map<string, { version: number, close: () => void, beads: Map<string, any>, kids: Map<string, any[]>, roots: Map<string, any>, snap: Promise<any> | null }>} */
+  /** @type {Map<string, { version: number, close: () => void, beads: Map<string, any>, kids: Map<string, any[]>, roots: Map<string, any>, snap: Promise<any> | null, exportFail?: { version: number, at: number } }>} */
   const projects = new Map();
 
   /** @param {string} root */
@@ -690,6 +692,14 @@ export function createOutputs(opts = {}) {
   function snapshot(proj, p) {
     if (!exportIssues) return Promise.resolve(null);
     if (p.snap) return p.snap;
+    // a failed export is not retried per node: one try per FAIL_RETRY_MS
+    if (
+      p.exportFail &&
+      p.exportFail.version === p.version &&
+      Date.now() - p.exportFail.at < FAIL_RETRY_MS
+    ) {
+      return Promise.resolve(null);
+    }
     const version = p.version;
     const pr = exportIssues(proj.path)
       .then((text) => (text ? parseExport(text) : null))
@@ -701,7 +711,9 @@ export function createOutputs(opts = {}) {
       p.snap = pr;
       // a failed export is not remembered
       void pr.then((v) => {
-        if (!v && p.version === version) p.snap = null;
+        if (v) return;
+        if (p.version === version) p.snap = null;
+        p.exportFail = { version, at: Date.now() };
       });
     }
     return pr;
@@ -719,6 +731,7 @@ export function createOutputs(opts = {}) {
     if (hit && hit.stamp === stamp) return hit;
     /** @type {any[]} */
     let comments = [];
+    let failed = false;
     const snap = await snapshot(proj, p);
     if (snap) {
       comments = snap.comments.get(row.id) || [];
@@ -729,14 +742,17 @@ export function createOutputs(opts = {}) {
         priority: 'background'
       });
       if (r.code === 0 && Array.isArray(r.stdoutJson)) comments = r.stdoutJson;
+      else failed = true;
     }
     const entry = {
       stamp,
       desk: isDeskIssue(row),
       row: { id: row.id, title: row.title, status: row.status },
-      items: beadItems(row, comments, sec)
+      items: beadItems(row, comments, sec),
+      failed
     };
-    if (!p.nocache) p.beads.set(row.id, entry);
+    // a bead whose comments could not be read is not cached: next read retries
+    if (!p.nocache && !failed) p.beads.set(row.id, entry);
     return entry;
   }
 
@@ -782,9 +798,11 @@ export function createOutputs(opts = {}) {
     const items = [];
     /** @type {any[]} */
     const beads = [];
+    let skipped = 0;
     for (const row of rows) {
       const e = await beadEntry(proj, p, row, sec);
       if (phone && e.desk) continue;
+      if (e.failed) skipped += 1;
       beads.push(e.row);
       items.push(...e.items);
       const lid = String(row.id).toLowerCase();
@@ -828,7 +846,7 @@ export function createOutputs(opts = {}) {
       p.snap = null;
     }
     items.sort((a, b) => b.at - a.at);
-    return { beads, items: items.slice(0, MAX_ITEMS) };
+    return { beads, items: items.slice(0, MAX_ITEMS), skipped };
   }
 
   /** @param {any} ws */
@@ -902,7 +920,8 @@ export function createOutputs(opts = {}) {
         beads: out.beads,
         items: out.items,
         has_more,
-        degraded: !sec.validator || !sec.scan
+        degraded: !sec.validator || !sec.scan,
+        skipped: out.skipped
       };
     },
     /**
@@ -943,7 +962,8 @@ export function createOutputs(opts = {}) {
         beads: out.beads,
         items: out.items,
         has_more: all.length > cap,
-        degraded: !sec.validator || !sec.scan
+        degraded: !sec.validator || !sec.scan,
+        skipped: out.skipped
       };
     },
     close() {

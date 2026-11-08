@@ -512,6 +512,46 @@ describe('one export instead of one bd call per bead', () => {
   });
 });
 
+describe('failed export and failed comments (1bo5.6.51.1)', () => {
+  test('a failed export is tried once for a 3-level rollup, not once per node', async () => {
+    let exports = 0;
+    const { out } = rig({
+      exportIssues: async () => {
+        exports += 1;
+        return null;
+      },
+      security: async () => ({ validator: null, scan: () => [] })
+    });
+    await out.get({ id: 'tc-1' }, pc());
+    expect(exports).toBe(1);
+  });
+
+  test('beads whose comments cannot be read are counted, not silently dropped', async () => {
+    const { out } = rig({
+      exportIssues: async () => null,
+      runBdJson: async (/** @type {string[]} */ a) =>
+        a[0] === 'show'
+          ? {
+              code: 0,
+              stdoutJson: [
+                {
+                  id: 'tc-1.1',
+                  title: 'A',
+                  status: 'open',
+                  comment_count: 2,
+                  updated_at: 'u',
+                  metadata: {}
+                }
+              ]
+            }
+          : { code: 1 },
+      security: async () => ({ validator: null, scan: () => [] })
+    });
+    const r = await out.get({ id: 'tc-1.1', rollup: false }, pc());
+    expect(r.skipped).toBe(1);
+  });
+});
+
 describe('code repos of a project (.beads/code-repos)', () => {
   test('commits of a listed repo show with its name; bad lines are ignored', async () => {
     const code = fs.mkdtempSync(path.join(os.tmpdir(), 'outputscode-'));

@@ -30,6 +30,10 @@ export const strings =
       en: 'Outputs could not be loaded.',
       ar: 'تعذر تحميل المخرجات.'
     },
+    ou_skipped: {
+      en: 'Some beads could not be read, so their outputs are missing ({n}). Retry later.',
+      ar: 'تعذرت قراءة بعض المهام فنقصت مخرجاتها ({n}). أعد المحاولة لاحقًا.'
+    },
     ou_degraded: {
       en: 'Some outputs are hidden: the checker is unavailable.',
       ar: 'بعض المخرجات مخفية: أداة التحقق غير متاحة.'
