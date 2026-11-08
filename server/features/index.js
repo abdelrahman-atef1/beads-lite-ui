@@ -12,6 +12,7 @@ import * as localImg from './local-img.js';
 import * as notifier from './notifier.js';
 import * as outputs from './outputs.js';
 import * as push from './push.js';
+import * as releases from './releases.js';
 import * as report from './report.js';
 
 /**
@@ -77,6 +78,7 @@ for (const f of [
   notifier,
   push,
   outputs,
+  releases,
   cards
 ]) {
   f.register({ registerHandler, registerRoute });

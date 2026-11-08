@@ -1,0 +1,365 @@
+/* Releases screen (beads-lite-1bo5.6.36). Tokens only; logical properties so
+   Arabic (RTL) needs no overrides. Wide screen: list + 400px detail beside it.
+   Phone (<900px): the detail covers the list. */
+.route.releases {
+  overflow: auto;
+  height: 100%;
+}
+.rl-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.rl-main {
+  padding: var(--sp-4);
+  min-width: 0;
+}
+.rl-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+.rl-title h2 {
+  margin: 0;
+  font-size: var(--fs-l);
+}
+.rl-title small {
+  color: var(--text-3);
+  font-size: var(--fs-s);
+}
+.rl-filters {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  scrollbar-width: none;
+}
+.rl-chip {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--fs-s);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.rl-chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.rl-sep {
+  flex: none;
+  width: 1px;
+  background: var(--border);
+  margin: 6px 2px;
+}
+.rl-month {
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--text-3);
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+.rl-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+.rl-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--sp-3);
+  width: 100%;
+  text-align: start;
+  min-height: var(--tap);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+.rl-row[aria-selected='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.rl-l1 {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.rl-lbl {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rl-l2 {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  color: var(--text-3);
+  font-size: var(--fs-s);
+  align-items: center;
+}
+.rl-cnt {
+  align-self: start;
+  font-size: var(--fs-s);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0 var(--sp-3);
+  white-space: nowrap;
+}
+.rl-proj {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-s);
+  padding: 0 var(--sp-2);
+}
+.rl-kind {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border-radius: var(--radius-s);
+  padding: 0 var(--sp-2);
+}
+.rl-k-deploy {
+  color: var(--s-ready);
+  background: var(--s-ready-bg);
+}
+.rl-k-build {
+  color: var(--s-progress);
+  background: var(--s-progress-bg);
+}
+.rl-mono {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.rl-note {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--s-owner-bg);
+  color: var(--s-owner);
+  border-radius: var(--radius-m);
+  font-size: var(--fs-s);
+  margin-bottom: var(--sp-3);
+}
+.rl-center {
+  text-align: center;
+}
+.rl-src {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  margin-top: var(--sp-2);
+}
+.rl-btn {
+  min-height: var(--tap);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius-m);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rl-btn.rl-ghost {
+  background: none;
+  color: var(--accent);
+}
+.rl-empty {
+  text-align: center;
+  padding: var(--sp-6) var(--sp-4);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-l);
+}
+.rl-ic {
+  font-size: 36px;
+}
+.rl-empty h3 {
+  margin: var(--sp-2) 0;
+}
+.rl-empty p {
+  color: var(--text-2);
+  margin: var(--sp-2) auto;
+  max-width: 44ch;
+}
+/* The command is one line of code: it wraps at any width (a 360px phone has no
+   room for a 70-character line), it never scrolls sideways. */
+.rl-cmd {
+  display: block;
+  direction: ltr;
+  text-align: left;
+  background: var(--surface-2);
+  border-radius: var(--radius-s);
+  padding: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  margin: var(--sp-3) auto;
+  max-width: 46ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rl-skel {
+  height: 76px;
+  border-radius: var(--radius-m);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2),
+    var(--surface),
+    var(--surface-2)
+  );
+  background-size: 200% 100%;
+  animation: rl-shimmer 1.4s linear infinite;
+}
+@keyframes rl-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-skel {
+    animation: none;
+  }
+}
+.rl-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: var(--sp-4);
+}
+.rl-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rl-top h3 {
+  margin: 0;
+  font-size: var(--fs-l);
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.rl-badges {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.rl-x,
+.rl-back {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  min-height: var(--tap);
+}
+.rl-x {
+  width: var(--tap);
+  font-size: 20px;
+  border-radius: var(--radius-m);
+  color: var(--text);
+}
+.rl-back {
+  color: var(--accent);
+  padding: 0;
+  font-weight: 600;
+}
+.rl-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-1) var(--sp-4);
+  font-size: var(--fs-s);
+  margin: var(--sp-3) 0;
+  color: var(--text-2);
+}
+.rl-meta dt {
+  color: var(--text-3);
+}
+.rl-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rl-detail h4 {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-s);
+  color: var(--text-3);
+}
+.rl-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rl-tasks li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--sp-3);
+  align-items: center;
+  min-height: var(--tap);
+  border-top: 1px solid var(--border);
+  padding: var(--sp-2) 0;
+}
+.rl-id {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+.rl-st {
+  font-size: var(--fs-xs);
+  color: var(--s-closed);
+  background: var(--s-closed-bg);
+  border-radius: var(--radius-s);
+  padding: 0 var(--sp-2);
+  white-space: nowrap;
+}
+@media (min-width: 900px) {
+  .rl-wrap.rl-has-detail {
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: var(--sp-4);
+    padding: 0 var(--sp-4);
+  }
+  .rl-wrap.rl-has-detail .rl-main {
+    padding-inline-end: 0;
+  }
+  .rl-aside {
+    padding-top: var(--sp-4);
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+  .rl-back {
+    display: none;
+  }
+}
+@media (max-width: 899px) {
+  /* the detail takes the place of the list */
+  .rl-wrap.rl-has-detail .rl-main {
+    display: none;
+  }
+  .rl-aside {
+    padding: var(--sp-3);
+  }
+  .rl-x {
+    display: none;
+  }
+  .rl-tasks li {
+    grid-template-columns: 1fr auto;
+  }
+  .rl-tasks .rl-id {
+    grid-column: 1 / -1;
+    margin-bottom: -6px;
+  }
+}

@@ -7,6 +7,9 @@
  * notified.json. Two triggers only:
  *   decision: owner_decision + assignee abdelrahman + a card the card core accepts
  *   answer:   such a card whose card_state is "explained" (key includes the round)
+ * A third trigger, release (beads-lite-1bo5.6.36): a new `OUTPUT v1 deploy|build`
+ * record. The first sight of a project only remembers its releases (no flood);
+ * more than RELEASE_FOLD new ones in one scan become one line.
  * Events go to the bell store (notified.json, 30 days) and to every socket as a
  * `notify-event` frame. Push (N3, push.js) reads the same events through onEvent.
  *
@@ -24,6 +27,7 @@ import { allowPhoneFeatureType, isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { watchDb } from '../watcher.js';
 import { getPush } from './push.js';
+import { getReleases } from './releases.js';
 
 const log = debug('notifier');
 
@@ -33,6 +37,7 @@ export const RESCAN_MS = 30 * 60 * 1000;
 const KEEP_MS = 30 * 24 * 3600 * 1000;
 const KEY_KEEP_MS = 60 * 24 * 3600 * 1000;
 const MAX_EVENTS = 100;
+const RELEASE_FOLD = 3;
 const MAX_MUTE_MS = 7 * 24 * 3600 * 1000;
 const PROJECT_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
@@ -99,6 +104,7 @@ const sha = (/** @type {string} */ s) =>
  *   watch?: (root: string, cb: () => void) => { close: () => void },
  *   broadcast?: (type: string, payload?: unknown) => void,
  *   onEvent?: (ev: any, ctx: { muted: boolean }) => unknown,
+ *   listReleases?: (cwd: string) => Promise<any[] | null>,
  *   now?: () => number,
  *   rescan_ms?: number
  * }} [opts]
@@ -138,6 +144,9 @@ export function createNotifier(opts = {}) {
     opts.watch ||
     ((/** @type {string} */ root, /** @type {() => void} */ cb) =>
       watchDb(root, cb, { debounce_ms: DEBOUNCE_MS }));
+  const listReleases =
+    opts.listReleases ||
+    ((/** @type {string} */ cwd) => getReleases().scan(cwd));
   const broadcast = opts.broadcast || (() => {});
   const onEvent = opts.onEvent || null;
   const rescan_ms = opts.rescan_ms ?? RESCAN_MS;
@@ -311,6 +320,59 @@ export function createNotifier(opts = {}) {
     saveStore();
   }
 
+  /**
+   * New release records of one project (never throws).
+   * @param {string} key @param {string} cwd
+   */
+  async function scanReleases(key, cwd) {
+    try {
+      const list = await listReleases(cwd);
+      if (!list) return;
+      const at = new Date(now()).toISOString();
+      const seedKey = `rseed|${key}`;
+      const seeded = store.keys[seedKey] !== undefined;
+      store.keys[seedKey] = at;
+      /** @type {any[]} */
+      const fresh = [];
+      for (const r of list) {
+        const k = `${key}|r|${r.id}`;
+        const had = store.keys[k] !== undefined;
+        store.keys[k] = at;
+        if (!had && seeded) fresh.push({ r, k });
+      }
+      if (fresh.length > RELEASE_FOLD) {
+        emit({
+          id: `n-${sha(`${key}|rfold|${at}`).slice(0, 12)}`,
+          kind: 'release',
+          project: key,
+          bead: null,
+          title: null,
+          desk: false,
+          count: fresh.length,
+          at,
+          read: false
+        });
+      } else {
+        for (const { r, k } of fresh) {
+          emit({
+            id: `n-${sha(k).slice(0, 12)}`,
+            kind: 'release',
+            project: key,
+            bead: r.bead,
+            title: r.desk ? null : safeTitle({ title: r.label }),
+            desk: r.desk === true,
+            count: 1,
+            at,
+            read: false
+          });
+        }
+      }
+      saveStore();
+    } catch (e) {
+      log('release scan %s error %o', key, e);
+    }
+  }
+
   /** @param {string} key */
   function stopProject(key) {
     const w = watchers.get(key);
@@ -339,6 +401,7 @@ export function createNotifier(opts = {}) {
     try {
       if (!rules) rules = await loadRules();
       if (!isOn(key)) return;
+      await scanReleases(key, cwd);
       /** @type {any[]} */
       let beads;
       try {

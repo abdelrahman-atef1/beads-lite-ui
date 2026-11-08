@@ -53,6 +53,7 @@ export function bootstrap(root_element) {
     <section id="epics-root" class="route epics" hidden></section>
     <section id="board-root" class="route board" hidden></section>
     <section id="decisions-root" class="route decisions" hidden></section>
+    <section id="releases-root" class="route releases" hidden></section>
     <section id="detail-panel" class="route detail" hidden></section>
   `;
   render(shell, root_element);
@@ -67,6 +68,8 @@ export function bootstrap(root_element) {
   const board_root = document.getElementById('board-root');
   /** @type {HTMLElement|null} */
   const decisions_root = document.getElementById('decisions-root');
+  /** @type {HTMLElement|null} */
+  const releases_root = document.getElementById('releases-root');
 
   /** @type {HTMLElement|null} */
   const list_mount = document.getElementById('list-panel');
@@ -78,6 +81,7 @@ export function bootstrap(root_element) {
     epics_root &&
     board_root &&
     decisions_root &&
+    releases_root &&
     detail_mount
   ) {
     /** @type {HTMLElement|null} */
@@ -507,7 +511,7 @@ export function bootstrap(root_element) {
       log('filters parse error: %o', err);
     }
     // Load last-view from storage
-    /** @type {'issues'|'epics'|'board'|'decisions'} */
+    /** @type {'issues'|'epics'|'board'|'decisions'|'releases'} */
     let last_view = 'decisions';
     try {
       const raw_view = window.localStorage.getItem('beads-ui.view');
@@ -515,7 +519,8 @@ export function bootstrap(root_element) {
         raw_view === 'issues' ||
         raw_view === 'epics' ||
         raw_view === 'board' ||
-        raw_view === 'decisions'
+        raw_view === 'decisions' ||
+        raw_view === 'releases'
       ) {
         last_view = raw_view;
       }
@@ -706,7 +711,7 @@ export function bootstrap(root_element) {
       }
       store.setState({ selected_id: null });
       try {
-        /** @type {'issues'|'epics'|'board'|'decisions'} */
+        /** @type {'issues'|'epics'|'board'|'decisions'|'releases'} */
         const v = s.view || 'issues';
         router.gotoView(v);
       } catch {
@@ -867,6 +872,16 @@ export function bootstrap(root_element) {
           client
         )
     );
+    const releases_view = lazyView(
+      'releases',
+      (/** @type {typeof import('./views/releases.js')} */ m) =>
+        m.createReleasesView(
+          releases_root,
+          client,
+          (id) => router.gotoIssue(id),
+          () => store.getState().workspace?.current?.path || ''
+        )
+    );
     const board_view = lazyView(
       'board',
       (/** @type {typeof import('./views/board.js')} */ m) =>
@@ -882,7 +897,7 @@ export function bootstrap(root_element) {
     );
     // Preload epics when switching to view
     /**
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions', filters: any }} s
+     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
      */
     // --- Subscriptions: tab-level management and filter-driven updates ---
     /** @type {null | (() => Promise<void>)} */
@@ -943,7 +958,7 @@ export function bootstrap(root_element) {
     /**
      * Ensure only the active tab has subscriptions; clean up previous.
      *
-     * @param {{ view: 'issues'|'epics'|'board'|'decisions', filters: any }} s
+     * @param {{ view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
      */
     function ensureTabSubscriptions(s) {
       // Issues tab
@@ -1196,7 +1211,7 @@ export function bootstrap(root_element) {
     /**
      * Manage route visibility and list subscriptions per view.
      *
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions', filters: any }} s
+     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
      */
     const onRouteChange = (s) => {
       /** @type {Promise<unknown>[]} */
@@ -1206,6 +1221,7 @@ export function bootstrap(root_element) {
         epics_root &&
         board_root &&
         decisions_root &&
+        releases_root &&
         detail_mount
       ) {
         // Underlying route visibility is controlled only by selected view
@@ -1213,6 +1229,7 @@ export function bootstrap(root_element) {
         epics_root.hidden = s.view !== 'epics';
         board_root.hidden = s.view !== 'board';
         decisions_root.hidden = s.view !== 'decisions';
+        releases_root.hidden = s.view !== 'releases';
         // detail_mount visibility handled in subscription above
       }
       // Ensure subscriptions for the active tab before loading the view to
@@ -1229,6 +1246,9 @@ export function bootstrap(root_element) {
       }
       if (!s.selected_id && s.view === 'decisions') {
         loads.push(decisions_view.load());
+      }
+      if (!s.selected_id && s.view === 'releases') {
+        loads.push(releases_view.load());
       }
       if (s.view !== persisted_view_value) {
         window.localStorage.setItem('beads-ui.view', s.view);

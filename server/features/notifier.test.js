@@ -63,6 +63,7 @@ function rig(/** @type {any} */ over = {}) {
     now: () => t,
     broadcast: (type, p) => frames.push({ type, p }),
     listProjects: () => [{ path: 'C:/p/alpha' }, { path: 'C:/p/Beta/' }],
+    listReleases: async () => null,
     listParked: async (cwd) => {
       calls.list += 1;
       return parked[path.basename(cwd).toLowerCase()] || [];
@@ -89,6 +90,108 @@ function rig(/** @type {any} */ over = {}) {
 const settle = () => new Promise((r) => setTimeout(r, 30));
 const json = (/** @type {string} */ f) => JSON.parse(readFileSync(f, 'utf8'));
 const A = 'C:/p/alpha';
+
+/** One release row as the reader returns it. */
+const rel = (/** @type {string} */ id, /** @type {any} */ o = {}) => ({
+  id,
+  bead: id.split('~')[0],
+  label: 'Web ' + id,
+  desk: false,
+  ...o
+});
+
+describe('notifier releases', () => {
+  test('first sight is silent, a new release fires once, a restart does not repeat', async () => {
+    /** @type {any[]} */
+    let rels = [rel('alpha-1~c1'), rel('alpha-2~c2')];
+    const home = mkdtempSync(path.join(os.tmpdir(), 'notif-'));
+    const r = rig({
+      home,
+      listReleases: async (/** @type {string} */ cwd) =>
+        cwd.endsWith('alpha') ? rels : []
+    });
+    r.n.sync();
+    await settle();
+    expect(r.n.snapshot().events).toHaveLength(0);
+    rels = [rel('alpha-3~c3', { label: 'Web v3' }), ...rels];
+    r.cbs.get(A)?.();
+    await settle();
+    const ev = r.n.snapshot().events;
+    expect(ev).toHaveLength(1);
+    expect(ev[0]).toMatchObject({
+      kind: 'release',
+      project: 'alpha',
+      bead: 'alpha-3',
+      title: 'Web v3',
+      desk: false
+    });
+    r.cbs.get(A)?.();
+    await settle();
+    expect(r.n.snapshot().events).toHaveLength(1);
+    r.n.stop();
+    const r2 = rig({
+      home,
+      listReleases: async (/** @type {string} */ cwd) =>
+        cwd.endsWith('alpha') ? rels : []
+    });
+    r2.n.sync();
+    await settle();
+    expect(r2.n.snapshot().events).toHaveLength(1);
+  });
+
+  test('a switched-off project shows nothing', async () => {
+    /** @type {any[]} */
+    let rels = [rel('alpha-1~c1')];
+    const r = rig({
+      listReleases: async (/** @type {string} */ cwd) =>
+        cwd.endsWith('alpha') ? rels : []
+    });
+    r.n.setProject({ project: 'alpha', on: false });
+    rels = [rel('alpha-2~c2'), ...rels];
+    r.n.sync();
+    await settle();
+    expect(r.n.snapshot().events).toHaveLength(0);
+  });
+
+  test('more than three new ones fold into one line; a desk bead carries no title', async () => {
+    /** @type {any[]} */
+    let rels = [rel('alpha-0~c0')];
+    const r = rig({
+      listReleases: async (/** @type {string} */ cwd) =>
+        cwd.endsWith('alpha') ? rels : []
+    });
+    r.n.sync();
+    await settle();
+    rels = [...[1, 2, 3, 4].map((i) => rel('alpha-' + i + '~c' + i)), ...rels];
+    r.cbs.get(A)?.();
+    await settle();
+    let ev = r.n.snapshot().events;
+    expect(ev).toHaveLength(1);
+    expect(ev[0]).toMatchObject({ kind: 'release', count: 4, bead: null });
+    rels = [rel('alpha-9~c9', { desk: true, label: 'secret plan' }), ...rels];
+    r.cbs.get(A)?.();
+    await settle();
+    ev = r.n.snapshot().events;
+    expect(ev[0]).toMatchObject({
+      kind: 'release',
+      bead: 'alpha-9',
+      title: null,
+      desk: true
+    });
+  });
+
+  test('a failing reader does not stop decisions', async () => {
+    const r = rig({
+      listReleases: async () => {
+        throw new Error('boom');
+      }
+    });
+    r.parked.alpha = [bead('alpha-1', card())];
+    r.n.sync();
+    await settle();
+    expect(r.n.snapshot().events.map((e) => e.kind)).toEqual(['decision']);
+  });
+});
 
 describe('notifier', () => {
   test('valid card -> one decision event; invalid card -> nothing; no repeat', async () => {

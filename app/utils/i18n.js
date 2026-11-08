@@ -10,6 +10,7 @@ import { strings as detail } from '../i18n/detail.js';
 import { strings as list } from '../i18n/list.js';
 import { strings as notifications } from '../i18n/notifications.js';
 import { strings as outputs } from '../i18n/outputs.js';
+import { strings as releases } from '../i18n/releases.js';
 import { strings as report } from '../i18n/report.js';
 
 const KEY = 'beads-ui.lang';
@@ -19,6 +20,7 @@ const SHELL = {
   board: { en: 'Board', ar: 'اللوحة' },
   decisions: { en: 'Decisions', ar: 'قراراتي' },
   issues: { en: 'List', ar: 'القائمة' },
+  releases: { en: 'Releases', ar: 'الإصدارات' },
   theme: { en: 'Theme', ar: 'المظهر' },
   search_ph: { en: 'Search title or id', ar: 'ابحث بالعنوان أو الرقم' },
   search_btn: { en: 'Search', ar: 'بحث' },
@@ -99,6 +101,7 @@ const STRINGS = {
   ...notifications,
   ...report,
   ...outputs,
+  ...releases,
   ...card
 };
 

@@ -98,7 +98,8 @@
   font-weight: 700;
   background: var(--s-test);
 }
-.nt-ic.nt-answer {
+.nt-ic.nt-answer,
+.nt-ic.nt-release {
   background: var(--s-ready);
 }
 .nt-txt b {
