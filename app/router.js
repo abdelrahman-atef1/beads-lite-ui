@@ -35,7 +35,7 @@ export function parseHash(hash) {
  * Parse the current view from hash.
  *
  * @param {string} hash
- * @returns {'issues'|'epics'|'board'|'decisions'}
+ * @returns {'issues'|'epics'|'board'|'decisions'|'releases'}
  */
 export function parseView(hash) {
   const h = String(hash || '');
@@ -47,6 +47,9 @@ export function parseView(hash) {
   }
   if (/^#\/board(\b|\/|$)/.test(h)) {
     return 'board';
+  }
+  if (/^#\/releases(\b|\/|$)/.test(h)) {
+    return 'releases';
   }
   // Default to issues (also covers #/issues and unknown/empty)
   return 'issues';
@@ -148,10 +151,10 @@ export function createHashRouter(store) {
     /**
      * Navigate to a top-level view.
      *
-     * @param {'issues'|'epics'|'board'|'decisions'} view
+     * @param {'issues'|'epics'|'board'|'decisions'|'releases'} view
      */
     /**
-     * @param {'issues'|'epics'|'board'|'decisions'} view
+     * @param {'issues'|'epics'|'board'|'decisions'|'releases'} view
      */
     gotoView(view) {
       const s = store.getState ? store.getState() : { selected_id: null };

@@ -64,6 +64,44 @@ function boot(lang = 'en') {
 }
 
 describe('sw push', () => {
+  test('release: words in the phone language, one tap target (the screen)', async () => {
+    const s = boot();
+    await s.push({
+      kind: 'release',
+      project: 'rayeh',
+      bead: 'rayeh-1',
+      title: 'Web v14',
+      count: 1
+    });
+    expect(s.shown[0].o.body).toBe('Release shipped: Web v14');
+    expect(s.shown[0].o.data.url).toBe('/#/releases');
+    await s.push({
+      kind: 'release',
+      project: 'rayeh',
+      bead: null,
+      title: null,
+      count: 4
+    });
+    expect(s.shown[1].o.body).toBe('4 releases shipped in rayeh');
+    await s.push({
+      kind: 'release',
+      project: 'rayeh',
+      bead: 'rayeh-1',
+      title: null,
+      count: 1
+    });
+    expect(s.shown[2].o.body).toBe('A release shipped in rayeh');
+    const ar = boot('ar-EG');
+    await ar.push({
+      kind: 'release',
+      project: 'rayeh',
+      bead: 'rayeh-1',
+      title: 'Web v14',
+      count: 1
+    });
+    expect(ar.shown[0].o.body).toBe('تم نشر إصدار: Web v14');
+  });
+
   test('decision: project as title, card_title in the body, tap target is the bead', async () => {
     const s = boot();
     await s.push({

@@ -78,6 +78,12 @@ const MSG = {
         ? 'Answer to your question: ' + p.title
         : 'An answer waits at the PC',
     digest: (p) => p.count + ' decisions waiting in ' + p.project,
+    release: (p) =>
+      p.count > 1
+        ? p.count + ' releases shipped in ' + p.project
+        : p.title
+          ? 'Release shipped: ' + p.title
+          : 'A release shipped in ' + p.project,
     more: () => 'More on the board'
   },
   ar: {
@@ -86,6 +92,12 @@ const MSG = {
     answer: (p) =>
       p.title ? 'رد على سؤالك: ' + p.title : 'رد ينتظرك على الكمبيوتر',
     digest: (p) => p.count + ' قرارات تنتظرك في ' + p.project,
+    release: (p) =>
+      p.count > 1
+        ? 'تم نشر ' + p.count + ' إصدارات في ' + p.project
+        : p.title
+          ? 'تم نشر إصدار: ' + p.title
+          : 'تم نشر إصدار في ' + p.project,
     more: () => 'المزيد على اللوحة'
   }
 };
@@ -112,9 +124,12 @@ function describePush(p) {
       badge: '/icons/icon-192.png',
       tag: bead ? 'bead-' + bead + '-' + kind : 'board-' + kind + '-' + project,
       data: {
-        url: bead
-          ? '/#/issues?issue=' + encodeURIComponent(bead)
-          : '/#/decisions'
+        url:
+          kind === 'release'
+            ? '/#/releases'
+            : bead
+              ? '/#/issues?issue=' + encodeURIComponent(bead)
+              : '/#/decisions'
       }
     }
   };

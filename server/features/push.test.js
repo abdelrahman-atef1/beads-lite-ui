@@ -306,6 +306,29 @@ describe('caps', () => {
     expect(r.p.pending()).toEqual([]);
   });
 
+  test('folded releases stay releases; mixed with a decision they become a digest', async () => {
+    const r = rig();
+    r.p.subscribe(sub());
+    await r.p.send(ev({ kind: 'release', bead: 'a-1' }));
+    await r.p.send(ev({ kind: 'release', bead: 'a-2' }));
+    await r.p.send(ev({ kind: 'release', bead: 'a-3' }));
+    r.tick(120000);
+    await r.p.flush('alpha');
+    expect(r.sent[1].body).toMatchObject({
+      kind: 'release',
+      count: 2,
+      title: null,
+      bead: null
+    });
+    r.tick(130000);
+    await r.p.send(ev({ kind: 'release', bead: 'a-4' }));
+    await r.p.send(ev({ bead: 'a-5' }));
+    await r.p.send(ev({ kind: 'release', bead: 'a-6' }));
+    r.tick(120000);
+    await r.p.flush('alpha');
+    expect(r.sent.at(-1).body).toMatchObject({ kind: 'digest', count: 2 });
+  });
+
   test('a single folded event is sent as itself', async () => {
     const r = rig();
     r.p.subscribe(sub());

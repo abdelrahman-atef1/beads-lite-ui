@@ -145,6 +145,63 @@ describe('notifications bell', () => {
     expect(el.querySelector('.nt-dot')?.textContent).toBe('2');
   });
 
+  test('a release item reads as a release and opens the Releases screen', async () => {
+    const c = fakeClient({
+      events: [
+        {
+          id: 'x1',
+          kind: 'release',
+          project: 'rayeh',
+          bead: 'rayeh-1',
+          title: 'Web v14',
+          desk: false,
+          count: 1,
+          at: NOW - 60000,
+          read: false
+        },
+        {
+          id: 'x2',
+          kind: 'release',
+          project: 'rayeh',
+          bead: null,
+          title: null,
+          desk: false,
+          count: 4,
+          at: NOW - 60000,
+          read: false
+        },
+        {
+          id: 'x3',
+          kind: 'release',
+          project: 'company',
+          bead: 'company-1',
+          title: null,
+          desk: true,
+          count: 1,
+          at: NOW - 60000,
+          read: false
+        }
+      ],
+      unread: 3,
+      projects: []
+    });
+    mountBell(el, { client: c });
+    await tick();
+    el.querySelector('button')?.click();
+    await tick();
+    const txt = (/** @type {string} */ k) =>
+      document.querySelector('[data-key="' + k + '"]')?.textContent;
+    expect(txt('x1')).toContain('Release shipped: rayeh - Web v14');
+    expect(txt('x2')).toContain('4 releases shipped in rayeh');
+    expect(txt('x3')).toContain('A release shipped in company');
+    expect(txt('x3')).not.toContain('company-1 -');
+    /** @type {HTMLElement} */ (
+      document.querySelector('[data-key="x1"]')
+    ).click();
+    expect(location.hash).toBe('#/releases');
+    expect(c.sent).toContainEqual([T_READ, { ids: ['x1'] }]);
+  });
+
   test('mark all read clears the badge', async () => {
     mountBell(el, { client: fakeClient() });
     await tick();

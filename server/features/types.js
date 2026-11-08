@@ -27,5 +27,8 @@ export const FEATURE_MESSAGE_TYPES = [
   'card-ask',
   // outputs panel (beads-lite-1bo5.6.18)
   'outputs-get',
-  'outputs-project'
+  'outputs-project',
+  // releases screen (beads-lite-1bo5.6.36)
+  'releases-list',
+  'releases-get'
 ];

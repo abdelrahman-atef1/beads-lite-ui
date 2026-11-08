@@ -46,6 +46,7 @@ describe('router', () => {
     expect(parseView('#/issues')).toBe('issues');
     expect(parseView('#/epics')).toBe('epics');
     expect(parseView('#/board')).toBe('board');
+    expect(parseView('#/releases')).toBe('releases');
     expect(parseView('')).toBe('issues');
     expect(parseView('#/unknown')).toBe('issues');
   });

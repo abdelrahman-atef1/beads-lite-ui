@@ -251,7 +251,7 @@ export function createPush(opts = {}) {
   state.noticed = state.noticed === true;
   state.day = typeof state.day === 'string' ? state.day : '';
 
-  /** @type {Map<string, { n: number, first: any, timer: any }>} */
+  /** @type {Map<string, { n: number, mixed: boolean, first: any, timer: any }>} */
   const folded = new Map();
 
   const saveSubs = () => writeJson(subsFile, subs);
@@ -382,7 +382,15 @@ export function createPush(opts = {}) {
     return deliver(
       f.n === 1
         ? f.first
-        : { kind: 'digest', project, bead: null, title: null, count: f.n, at }
+        : {
+            // folded releases keep their own words; anything mixed is a digest
+            kind: f.mixed ? 'digest' : 'release',
+            project,
+            bead: null,
+            title: null,
+            count: f.n,
+            at
+          }
     );
   }
 
@@ -488,11 +496,14 @@ export function createPush(opts = {}) {
       const f = folded.get(project);
       const last = state.last[project];
       if (f || (typeof last === 'number' && now() - last < PROJECT_GAP_MS)) {
-        if (f) f.n += payload.kind === 'digest' ? payload.count : 1;
-        else {
+        if (f) {
+          f.n += payload.kind === 'digest' ? payload.count : 1;
+          if (payload.kind !== 'release') f.mixed = true;
+        } else {
           const wait = Math.max(0, last + PROJECT_GAP_MS - now());
           folded.set(project, {
             n: payload.kind === 'digest' ? payload.count : 1,
+            mixed: payload.kind !== 'release',
             first: payload,
             timer: setTimer(() => void flush(project), wait)
           });

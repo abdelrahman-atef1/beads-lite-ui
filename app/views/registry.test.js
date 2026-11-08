@@ -11,6 +11,7 @@ describe('views/registry', () => {
       'issues',
       'notifications',
       'outputs',
+      'releases',
       'report'
     ]);
   });

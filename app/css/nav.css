@@ -184,7 +184,7 @@
     bottom: 0;
     z-index: 60;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0;
     height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
     padding: 0 4px env(safe-area-inset-bottom, 0px);

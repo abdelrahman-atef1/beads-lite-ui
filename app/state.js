@@ -17,7 +17,7 @@ import { normalizeStatusFilters, sameStatusFilters } from './utils/status.js';
  */
 
 /**
- * @typedef {'issues'|'epics'|'board'|'decisions'} ViewName
+ * @typedef {'issues'|'epics'|'board'|'decisions'|'releases'} ViewName
  */
 
 /**

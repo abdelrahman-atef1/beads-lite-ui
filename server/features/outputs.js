@@ -365,7 +365,7 @@ export function createGitIndex(deps) {
 }
 
 /** Real git, hidden window, bounded. */
-function realGit(
+export function realGit(
   /** @type {string} */ cwd,
   /** @type {string[]} */ args,
   /** @type {string} */ input = ''
@@ -388,7 +388,7 @@ function realGit(
 }
 
 /** `bd export` output of one project; null on any failure. */
-async function realExport(/** @type {string} */ cwd) {
+export async function realExport(/** @type {string} */ cwd) {
   const r = await runBd(['export'], {
     cwd,
     timeout_ms: 60000,
@@ -468,7 +468,7 @@ export function codeRepos(root) {
 }
 
 /** Shared validator + secret scanner; null parts = fail closed. */
-async function loadSecurity() {
+export async function loadSecurity() {
   /** @type {{ validator: any, scan: ((s: string) => any[]) | null }} */
   const out = { validator: null, scan: null };
   const dirs = [

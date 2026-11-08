@@ -22,6 +22,18 @@ export const strings =
       en: 'An answer waits at the PC ({project})',
       ar: 'رد ينتظرك على الكمبيوتر ({project})'
     },
+    nt_release: {
+      en: 'Release shipped: {project} - {title}',
+      ar: 'تم نشر إصدار: {project} - {title}'
+    },
+    nt_release_n: {
+      en: '{n} releases shipped in {project}',
+      ar: 'تم نشر {n} إصدارات في {project}'
+    },
+    nt_release_desk: {
+      en: 'A release shipped in {project}',
+      ar: 'تم نشر إصدار في {project}'
+    },
     nt_empty: {
       en: 'Nothing needs you. We will tell you when something does.',
       ar: 'لا شيء يحتاجك الآن. سنخبرك عند الحاجة.'

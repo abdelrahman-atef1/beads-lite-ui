@@ -10,7 +10,7 @@
  *   notify-mark-read {ids}|{all}   -> Snap     notify-set {project,on} -> Snap
  *   notify-mute {until: ISO|null}  -> Snap     notify-event (push) {event, unread}
  * Snap = { events: Ev[], unread, projects: [{key,name,on}], mute_until }
- * Ev = { id, kind: decision|answer|digest|degraded, project, bead|null,
+ * Ev = { id, kind: decision|answer|digest|degraded|release, project, bead|null,
  *        title|null, desk, count, at, read }. The server owns read state.
  */
 import {
@@ -75,7 +75,7 @@ export function ago(at, now = Date.now()) {
 }
 
 /**
- * @typedef {{ key: string, kind: 'decision'|'answer'|'digest'|'degraded',
+ * @typedef {{ key: string, kind: 'decision'|'answer'|'digest'|'degraded'|'release',
  *   project: string, bead: string, title: string, desk: boolean, count: number,
  *   at: number, read: boolean }} Item
  */
@@ -90,7 +90,7 @@ export function normalizeItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const key = String(raw.id ?? '');
   if (!key) return null;
-  const kind = ['answer', 'digest', 'degraded'].includes(raw.kind)
+  const kind = ['answer', 'digest', 'degraded', 'release'].includes(raw.kind)
     ? raw.kind
     : 'decision';
   const at = typeof raw.at === 'number' ? raw.at : Date.parse(raw.at) || 0;
@@ -102,7 +102,8 @@ export function normalizeItem(raw) {
     bead: raw.bead ? String(raw.bead) : '',
     title,
     desk:
-      raw.desk === true || (!title && kind !== 'digest' && kind !== 'degraded'),
+      raw.desk === true ||
+      (!title && !['digest', 'degraded', 'release'].includes(kind)),
     count: Number(raw.count) || 0,
     at,
     read: raw.read === true
@@ -119,6 +120,14 @@ export function itemText(it) {
     return tr('nt_digest', { n: it.count, project: it.project });
   }
   if (it.kind === 'degraded') return tr('nt_degraded', { project: it.project });
+  if (it.kind === 'release') {
+    if (it.count > 1) {
+      return tr('nt_release_n', { n: it.count, project: it.project });
+    }
+    return it.desk || !it.title
+      ? tr('nt_release_desk', { project: it.project })
+      : tr('nt_release', { project: it.project, title: it.title });
+  }
   const answer = it.kind === 'answer';
   if (it.desk) {
     return tr(answer ? 'nt_desk_answer' : 'nt_desk', { project: it.project });
@@ -227,6 +236,11 @@ export function mountBell(el, opts = {}) {
   /** @param {Item} it */
   function openItem(it) {
     markRead([it.key]);
+    if (it.kind === 'release') {
+      close();
+      location.hash = '#/releases';
+      return;
+    }
     if (!it.bead) return;
     close();
     location.hash = '#/issues?issue=' + encodeURIComponent(it.bead);
@@ -371,7 +385,7 @@ export function mountBell(el, opts = {}) {
       });
       row.append(
         h('span', { class: 'nt-ic nt-' + it.kind, 'aria-hidden': 'true' }, [
-          it.kind === 'answer' ? '↩' : '?'
+          it.kind === 'answer' ? '↩' : it.kind === 'release' ? '▲' : '?'
         ]),
         h('span', { class: 'nt-txt' }, [
           h('b', {}, [itemText(it)]),
