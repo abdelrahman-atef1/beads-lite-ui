@@ -223,6 +223,21 @@ describe('detail slot', () => {
     expect(el.querySelectorAll('.ou-row')).toHaveLength(1);
   });
 
+  test('the loading line sits outside the collapsed panel; skipped beads are named', async () => {
+    const el = document.createElement('div');
+    /** @type {(v: any) => void} */
+    let done = () => {};
+    const client = { send: vi.fn(() => new Promise((r) => (done = r))) };
+    const p = mountOutputs(el, { id: 'tc-5' }, { client });
+    expect(el.querySelector('details [role=status]')).toBe(null);
+    expect(el.querySelector(':scope > [role=status]')).not.toBe(null);
+    done({ items: [item()], has_more: false, skipped: 2 });
+    await p;
+    expect(
+      el.querySelector('details .ou-note[role=status]')?.textContent
+    ).toContain('2');
+  });
+
   test('while loading the panel shows a loading line, not nothing', async () => {
     const el = document.createElement('div');
     /** @type {(v: any) => void} */

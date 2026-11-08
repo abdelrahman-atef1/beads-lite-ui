@@ -223,9 +223,15 @@ export function bodyOf(data, ui) {
   const list = h('ul', { class: 'ou-list' });
   for (const it of shown) list.append(rowOf(it, ui.root));
   const box = h('div', { class: 'ou-body' }, [chips]);
-  if (ui.note) box.append(ui.note);
   if (data?.degraded) {
     box.append(h('p', { class: 'ou-note' }, [tr('ou_degraded')]));
+  }
+  if (data?.skipped > 0) {
+    box.append(
+      h('p', { class: 'ou-note', role: 'status' }, [
+        tr('ou_skipped', { n: data.skipped })
+      ])
+    );
   }
   box.append(
     shown.length ? list : h('p', { class: 'ou-note' }, [tr('ou_empty')])
@@ -322,7 +328,6 @@ export function mountOutputs(el, issue, opts = {}) {
           : tr('ou_title')
       ]),
       bodyOf(data, {
-        note,
         root: id,
         kind: st.kind,
         onKind: (k) => {
@@ -341,7 +346,8 @@ export function mountOutputs(el, issue, opts = {}) {
         }
       })
     );
-    el.replaceChildren(d);
+    // loading/error line sits outside the collapsed panel, where the reader looks
+    el.replaceChildren(...(note ? [note, d] : [d]));
     el.setAttribute('lang', getLang());
   }
 
