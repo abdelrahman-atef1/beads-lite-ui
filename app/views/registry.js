@@ -12,6 +12,7 @@ export const VIEWS = {
   epics: () => import('./epics.js'),
   board: () => import('./board.js'),
   decisions: () => import('./decisions.js'),
+  knowledge: () => import('./knowledge.js'),
   report: () => import('./report.js'),
   notifications: () => import('./notifications.js'),
   outputs: () => import('./outputs-panel.js'),

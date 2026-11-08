@@ -8,6 +8,7 @@
 import { allowPhoneFeatureType } from '../phone.js';
 import * as cards from './cards.js';
 import * as decisionsFeed from './decisions-feed.js';
+import * as knowledge from './knowledge.js';
 import * as localImg from './local-img.js';
 import * as notifier from './notifier.js';
 import * as outputs from './outputs.js';
@@ -77,7 +78,8 @@ for (const f of [
   notifier,
   push,
   outputs,
-  cards
+  cards,
+  knowledge
 ]) {
   f.register({ registerHandler, registerRoute });
 }

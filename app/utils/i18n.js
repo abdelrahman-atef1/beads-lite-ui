@@ -9,6 +9,7 @@ import { strings as decisions } from '../i18n/decisions.js';
 import { strings as detail } from '../i18n/detail.js';
 import { strings as list } from '../i18n/list.js';
 import { strings as notifications } from '../i18n/notifications.js';
+import { strings as knowledge } from '../i18n/knowledge.js';
 import { strings as outputs } from '../i18n/outputs.js';
 import { strings as report } from '../i18n/report.js';
 
@@ -99,6 +100,7 @@ const STRINGS = {
   ...notifications,
   ...report,
   ...outputs,
+  ...knowledge,
   ...card
 };
 

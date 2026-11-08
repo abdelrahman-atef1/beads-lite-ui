@@ -1,0 +1,161 @@
+/* Knowledge tab: three numbered groups, one row per thing. Phone first,
+   logical properties for RTL, tap targets >= 44px. */
+.route.knowledge {
+  overflow: auto;
+  height: 100%;
+}
+.kn {
+  padding: var(--sp-4);
+  max-width: 800px;
+}
+.kn__title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  line-height: var(--lh-tight);
+}
+.kn__sub {
+  color: var(--text-3);
+  font-size: var(--fs-s);
+  margin-block: var(--sp-1) var(--sp-4);
+}
+.kn-group__h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-m);
+}
+.kn-num {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: var(--fs-s);
+}
+.kn-num--do {
+  background: var(--s-blocked);
+}
+.kn-num--know {
+  background: var(--s-progress);
+}
+.kn-num--try {
+  background: var(--s-test);
+}
+.kn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+.kn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--border);
+  border-radius: var(--radius-m);
+}
+.kn-row--do {
+  border-inline-start-color: var(--s-blocked);
+}
+.kn-row--know {
+  border-inline-start-color: var(--s-progress);
+}
+.kn-row--try {
+  border-inline-start-color: var(--s-test);
+}
+.kn-row__body {
+  flex: 1;
+  min-width: 0;
+}
+.kn-row__title {
+  font-weight: 600;
+}
+.kn-row__line {
+  margin-block-start: 2px;
+  color: var(--text-3);
+  font-size: var(--fs-s);
+}
+.kn-row__btn {
+  min-height: 44px;
+  white-space: nowrap;
+}
+.kn-chip {
+  display: inline-block;
+  margin-inline-end: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-s);
+  background: var(--s-owner-bg);
+  color: var(--s-owner);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.kn-more,
+.kn-empty,
+.kn-partial,
+.kn-foot,
+.kn-error {
+  color: var(--text-3);
+  font-size: var(--fs-s);
+}
+.kn-empty {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+}
+.kn-foot {
+  margin-block-start: var(--sp-5);
+  padding-block-start: var(--sp-3);
+  border-block-start: 1px solid var(--border);
+}
+.kn-skel {
+  min-height: 56px;
+  background: var(--surface-2);
+}
+.kn-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: rgb(0 0 0 / 0.4);
+}
+.kn-modal__box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: min(720px, 100%);
+  max-height: 85vh;
+  padding: var(--sp-4);
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-pop);
+}
+.kn-modal__h {
+  margin: 0;
+  font-size: var(--fs-m);
+}
+.kn-modal__text {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: var(--fs-s);
+}
+@media (max-width: 600px) {
+  .kn-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .kn-row__btn {
+    width: 100%;
+  }
+}

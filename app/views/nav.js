@@ -11,7 +11,7 @@ import { debug } from '../utils/logging.js';
  *
  * @param {HTMLElement} mount_element
  * @param {{ getState: () => any, subscribe: (fn: (s: any) => void) => () => void }} store
- * @param {{ gotoView: (v: 'issues'|'epics'|'board'|'decisions') => void }} router
+ * @param {{ gotoView: (v: 'issues'|'epics'|'board'|'decisions'|'knowledge') => void }} router
  * @param {{ snapshotFor?: (id: string) => any[], isLoaded?: (id: string) => boolean, subscribeFor?: (ids: string | string[], fn: (id: string) => void) => () => void }} [issueStores]
  */
 export function createTopNav(
@@ -27,7 +27,7 @@ export function createTopNav(
   let unsubscribe_stores = null;
 
   /**
-   * @param {'issues'|'epics'|'board'|'decisions'} view
+   * @param {'issues'|'epics'|'board'|'decisions'|'knowledge'} view
    * @returns {(ev: MouseEvent) => void}
    */
   function onClick(view) {
@@ -58,6 +58,7 @@ export function createTopNav(
     board: 'M3 4h5v16H3zM10 4h5v10h-5zM17 4h4v13h-4z',
     decisions: 'M12 3a9 9 0 100 18 9 9 0 000-18zM11 7h2v6h-2zM11 15h2v2h-2z',
     issues: 'M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z',
+    knowledge: 'M5 3h11l3 3v15H5zM8 9h8v2H8zM8 13h8v2H8zM8 17h5v2H8z',
     menu: 'M3 6l2-2h5l2 2h9v13H3z'
   };
 
@@ -81,7 +82,7 @@ export function createTopNav(
   }
 
   /**
-   * @param {'issues'|'epics'|'board'|'decisions'} view
+   * @param {'issues'|'epics'|'board'|'decisions'|'knowledge'} view
    * @param {string} active
    * @param {number} badge
    */
@@ -109,7 +110,7 @@ export function createTopNav(
     const n = waitingCount();
     return html`
       ${tab('decisions', active, n)} ${tab('board', active, 0)}
-      ${tab('issues', active, 0)}
+      ${tab('issues', active, 0)} ${tab('knowledge', active, 0)}
       <button
         type="button"
         class="tab tab--menu"

@@ -9,6 +9,7 @@ describe('views/registry', () => {
       'decisions',
       'epics',
       'issues',
+      'knowledge',
       'notifications',
       'outputs',
       'report'
