@@ -232,6 +232,47 @@ describe.skipIf(!have)('card-state', () => {
   });
 });
 
+describe.skipIf(!have)('steps-done', () => {
+  const STEPS = {
+    id: 'aabbccdd-1111',
+    author: 'swe',
+    created_at: '2026-11-13T10:00:00Z',
+    text: 'STEPS: Install the test build\n## Steps\n1. Open the link\n2. Tap install'
+  };
+  const open = { status: 'in_progress', assignee: 'abdelrahman', labels: ['owner-steps'], metadata: {} };
+  const ok = { cli: { ok: true, code: 'steps-recorded', back: 'cos' } };
+  test('one record via the CLI, one wake to the poster of the steps', async () => {
+    const r = rig({ bead: open, comments: [STEPS], ...ok });
+    const res = await r.cards.stepsDone({ id: 'tc-1', comment: 'c-aabbccdd' }, 'pc.tail1234.ts.net');
+    expect(res).toMatchObject({ code: 'steps-recorded', wake: 'queued' });
+    expect(r.calls.exec.length).toBe(1);
+    expect(r.calls.exec[0].args).toEqual(['steps-done']);
+    expect(r.calls.exec[0].input).toMatchObject({ repo: 'tc', bead: 'tc-1', via: 'phone', comment: 'c-aabbccdd', back: 'swe' });
+    expect(r.calls.wake).toEqual([{ kind: 'decided', repo: 'tc', bead: 'tc-1', via: 'phone', role: 'swe' }]);
+  });
+  /** @param {any} over @param {string} code */
+  async function refused(over, code, payload = { id: 'tc-1', comment: 'c-aabbccdd' }) {
+    const r = rig({ bead: open, comments: [STEPS], ...ok, ...over });
+    await expect((async () => r.cards.stepsDone(payload, undefined))()).rejects.toMatchObject({ code });
+    expect(r.calls.exec).toEqual([]);
+    expect(r.calls.wake).toEqual([]);
+  }
+  test('no label: refused, nothing written', () => refused({ bead: { ...open, labels: [] } }, 'no_steps'));
+  test('no steps comment: refused', () => refused({ comments: [] }, 'no_steps'));
+  test('closed bead: refused', () => refused({ bead: { ...open, status: 'closed' } }, 'not_open'));
+  test('already marked done: refused', () =>
+    refused({ comments: [STEPS, { id: 'ffee0011-2', author: 'owner-board', text: 'OWNER STEPS DONE via board (pc)' }] }, 'no_steps'));
+  test('older comment id (stale): refused', () => refused({}, 'stale_steps', { id: 'tc-1', comment: 'c-11111111' }));
+  test('bad token: refused', () => refused({}, 'bad_input', { id: 'tc-1', comment: 'aabbccdd' }));
+  test('secret in the steps title: refused', () =>
+    refused({ comments: [{ ...STEPS, text: 'STEPS: use sk-abcdefgh12345678\n## Steps\n1. x' }] }, 'secret_refused'));
+  test('CLI refusal passes its code through, no wake', async () => {
+    const r = rig({ bead: open, comments: [STEPS], cli: { ok: false, code: 'already-handled' } });
+    await expect(r.cards.stepsDone({ id: 'tc-1', comment: 'c-aabbccdd' }, undefined)).rejects.toMatchObject({ code: 'already_handled' });
+    expect(r.calls.wake).toEqual([]);
+  });
+});
+
 describe.skipIf(!have)('card-answer / card-ask', () => {
   test('answer goes to the CLI with repo, bead, via, sha; one wake to card_back', async () => {
     const r = rig();

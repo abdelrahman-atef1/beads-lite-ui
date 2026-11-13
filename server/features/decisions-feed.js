@@ -13,6 +13,13 @@
  * background `bd list --status owner_decision` in the project that changed;
  * no timer, no polling. The result is cached; an unchanged list is not pushed.
  *
+ * Steps (company-1bo5.6.59.3): a bead that asks the owner to DO something is
+ * marked with the label `owner-steps` plus a comment whose first line is
+ * `STEPS: <title>` and that holds a `## Steps` section. It shows in the feed as
+ * kind 'steps' with `steps = { comment:'c-<8hex>', title, n, at }`; a bead that
+ * also has a card keeps kind 'decision' and carries the same `steps` object.
+ * The UI builds `&at=<comment>` from it. Convention note: bead .58.
+ *
  * Gate: a bead appears only with a card the card core accepts, and only when
  * no card text trips the secret scan (fails closed). Desk cards are retired
  * (owner 2026-11-02); anything still marked card_class=desk or the old PC-only
@@ -33,6 +40,11 @@ const log = debug('decisions-feed');
 export const DEBOUNCE_MS = 1500;
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const MAX_ITEMS = 200;
+const MAX_STEPS_BEADS = 50;
+export const STEPS_LABEL = 'owner-steps';
+export const STEPS_HEAD = 'STEPS: ';
+export const STEPS_DONE_HEAD = 'OWNER STEPS DONE via board';
+const STEPS_TITLE_MAX = 100;
 const KEEP_META = [
   'card_class',
   'card_q',
@@ -47,6 +59,49 @@ const KEEP_META = [
   'card_norec',
   'title_ar'
 ];
+
+/**
+ * The open steps comment of a bead, or null: the newest comment whose first
+ * line is `STEPS: <title>` with a `## Steps` section and a hex id, not
+ * followed by a board "steps done" record.
+ *
+ * @param {any[]} comments
+ * @returns {{ comment: string, title: string, n: number, at: string, author: string } | null}
+ */
+export function findSteps(comments) {
+  /** @type {any} */
+  let found = null;
+  for (const c of Array.isArray(comments) ? comments : []) {
+    const lines = String(c?.text ?? '')
+      .split('\n')
+      .map((l) => l.trim());
+    if (
+      c?.author === 'owner-board' &&
+      lines[0].startsWith(STEPS_DONE_HEAD)
+    ) {
+      found = null;
+    } else if (
+      lines[0].startsWith(STEPS_HEAD) &&
+      lines.includes('## Steps') &&
+      /^[0-9a-f]{8}/.test(String(c.id || ''))
+    ) {
+      const from = lines.indexOf('## Steps') + 1;
+      let n = 0;
+      for (const l of lines.slice(from)) {
+        if (l.startsWith('## ')) break;
+        if (/^\d{1,2}[.)]\s/.test(l)) n += 1;
+      }
+      found = {
+        comment: `c-${String(c.id).slice(0, 8)}`,
+        title: lines[0].slice(STEPS_HEAD.length).slice(0, STEPS_TITLE_MAX),
+        n,
+        at: String(c.created_at || ''),
+        author: String(c.author || '')
+      };
+    }
+  }
+  return found;
+}
 
 /** @param {string} p folder name, lower-case = project key */
 export function projectKey(p) {
@@ -120,6 +175,7 @@ export function scanBlocked(rules, card, bead) {
  * @param {{
  *   listProjects?: () => Array<{ path: string }>,
  *   listParked?: (cwd: string) => Promise<any[]>,
+ *   listSteps?: (cwd: string) => Promise<Array<{ bead: any, comments: any[] }>>,
  *   rules?: { parseCard: Function, scanText: Function } | null,
  *   watch?: (root: string, cb: () => void) => { close: () => void },
  *   broadcast?: (type: string, payload?: unknown) => void,
@@ -138,6 +194,37 @@ export function createDecisionsFeed(opts = {}) {
       if (r.code !== 0) throw new Error(r.stderr || 'bd list failed');
       return Array.isArray(r.stdoutJson) ? r.stdoutJson : [];
     });
+  // Off in tests that inject only listParked (no real bd behind a fake path).
+  const listSteps =
+    opts.listSteps ||
+    (opts.listParked
+      ? async () => []
+      : async (/** @type {string} */ cwd) => {
+          const r = await runBdJson(
+            ['list', '--label', STEPS_LABEL, '--json', '--limit', '0'],
+            { cwd, priority: 'background', timeout_ms: 60000 }
+          );
+          if (r.code !== 0) throw new Error(r.stderr || 'bd list failed');
+          const beads = (Array.isArray(r.stdoutJson) ? r.stdoutJson : [])
+            .filter(
+              (/** @type {any} */ b) =>
+                b && BEAD_ID_RE.test(String(b.id)) && b.status !== 'closed'
+            )
+            .slice(0, MAX_STEPS_BEADS);
+          return Promise.all(
+            beads.map(async (/** @type {any} */ bead) => {
+              const c = await runBdJson(['comments', bead.id, '--json'], {
+                cwd,
+                priority: 'background',
+                timeout_ms: 30000
+              });
+              return {
+                bead,
+                comments: Array.isArray(c.stdoutJson) ? c.stdoutJson : []
+              };
+            })
+          );
+        });
   const watch =
     opts.watch ||
     ((/** @type {string} */ root, /** @type {() => void} */ cb) =>
@@ -191,6 +278,7 @@ export function createDecisionsFeed(opts = {}) {
         : Date.parse(bead.updated_at) || 0;
     return {
       id: bead.id,
+      kind: 'decision',
       project: { key: proj.key, name: proj.name },
       sha:
         typeof rules.questionSha === 'function' ? rules.questionSha(card) : '',
@@ -200,6 +288,50 @@ export function createDecisionsFeed(opts = {}) {
       updated_at: ts,
       assignee: typeof bead.assignee === 'string' ? bead.assignee : '',
       metadata
+    };
+  }
+
+  /**
+   * Steps info for one labelled bead; null when there is no open steps
+   * comment or any text the owner would read trips the secret scan.
+   *
+   * @param {{ bead: any, comments: any[] }} e
+   */
+  function stepsOf(e) {
+    const b = e?.bead;
+    if (!b || typeof b.id !== 'string' || !BEAD_ID_RE.test(b.id)) return null;
+    if (b.status === 'closed' || !rules) return null;
+    const st = findSteps(e.comments);
+    if (!st) return null;
+    if (rules.scanText(`${st.title}\n${String(b.title || '')}`).length) {
+      return null;
+    }
+    return { comment: st.comment, title: st.title, n: st.n, at: st.at };
+  }
+
+  /**
+   * @param {any} bead
+   * @param {{ key: string, name: string }} proj
+   * @param {NonNullable<ReturnType<typeof stepsOf>>} steps
+   */
+  function toStepsItem(bead, proj, steps) {
+    const m = bead.metadata || {};
+    const ts =
+      typeof bead.updated_at === 'number'
+        ? bead.updated_at
+        : Date.parse(bead.updated_at) || 0;
+    return {
+      id: bead.id,
+      kind: 'steps',
+      project: { key: proj.key, name: proj.name },
+      sha: '',
+      title: String(bead.title || ''),
+      title_ar: typeof m.title_ar === 'string' ? m.title_ar : '',
+      priority: typeof bead.priority === 'number' ? bead.priority : 2,
+      updated_at: ts,
+      assignee: typeof bead.assignee === 'string' ? bead.assignee : '',
+      metadata: {},
+      steps
     };
   }
 
@@ -251,7 +383,35 @@ export function createDecisionsFeed(opts = {}) {
     try {
       await ensureRules();
       const beads = await listParked(p.path);
-      p.items = beads.map((b) => toItem(b, p)).filter((x) => x !== null);
+      /** @type {any[]} */
+      let labelled = [];
+      try {
+        labelled = await listSteps(p.path);
+      } catch (e) {
+        // steps are an extra: the decisions still list without them
+        log('steps %s failed: %s', key, String(/** @type {any} */ (e)?.message));
+      }
+      /** @type {Map<string, any>} */
+      const steps = new Map();
+      for (const e of labelled) {
+        const st = stepsOf(e);
+        if (st) steps.set(e.bead.id, { st, bead: e.bead });
+      }
+      /** @type {any[]} */
+      const items = beads
+        .map((b) => toItem(b, p))
+        .filter((x) => x !== null);
+      for (const it of items) {
+        const hit = steps.get(it.id);
+        if (hit) {
+          it.steps = hit.st;
+          steps.delete(it.id);
+        }
+      }
+      for (const { st, bead } of steps.values()) {
+        items.push(toStepsItem(bead, p, st));
+      }
+      p.items = items;
       p.loaded = true;
     } catch (e) {
       // keep the last good list for this project; the others are unaffected
