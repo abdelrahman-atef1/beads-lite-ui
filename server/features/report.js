@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { runBd } from '../bd.js';
-import { isAllowedOrigin, isValidToken } from '../guard.js';
+import { checkBoardPost } from '../guard.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 
 export const MAX_IMAGE = 4 * 1024 * 1024;
@@ -373,24 +373,14 @@ function fail(res, status, error) {
  */
 async function handleReport(req, res) {
   const host = req.headers.host;
-  const origin = req.headers.origin;
   const door = doorOf(req);
-  // B2: Origin must be present and ours (a cross-site form post cannot be);
-  // the custom header forces a CORS preflight the board refuses.
-  if (!origin || !isAllowedOrigin(origin, host, door))
-    return fail(res, 403, 'forbidden');
+  // SEC B2/B1: one shared POST check (Origin, token, type, size, Sec-Fetch-Site).
+  const gate = checkBoardPost(req, door, {
+    content_type: CONTENT_TYPE,
+    max_body: MAX_BODY
+  });
+  if (!gate.ok) return fail(res, gate.status, gate.error);
   if (req.headers['x-bdui-report'] !== '1') return fail(res, 403, 'forbidden');
-  const tok = req.headers['x-board-token'];
-  if (typeof tok !== 'string' || !isValidToken(tok, door))
-    return fail(res, 403, 'forbidden');
-  if (
-    String(req.headers['content-type'] || '')
-      .split(';')[0]
-      .trim() !== CONTENT_TYPE
-  )
-    return fail(res, 415, 'bad_type');
-  const cl = Number(req.headers['content-length']);
-  if (Number.isFinite(cl) && cl > MAX_BODY) return fail(res, 413, 'too_large');
 
   const now = Date.now();
   recent = recent.filter((t) => now - t < 3600_000);
