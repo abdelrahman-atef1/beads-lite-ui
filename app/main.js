@@ -12,6 +12,8 @@ import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
 import { createHashRouter, parseHash, parseView } from './router.js';
 import { createStore } from './state.js';
 import { registerServiceWorker } from './sw-register.js';
+import { bootV3 } from './ui/boot.js';
+import { resolveUi } from './ui/flag.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
 import { setImgContext } from './utils/att-images.js';
 import { createFilterState } from './utils/board-filter.js';
@@ -615,6 +617,22 @@ export function bootstrap(root_element) {
     }
     // Load workspaces after WebSocket is connected
     void loadWorkspaces();
+
+    // Board v3 (?ui=3, stored as bl.ui): same store, client and data layer, no
+    // legacy views. Flag off = this block does nothing.
+    if (resolveUi(window.location.search, window.localStorage) === 3) {
+      ready = bootV3(root_element, {
+        store,
+        client,
+        send: transport,
+        router,
+        data: createDataLayer(transport),
+        subscriptions,
+        sub_issue_stores,
+        listSelectors
+      });
+      return { ready };
+    }
 
     // Global New Issue dialog (UI-106) mounted at root so it is always visible
     const new_issue_dialog = createNewIssueDialog(
