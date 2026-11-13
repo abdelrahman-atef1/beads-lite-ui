@@ -131,6 +131,14 @@
   font-size: var(--fs-s);
   overflow-wrap: anywhere;
 }
+.cd__fl,
+.cd__fv {
+  display: block;
+}
+.cd__fl {
+  font-size: var(--fs-xs, 0.75rem);
+  color: var(--text-2);
+}
 .cd__blk {
   color: var(--text-3);
 }
