@@ -640,7 +640,7 @@ describe('B8 secrets', () => {
     ['json api_key', '{"api_key": "abcdefghijklmnop1234"}', 'abcdefghijklmnop1234'],
     ['json token', '{"token":"abcdefghijklmnop1234"}', 'abcdefghijklmnop1234'],
     ['bearer', 'Authorization: Bearer abcdefghijklmnop1234', 'abcdefghijklmnop1234'],
-    ['telegram', 'bot 123456789:AAFakeFakeFakeFakeFakeFakeFake123', 'AAFakeFakeFake'],
+    ['telegram', 'bot 123456789:AAFakeFakeFakeFakeFakeFakeFake12345', 'AAFakeFakeFake'],
     ['url password', 'https://user:hunter2pass@example.com/x', 'hunter2pass'],
     ['stripe', 'sk_live_FAKEFAKEFAKEFAKE1234', 'FAKEFAKEFAKEFAKE1234'],
     ['npm', 'npm_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE12', 'FAKEFAKEFAKEFAKEFAKE'],
