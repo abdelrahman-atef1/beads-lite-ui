@@ -1,1 +1,140 @@
-/* Board v3 projects screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 projects screen + top search (task .59.14). Scope under .u3. */
+.u3 .u3p-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  max-width: 720px;
+}
+.u3 .u3p-row {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--u3-sp-3) var(--u3-sp-4);
+  background: var(--u3-surface);
+  color: var(--u3-text);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.u3 .u3p-row[aria-current='true'] {
+  border-color: var(--u3-blue);
+  background: var(--u3-blue-soft);
+}
+.u3 .u3p-row:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.u3 .u3p-row:focus-visible,
+.u3 .u3-search__input:focus-visible {
+  outline: 2px solid var(--u3-focus);
+  outline-offset: 2px;
+}
+.u3 .u3p-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.u3 .u3p-row__count {
+  white-space: nowrap;
+  color: var(--u3-text-2);
+}
+.u3 .u3p-row__count small {
+  color: var(--u3-text-3);
+}
+.u3 .u3p-err {
+  color: var(--u3-red);
+}
+
+/* top search */
+.u3 .u3-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.u3 .u3-search__btn {
+  display: none;
+}
+.u3 .u3-search__input {
+  width: min(420px, 38vw);
+  min-height: 40px;
+  padding: 0 var(--u3-sp-4);
+  background: var(--u3-surface-2);
+  color: var(--u3-text);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-l);
+  font: inherit;
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-search__pop {
+  position: absolute;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 30;
+  width: min(480px, calc(100vw - 32px));
+  margin: 0;
+  padding: var(--u3-sp-2);
+  list-style: none;
+  background: var(--u3-surface);
+  color: var(--u3-text-2);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+}
+.u3 .u3-search__hit {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 44px;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  color: var(--u3-text);
+  text-decoration: none;
+  border-radius: var(--u3-radius-s);
+}
+.u3 .u3-search__hit[data-active='true'],
+.u3 .u3-search__hit:hover {
+  background: var(--u3-surface-2);
+}
+.u3 .u3-search__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3-search__id {
+  flex: none;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .u3 .u3-search__btn {
+    display: inline-flex;
+  }
+  .u3 .u3-search__field {
+    display: none;
+  }
+  .u3 .u3-search.is-open .u3-search__field {
+    display: block;
+  }
+  .u3 .u3-search.is-open .u3-search__input {
+    width: calc(100vw - 150px);
+  }
+  .u3 .u3-search__pop {
+    position: fixed;
+    inset-inline: 16px;
+    inset-block-start: 60px;
+    width: auto;
+  }
+}
