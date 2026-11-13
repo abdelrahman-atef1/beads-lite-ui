@@ -241,7 +241,10 @@ export function register(seam) {
         MIME[/** @type {'png'} */ (hit.kind)] || 'application/octet-stream'
       );
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Security-Policy', "default-src 'none'");
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; frame-ancestors 'none'"
+      );
       res.setHeader('Cache-Control', 'private, max-age=300');
       res.sendFile(hit.file, { dotfiles: 'allow' }, () => {});
     });

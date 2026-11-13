@@ -571,7 +571,10 @@ async function handleAtt(req, res) {
       return fail(res, 404, 'not_found');
     res.setHeader('Content-Type', MIME[/** @type {'png'} */ (ext)]);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; frame-ancestors 'none'"
+    );
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
     res.sendFile(real);
   } catch {
