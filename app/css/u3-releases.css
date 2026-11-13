@@ -1,1 +1,287 @@
-/* Board v3 releases screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 releases screen. Scope .rl3 (inside .u3); logical properties so RTL flips by itself. */
+.rl3 {
+  display: grid;
+  gap: var(--u3-sp-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.rl3-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.rl3-count {
+  font-size: var(--u3-fs-s);
+}
+
+/* filters: one scrolling row per group, pills never wrap */
+.rl3-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.rl3-pills {
+  display: flex;
+  gap: var(--u3-sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 2px;
+}
+.rl3-pills::-webkit-scrollbar {
+  display: none;
+}
+.rl3-pill {
+  flex: none;
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text-2);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rl3-pill[aria-pressed='true'] {
+  background: var(--u3-blue);
+  border-color: var(--u3-blue);
+  color: var(--u3-blue-ink);
+}
+
+/* timeline */
+.rl3-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rl3-list::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 6px;
+  width: 2px;
+  background: var(--u3-border);
+}
+.rl3-item {
+  position: relative;
+  padding-inline-start: 28px;
+}
+.rl3-dot {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 22px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--u3-border);
+}
+.rl3-item:first-child .rl3-dot {
+  background: var(--u3-blue);
+}
+.rl3-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  width: 100%;
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  color: var(--u3-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.rl3-card[aria-pressed='true'] {
+  border-color: var(--u3-blue);
+}
+.rl3-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u3-sp-2);
+}
+.rl3-ids {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  min-width: 0;
+}
+.rl3-commit {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.rl3-title {
+  font-size: var(--u3-fs-l);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rl3-date {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.rl3-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--u3-sp-1);
+  padding-top: var(--u3-sp-3);
+  border-top: 1px solid var(--u3-border);
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+}
+.rl3-chev {
+  font-size: 20px;
+}
+[dir='rtl'] .rl3-chev {
+  transform: scaleX(-1);
+}
+.rl3-more {
+  margin-top: var(--u3-sp-2);
+}
+.rl3-more .u3-btn {
+  border-radius: 999px;
+}
+
+/* states */
+.rl3-skel {
+  height: 120px;
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface-2);
+}
+.rl3-note {
+  padding: var(--u3-sp-3) var(--u3-sp-4);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-amber-soft);
+  color: var(--u3-amber);
+  font-size: var(--u3-fs-s);
+}
+.rl3-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-5);
+  border: 1px dashed var(--u3-border);
+  border-radius: var(--u3-radius-m);
+}
+.rl3-empty h3 {
+  margin: 0;
+  font-size: var(--u3-fs-l);
+}
+.rl3-empty p {
+  color: var(--u3-text-2);
+}
+.rl3-cmd {
+  display: block;
+  max-width: 100%;
+  padding: var(--u3-sp-3);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-surface-2);
+  font-size: var(--u3-fs-s);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* detail: replaces the list on a phone, side column on a PC */
+.rl3-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  min-width: 0;
+}
+.rl3-asidebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rl3-back {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--u3-focus);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rl3-dtitle {
+  margin: 0;
+  font-size: var(--u3-fs-xl);
+  overflow-wrap: anywhere;
+}
+.rl3-aside h4 {
+  margin: var(--u3-sp-2) 0 0;
+  font-size: var(--u3-fs-m);
+}
+.rl3-badges {
+  display: flex;
+  gap: var(--u3-sp-2);
+  flex-wrap: wrap;
+}
+.rl3-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--u3-sp-2) var(--u3-sp-4);
+  margin: 0;
+}
+.rl3-meta dt {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.rl3-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rl3-tasks {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rl3-task {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px var(--u3-sp-3);
+  padding: var(--u3-sp-3) 0;
+  border-top: 1px solid var(--u3-border);
+}
+.rl3-id {
+  color: var(--u3-focus);
+  font-size: var(--u3-fs-s);
+}
+.rl3-st {
+  grid-column: 2;
+  font-size: var(--u3-fs-s);
+}
+
+/* phone: opening a release swaps list for detail */
+.rl3--detail .rl3-main {
+  display: none;
+}
+@media (min-width: 900px) {
+  .rl3--detail {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  }
+  .rl3--detail .rl3-main {
+    display: flex;
+  }
+  .rl3-aside {
+    position: sticky;
+    top: var(--u3-sp-4);
+  }
+  .rl3-back {
+    display: none;
+  }
+}
