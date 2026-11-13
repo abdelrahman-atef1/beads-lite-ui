@@ -636,10 +636,33 @@ describe('B8 secrets', () => {
       expect(r.json.answer).not.toContain(val.slice(8));
     });
   }
+  const more = [
+    ['json api_key', '{"api_key": "abcdefghijklmnop1234"}', 'abcdefghijklmnop1234'],
+    ['json token', '{"token":"abcdefghijklmnop1234"}', 'abcdefghijklmnop1234'],
+    ['bearer', 'Authorization: Bearer abcdefghijklmnop1234', 'abcdefghijklmnop1234'],
+    ['telegram', 'bot 123456789:AAFakeFakeFakeFakeFakeFakeFakeFake1234', 'AAFakeFakeFake'],
+    ['url password', 'https://user:hunter2pass@example.com/x', 'hunter2pass'],
+    ['stripe', 'sk_live_FAKEFAKEFAKEFAKE1234', 'FAKEFAKEFAKEFAKE1234'],
+    ['npm', 'npm_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE12', 'FAKEFAKEFAKEFAKEFAKE'],
+    ['gitlab', 'glpat-FAKEFAKEFAKEFAKEFAKE12', 'FAKEFAKEFAKEFAKEFAKE12'],
+    ['hf', 'hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE12', 'FAKEFAKEFAKEFAKEFAKE'],
+    ['aws temp', 'ASIAABCDEFGHIJKLMNOP', 'ABCDEFGHIJKLMNOP'],
+    ['--token flag', 'run --token abcdef123456 now', 'abcdef123456']
+  ];
+  for (const [name, text, secret] of more) {
+    test(`B8 ${name} is scrubbed`, () => {
+      const out = ask.redactSecrets(`x ${text} y`);
+      expect(out).not.toContain(secret);
+      expect(out).toContain('[redacted]');
+    });
+  }
   test('B8 normal text is left alone', () => {
     expect(
       ask.redactSecrets('The key idea: use tokens wisely; password policy')
     ).toBe('The key idea: use tokens wisely; password policy');
+    const plain =
+      'Fix bug 12:30 call at https://example.com/a?b=1 see bd-12: ready, run --verbose, Bearer of news';
+    expect(ask.redactSecrets(plain)).toBe(plain);
   });
 });
 

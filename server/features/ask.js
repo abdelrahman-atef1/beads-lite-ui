@@ -183,8 +183,20 @@ export function redactSecrets(text) {
       /\beyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{6,}(?:\.[A-Za-z0-9_-]*)?/g,
       R
     )
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi, `Bearer ${R}`)
+    .replace(/\b\d{8,10}:[A-Za-z0-9_-]{35}\b/g, R) // Telegram bot token
+    .replace(/:\/\/[^\s/:@]+:[^\s/@]+@/g, `://${R}@`) // user:pass@host
+    .replace(/\b(?:sk|rk)_(?:live|test)_\w{16,}/g, R)
+    .replace(/\bnpm_\w{30,}/g, R)
+    .replace(/\bglpat-[\w-]{20,}/g, R)
+    .replace(/\bhf_\w{30,}/g, R)
+    .replace(/\bASIA[0-9A-Z]{16}\b/g, R)
     .replace(
-      /\b([A-Za-z0-9_.-]*(?:key|token|secret|password|passwd|pwd)[A-Za-z0-9_.-]*)(\s*[:=]\s*)["']?[^\s"']{16,}/gi,
+      /(--[a-z-]*(?:key|token|secret|password|passwd|pwd))(\s+|=)["']?[^\s"']{8,}/gi,
+      `$1$2${R}`
+    )
+    .replace(
+      /\b([A-Za-z0-9_.-]*(?:key|token|secret|password|passwd|pwd)[A-Za-z0-9_.-]*["']?)(\s*[:=]\s*)["']?[^\s"']{16,}["']?/gi,
       `$1$2${R}`
     );
 }
