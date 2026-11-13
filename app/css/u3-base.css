@@ -1,0 +1,384 @@
+/* Board v3 base + primitives. Everything under .u3. Fonts self-hosted,
+   subset, swap, system fallback (a blocked font never breaks the page). */
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/plex-arabic-arabic-400.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/plex-arabic-arabic-600.woff2') format('woff2');
+  unicode-range:
+    U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/plex-arabic-latin-400.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/plex-arabic-latin-600.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+.u3 {
+  font-family: var(--u3-font);
+  font-size: var(--u3-fs-m);
+  line-height: 1.6;
+  color: var(--u3-text);
+  background: var(--u3-bg);
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+}
+.u3 *,
+.u3 *::before,
+.u3 *::after {
+  box-sizing: border-box;
+}
+.u3 h1,
+.u3 h2,
+.u3 p {
+  margin: 0;
+}
+.u3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.u3 :focus-visible {
+  outline: 2px solid var(--u3-focus);
+  outline-offset: 2px;
+}
+.u3-mono,
+.u3 code {
+  font-family: var(--u3-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.u3-muted {
+  color: var(--u3-text-3);
+}
+
+/* button */
+.u3-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--u3-sp-2);
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--u3-radius-s);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.u3-btn--primary {
+  background: var(--u3-blue);
+  color: var(--u3-blue-ink);
+}
+.u3-btn--ghost {
+  background: transparent;
+  color: var(--u3-text-2);
+  border-color: var(--u3-border);
+}
+.u3-btn--steps {
+  background: var(--u3-teal);
+  color: var(--u3-teal-ink);
+}
+.u3-btn--danger {
+  background: var(--u3-red);
+  color: #fff;
+}
+.u3-btn--block {
+  display: flex;
+  width: 100%;
+}
+.u3-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.u3-iconbtn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--u3-surface-2);
+  color: var(--u3-text-2);
+  font: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* chip: never wraps */
+.u3-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.u3-chip--amber {
+  background: var(--u3-amber-soft);
+  color: var(--u3-amber);
+}
+.u3-chip--teal {
+  background: var(--u3-teal-soft);
+  color: var(--u3-teal);
+}
+.u3-chip--blue {
+  background: var(--u3-blue-soft);
+  color: var(--u3-focus);
+}
+.u3-chip--red {
+  background: var(--u3-red-soft);
+  color: var(--u3-red);
+}
+.u3-chip--green {
+  background: var(--u3-green-soft);
+  color: var(--u3-green);
+}
+
+/* role chip */
+.u3-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--u3-fs-s);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--u3-text-2);
+}
+.u3-role__dot,
+.u3-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--u3-text-3);
+  flex: none;
+}
+.u3-role--cto .u3-role__dot {
+  background: var(--u3-purple);
+}
+.u3-role--swe .u3-role__dot {
+  background: var(--u3-blue);
+}
+.u3-role--sre .u3-role__dot {
+  background: var(--u3-green);
+}
+.u3-role--sec .u3-role__dot {
+  background: var(--u3-red);
+}
+.u3-role--pm .u3-role__dot {
+  background: var(--u3-amber);
+}
+.u3-role--ux .u3-role__dot {
+  background: var(--u3-teal);
+}
+.u3-role--qa .u3-role__dot {
+  background: var(--u3-focus);
+}
+.u3-dot--green {
+  background: var(--u3-green);
+}
+.u3-dot--red {
+  background: var(--u3-red);
+}
+.u3-dot--purple {
+  background: var(--u3-purple);
+}
+.u3-dot--amber {
+  background: var(--u3-amber);
+}
+
+/* card frame: accent bar on the start edge */
+.u3-card {
+  position: relative;
+  padding: var(--u3-sp-4);
+  padding-inline-start: calc(var(--u3-sp-4) + 6px);
+  background: var(--u3-surface);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  overflow: hidden;
+}
+.u3-card::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 6px;
+  background: transparent;
+}
+.u3-card--amber::before {
+  background: var(--u3-amber);
+}
+.u3-card--teal::before {
+  background: var(--u3-teal);
+}
+.u3-card--blue::before {
+  background: var(--u3-blue);
+}
+.u3-card__body {
+  margin-block: var(--u3-sp-3);
+}
+.u3-card__foot {
+  padding-block-start: var(--u3-sp-3);
+  border-block-start: 1px solid var(--u3-border);
+}
+
+/* list row */
+.u3-row {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 52px;
+  padding: var(--u3-sp-2) var(--u3-sp-4);
+  border-block-end: 1px solid var(--u3-border);
+}
+.u3-row__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.u3-row__end {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+}
+
+/* tab bar */
+.u3-tabs {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--u3-sp-2);
+  width: 100%;
+}
+.u3-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--u3-radius-m);
+  background: transparent;
+  color: var(--u3-text-3);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.u3-tab[aria-current='page'] {
+  background: var(--u3-teal-soft);
+  color: var(--u3-teal);
+}
+
+/* sheet: bottom sheet on phone, centred panel on PC */
+.u3-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.u3-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 55%);
+}
+.u3-sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85dvh;
+  overflow: auto;
+  padding: var(--u3-sp-3) var(--u3-sp-4) var(--u3-sp-5);
+  background: var(--u3-surface);
+  border-radius: var(--u3-radius-l) var(--u3-radius-l) 0 0;
+}
+.u3-sheet__grip {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto var(--u3-sp-3);
+  border-radius: 2px;
+  background: var(--u3-border);
+}
+.u3-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.u3-sheet__head h2 {
+  font-size: var(--u3-fs-l);
+}
+@media (min-width: 768px) {
+  .u3-sheet {
+    align-items: center;
+  }
+  .u3-sheet__panel {
+    border-radius: var(--u3-radius-l);
+  }
+  .u3-sheet__grip {
+    display: none;
+  }
+}
+
+/* stub + kit */
+.u3-stub h2 {
+  font-size: var(--u3-fs-xl);
+  margin-block-end: var(--u3-sp-2);
+}
+.u3-kit h2 {
+  font-size: var(--u3-fs-l);
+  margin-block: var(--u3-sp-5) var(--u3-sp-3);
+}
+.u3-kit__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-3);
+  align-items: center;
+}
+.u3-kit__cards {
+  display: grid;
+  gap: var(--u3-sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+.u3-kit__list,
+.u3-kit__tabs {
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+}
+.u3-kit__tabs {
+  padding: var(--u3-sp-2);
+}

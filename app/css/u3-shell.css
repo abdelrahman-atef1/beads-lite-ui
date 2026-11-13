@@ -1,0 +1,147 @@
+/* Board v3 shell. Two grid tracks (sidebar | main): the main column is its own
+   track, so it can never sit under the sidebar (mock 09 defect). RTL flips
+   the tracks by itself (sidebar on the right). Fluid up to 2560. */
+html[data-ui='3'] body {
+  margin: 0;
+  background: #0e121b;
+}
+html[data-ui='3'][data-theme='light'] body {
+  background: #f6f7fb;
+}
+.u3 {
+  display: grid;
+  grid-template-columns: var(--u3-side-w) minmax(0, 1fr);
+}
+.u3-side {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  padding: var(--u3-sp-4);
+  background: var(--u3-surface);
+  border-inline-end: 1px solid var(--u3-border);
+}
+.u3-side__brand {
+  font-size: var(--u3-fs-xl);
+  font-weight: 600;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+}
+.u3-side__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+}
+.u3-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 48px;
+  padding: 0 var(--u3-sp-3);
+  border-radius: var(--u3-radius-s);
+  color: var(--u3-text-2);
+  white-space: nowrap;
+}
+.u3-nav[aria-current='page'] {
+  background: var(--u3-surface-2);
+  color: var(--u3-focus);
+  font-weight: 600;
+}
+.u3-side__foot {
+  margin-block-start: auto;
+  display: flex;
+  gap: var(--u3-sp-2);
+}
+.u3-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.u3-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 64px;
+  padding: 0 var(--u3-sp-5);
+  background: var(--u3-bg);
+  border-block-end: 1px solid var(--u3-border);
+}
+.u3-top__title {
+  flex: 1;
+  font-size: var(--u3-fs-xl);
+  font-weight: 600;
+}
+.u3-top__slot:empty {
+  display: none;
+}
+.u3-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--u3-sp-5);
+}
+.u3-main__in {
+  width: 100%;
+  max-width: 1480px;
+  margin-inline: auto;
+  min-width: 0;
+}
+.u3-tabbar {
+  display: none;
+}
+.u3-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-3);
+}
+.u3-more__link {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 48px;
+}
+.u3-more__prefs {
+  display: flex;
+  gap: var(--u3-sp-2);
+  padding-block-start: var(--u3-sp-3);
+}
+
+/* phone: no sidebar, bottom tabs */
+@media (max-width: 767px) {
+  .u3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .u3-side {
+    display: none;
+  }
+  .u3-top {
+    padding: 0 var(--u3-sp-4);
+    min-height: 56px;
+  }
+  .u3-main {
+    padding: var(--u3-sp-4);
+    padding-block-end: calc(var(--u3-tabbar-h) + var(--u3-sp-5));
+  }
+  .u3-tabbar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    min-height: var(--u3-tabbar-h);
+    padding: 6px var(--u3-sp-3) calc(6px + env(safe-area-inset-bottom));
+    background: var(--u3-surface);
+    border-block-start: 1px solid var(--u3-border);
+  }
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+  .u3 {
+    --u3-side-w: 200px;
+  }
+}
