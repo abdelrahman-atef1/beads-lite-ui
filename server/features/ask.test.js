@@ -196,7 +196,7 @@ beforeEach(() => {
   ask._deps.kill = (c) => {
     if (c.pid && c.exitCode === null && c.signalCode === null) {
       killed.push(c.pid);
-      if (typeof /** @type {any} */ (c).close === 'function')
+      if (typeof (/** @type {any} */ (c).close) === 'function')
         /** @type {any} */ (c).close(null);
     }
   };
@@ -699,7 +699,6 @@ describe('B11 kill', () => {
     const p = post('pc', good).catch(() => null);
     await vi.waitFor(() => expect(spawnCalls.length).toBe(1));
     // drop the connection from the client side
-    const sockets = [];
     for (const h of [pc]) h.closeAllConnections();
     await p;
     await vi.waitFor(() => expect(killed).toEqual([children[0].pid]));

@@ -3,6 +3,7 @@
  * issue text is shown as stored. The choice is kept in localStorage and
  * mirrored on <html lang dir>; views re-render on the `bdui-lang` event.
  */
+import { strings as ask } from '../i18n/ask.js';
 import { strings as board } from '../i18n/board.js';
 import { strings as card } from '../i18n/card.js';
 import { strings as decisions } from '../i18n/decisions.js';
@@ -102,7 +103,8 @@ const STRINGS = {
   ...report,
   ...outputs,
   ...releases,
-  ...card
+  ...card,
+  ...ask
 };
 
 /** @returns {'en'|'ar'} */
