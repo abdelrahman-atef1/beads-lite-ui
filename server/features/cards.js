@@ -5,6 +5,7 @@
  *   card-state  {id}                              -> State  (phone door allowed)
  *   card-answer {id, option | text, sha}          -> Result (board token; phone allowed)
  *   card-ask    {id, scope, quote?, question}     -> Result (board token; phone allowed)
+ *   steps-done  {id, comment}                     -> Result (board token; phone allowed)
  * Result = { code, state, wake }   (a refusal throws { code } and carries no text)
  *
  * The board never writes a decision record itself: answer and ask go to the
@@ -22,7 +23,13 @@ import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { withPrefixes } from '../workspace-prefix.js';
-import { cardsDirs, projectKey, scanBlocked } from './decisions-feed.js';
+import {
+  cardsDirs,
+  findSteps,
+  projectKey,
+  scanBlocked,
+  STEPS_LABEL
+} from './decisions-feed.js';
 import { emitWake, viaFromHost } from './report.js';
 
 const log = debug('cards');
@@ -47,8 +54,12 @@ const REFUSALS = new Set([
   'record-pending',
   'bd-failed',
   'round-cap',
-  'move-pending'
+  'move-pending',
+  'not-found',
+  'no-steps',
+  'stale-steps'
 ]);
+const STEPS_REF_RE = /^c-[0-9a-f]{8}$/;
 
 /**
  * A refusal: wire code with underscores (the phone door only passes
@@ -416,7 +427,7 @@ export function createCards(opts = {}) {
   }
 
   /**
-   * @param {'answer'|'ask'} cmd
+   * @param {'answer'|'ask'|'steps-done'} cmd
    * @param {string} id
    * @param {Record<string, unknown>} req CLI request without repo/bead/via
    * @param {string | undefined} host
@@ -445,11 +456,11 @@ export function createCards(opts = {}) {
     let wk = 'failed';
     try {
       wk = await wake({
-        kind: cmd === 'answer' ? 'decided' : 'asked',
+        kind: cmd === 'ask' ? 'asked' : 'decided',
         repo: proj.key,
         bead: id,
         via,
-        role: out.back
+        role: String((cmd === 'steps-done' && req.back) || out.back)
       });
     } catch {
       // the record is written; a missing wake is shown as failed
@@ -503,6 +514,43 @@ export function createCards(opts = {}) {
       const req = { scope: p?.scope, question: p?.question };
       if (p?.quote !== undefined) req.quote = p.quote;
       return serial(id, () => write('ask', id, req, host));
+    },
+    /**
+     * The owner did the steps. Refuses unless the bead carries the steps
+     * label, is open, its newest steps comment is the one he saw, and no text
+     * trips the secret scan. The record and the label removal are the card
+     * CLI's job; this only checks, calls it once and queues one wake.
+     *
+     * @param {any} p
+     * @param {string | undefined} host
+     */
+    stepsDone(p, host) {
+      const id = p?.id;
+      const ref = p?.comment;
+      if (typeof ref !== 'string' || !STEPS_REF_RE.test(ref)) {
+        throw refuse('bad-input');
+      }
+      return serial(id, async () => {
+        assertId(id);
+        const m = await load();
+        const { bead, comments } = await read(id);
+        if (bead.status === 'closed') throw refuse('not-open');
+        const labels = Array.isArray(bead.labels) ? bead.labels : [];
+        if (!labels.includes(STEPS_LABEL)) throw refuse('no-steps');
+        const st = findSteps(comments);
+        if (!st) throw refuse('no-steps');
+        if (st.comment !== ref) throw refuse('stale-steps');
+        if (m.rules.scanText(`${st.title}
+${String(bead.title || '')}`).length) {
+          throw refuse('secret-refused');
+        }
+        /** @type {Record<string, unknown>} */
+        const req = { comment: ref };
+        if (/^[a-z][a-z0-9-]{1,30}$/.test(st.author) && st.author !== OWNER) {
+          req.back = st.author;
+        }
+        return write('steps-done', id, req, host);
+      });
     }
   };
 }
@@ -531,6 +579,12 @@ export function register(seam) {
     'card-ask',
     (/** @type {any} */ req, /** @type {any} */ ctx) =>
       cards().ask(req.payload || {}, ctx?.ws?.hostHeader),
+    { mutating: true, phone: true }
+  );
+  seam.registerHandler(
+    'steps-done',
+    (/** @type {any} */ req, /** @type {any} */ ctx) =>
+      cards().stepsDone(req.payload || {}, ctx?.ws?.hostHeader),
     { mutating: true, phone: true }
   );
 }

@@ -102,6 +102,61 @@ function rig(/** @type {any} */ over = {}) {
   };
 }
 
+describe('decisions-feed steps', () => {
+  const stepsC = (/** @type {string} */ id, /** @type {string} */ text) => ({
+    id,
+    author: 'swe',
+    created_at: '2026-11-13T10:00:00Z',
+    text
+  });
+  const good = stepsC('aabbccdd-0001', 'STEPS: Install the build\n## Steps\n1. Open it\n2. Tap install\n## Why\nx');
+  const lab = (/** @type {any} */ b, /** @type {any[]} */ comments) => ({ bead: { ...b, labels: ['owner-steps'] }, comments });
+
+  test('a marked bead shows as kind steps with its comment id and step count', async () => {
+    const r = rig({
+      listSteps: async (/** @type {string} */ cwd) =>
+        cwd === '/w/alpha' ? [lab(bead('alpha-7', {}, { status: 'in_progress' }), [good])] : []
+    });
+    const snap = await r.feed.list();
+    const s = snap.items.find((i) => i.id === 'alpha-7');
+    expect(s?.kind).toBe('steps');
+    expect(s?.steps).toEqual({ comment: 'c-aabbccdd', title: 'Install the build', n: 2, at: '2026-11-13T10:00:00Z' });
+    expect(snap.items.find((i) => i.id === 'alpha-1')?.kind).toBe('decision');
+  });
+  test('a bead with a card AND steps stays one decision item carrying steps', async () => {
+    const r = rig({
+      listSteps: async (/** @type {string} */ cwd) =>
+        cwd === '/w/alpha' ? [lab(bead('alpha-1', card()), [good])] : []
+    });
+    const items = (await r.feed.list()).items.filter((i) => i.id === 'alpha-1');
+    expect(items.length).toBe(1);
+    expect(items[0].kind).toBe('decision');
+    expect(items[0].steps?.comment).toBe('c-aabbccdd');
+  });
+  test('closed bead, done record, no Steps section and a secret in the title are never listed', async () => {
+    const done = stepsC('ffee0011-1', 'x');
+    done.author = 'owner-board';
+    done.text = 'OWNER STEPS DONE via board (pc)';
+    const r = rig({
+      listSteps: async (/** @type {string} */ cwd) =>
+        cwd === '/w/alpha'
+          ? [
+              lab(bead('a-closed', {}, { status: 'closed' }), [good]),
+              lab(bead('a-done', {}, { status: 'open' }), [good, done]),
+              lab(bead('a-nosec', {}, { status: 'open' }), [stepsC('aabbccdd-9', 'STEPS: no section')]),
+              lab(bead('a-leak', {}, { status: 'open' }), [stepsC('aabbccdd-8', 'STEPS: key sk-abcdefgh12345\n## Steps\n1. x')])
+            ]
+          : []
+    });
+    const ids = (await r.feed.list()).items.map((i) => i.id);
+    for (const x of ['a-closed', 'a-done', 'a-nosec', 'a-leak']) expect(ids).not.toContain(x);
+  });
+  test('a failing steps lookup does not hide the decisions', async () => {
+    const r = rig({ listSteps: async () => { throw new Error('boom'); } });
+    expect((await r.feed.list()).items.map((i) => i.id)).toEqual(['beta-1', 'alpha-1']);
+  });
+});
+
 describe('decisions-feed', () => {
   test('lists valid cards from both projects, priority first, with project', async () => {
     const r = rig();
