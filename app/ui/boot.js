@@ -7,6 +7,7 @@ import { applyLang } from '../utils/i18n.js';
 import { renderAskHead } from './ask/head-slot.js';
 import { renderStepsComment } from './card/steps.js';
 import { parseRoute } from './routes.js';
+import { attachSearch } from './search.js';
 import { createShell } from './shell.js';
 import { renderComposerExtras } from './task/composer-ext.js';
 import { renderTimeSlot } from './task/time-slot.js';
@@ -65,6 +66,7 @@ export function bootV3(_legacy_root, base) {
   document.body.appendChild(root);
 
   const shell = createShell(root, base);
+  attachSearch(base); // SHELL-REQ .59.14: top search on every screen
   /** @type {{ name: string, h: any }} */
   let cur = { name: '', h: null };
 
