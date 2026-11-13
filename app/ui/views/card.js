@@ -389,7 +389,8 @@ function answerArea(el, p, d, lang) {
   </div>`;
 }
 
-/** The "ask before you answer" opener (foot). @param {HTMLElement} el @param {Panel} p @param {any} d @param {string} lang */
+// The "ask before you answer" opener (foot).
+/** @param {HTMLElement} el @param {Panel} p @param {any} d @param {string} lang */
 function askArea(el, p, d, lang) {
   if (roundsLeft(d) <= 0) {
     return html`<p class="u3-cd__note">

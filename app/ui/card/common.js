@@ -4,7 +4,8 @@ import { strings } from '../i18n/card.js';
 
 /** @type {any} */
 let fake = null;
-/** Test seam: use a fake client ({ send }). @param {any} c */
+// Test seam: use a fake client ({ send }).
+/** @param {any} c */
 export function setCardClient(c) {
   fake = c;
 }
@@ -38,7 +39,8 @@ export function taskHref(id) {
   return `#/issues?issue=${encodeURIComponent(id)}`;
 }
 
-/** Same link the desk's "open steps" button uses. @param {string} id @param {string} at */
+// Same link the desk's open-steps button uses.
+/** @param {string} id @param {string} at */
 export function stepsHref(id, at) {
   return `${taskHref(id)}&at=${encodeURIComponent(at)}`;
 }
