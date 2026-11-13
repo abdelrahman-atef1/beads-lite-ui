@@ -3,6 +3,7 @@
  * issue text is shown as stored. The choice is kept in localStorage and
  * mirrored on <html lang dir>; views re-render on the `bdui-lang` event.
  */
+import { strings as ask } from '../i18n/ask.js';
 import { strings as board } from '../i18n/board.js';
 import { strings as card } from '../i18n/card.js';
 import { strings as decisions } from '../i18n/decisions.js';
@@ -102,7 +103,8 @@ const STRINGS = {
   ...report,
   ...outputs,
   ...releases,
-  ...card
+  ...card,
+  ...ask
 };
 
 /** @returns {'en'|'ar'} */
@@ -128,6 +130,22 @@ export function t(key) {
     return key;
   }
   return e[getLang()] || e.en;
+}
+
+/**
+ * Label in a given language (a decision card's own language, not the board's),
+ * so the label and the text beside it share one script (beads-lite-1bo5.6.61).
+ *
+ * @param {string} key
+ * @param {string} lang
+ * @returns {string}
+ */
+export function tIn(key, lang) {
+  const e = STRINGS[key];
+  if (!e) {
+    return key;
+  }
+  return e[lang === 'ar' ? 'ar' : 'en'] || e.en;
 }
 
 /** Apply the stored language to <html>. */

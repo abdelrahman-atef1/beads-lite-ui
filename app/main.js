@@ -15,6 +15,7 @@ import { registerServiceWorker } from './sw-register.js';
 import { bootV3 } from './ui/boot.js';
 import { resolveUi } from './ui/flag.js';
 import { createActivityIndicator } from './utils/activity-indicator.js';
+import { setAskProject } from './utils/ask-context.js';
 import { setImgContext } from './utils/att-images.js';
 import { createFilterState } from './utils/board-filter.js';
 import { applyLang, t, toggleLang } from './utils/i18n.js';
@@ -691,6 +692,7 @@ export function bootstrap(root_element) {
     // Which project's files local image refs are looked up in first.
     store.subscribe((s) => {
       setImgContext({ workspace: s.workspace.current?.path || '' });
+      setAskProject(s.workspace.current?.path || '');
     });
     // Persist filter changes to localStorage
     store.subscribe((s) => {

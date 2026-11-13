@@ -4,6 +4,7 @@ import { VIEWS, lazyView, loadView, mountSlots } from './registry.js';
 describe('views/registry', () => {
   test('every route and slot view is a lazy import', () => {
     expect(Object.keys(VIEWS).sort()).toEqual([
+      'ask',
       'board',
       'card',
       'decisions',

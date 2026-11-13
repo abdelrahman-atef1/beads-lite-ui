@@ -20,8 +20,9 @@ import {
   isDesk,
   meta
 } from '../utils/board-model.js';
+import { cardDir, cardLang } from '../utils/card-dir.js';
 import { errorText } from '../utils/card-text.js';
-import { t } from '../utils/i18n.js';
+import { t, tIn } from '../utils/i18n.js';
 import { debug } from '../utils/logging.js';
 import { createPriorityBadge } from '../utils/priority-badge.js';
 import { showToast } from '../utils/toast.js';
@@ -168,7 +169,8 @@ export function createDecisionsView(
       <article
         class="qcard ${desk ? 'qcard--desk' : ''}"
         data-issue-id=${it.id}
-        lang=${lang_attr}
+        lang=${cardLang(lang_attr)}
+        dir=${cardDir(lang_attr)}
       >
         <div class="card__meta">
           <span class="card__pri">${createPriorityBadge(pri)}</span>
@@ -182,18 +184,21 @@ export function createDecisionsView(
         </div>
         <h2 dir="auto">${desk ? primary : q || primary}</h2>
         ${!desk && effect
-          ? html`<p class="qcard__eff" dir="auto">
-              <b>${t('effect')}:</b> ${effect}
-            </p>`
+          ? html`<div class="qcard__eff">
+              <b class="qcard__lbl">${tIn('effect', lang_attr)}</b>
+              <span dir="auto">${effect}</span>
+            </div>`
           : ''}
         ${!desk && show
-          ? html`<div class="qcard__show" dir="auto">
-              <b>${t('today')}:</b> ${show}
+          ? html`<div class="qcard__show">
+              <b class="qcard__lbl">${tIn('today', lang_attr)}</b>
+              <span dir="auto">${show}</span>
             </div>`
           : ''}
         ${!desk && blocks
-          ? html`<div class="qcard__blk" dir="auto">
-              ${t('frozen')}: ${blocks}
+          ? html`<div class="qcard__blk">
+              <b class="qcard__lbl">${tIn('frozen', lang_attr)}</b>
+              <span dir="auto">${blocks}</span>
             </div>`
           : ''}
         ${desk
@@ -202,7 +207,7 @@ export function createDecisionsView(
             ? html`<p class="qcard__eff">${t('no_card')}</p>`
             : cls === 'type'
               ? typedTemplate(it)
-              : optionsTemplate(it, opts, sel)}
+              : optionsTemplate(it, opts, sel, lang_attr)}
         <div class="card__meta">
           <a
             class="qcard__open"
@@ -225,8 +230,9 @@ export function createDecisionsView(
    * @param {any} it
    * @param {Array<{ l: string, n: string, rec: boolean }>} opts
    * @param {number|undefined} sel
+   * @param {string} lang_attr
    */
-  function optionsTemplate(it, opts, sel) {
+  function optionsTemplate(it, opts, sel, lang_attr) {
     const disabled = busy.has(it.id);
     if (sel !== undefined && opts[sel]) {
       const o = opts[sel];
@@ -264,8 +270,10 @@ export function createDecisionsView(
               doRender();
             }}
           >
-            ${i + 1} ${o.l}
-            ${o.rec ? html`<small>${t('recommended')}</small>` : ''}
+            <span dir="auto">${i + 1} ${o.l}</span>
+            ${o.rec
+              ? html`<small>${tIn('recommended', lang_attr)}</small>`
+              : ''}
           </button>`
       )}
     </div>`;

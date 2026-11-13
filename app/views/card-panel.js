@@ -10,13 +10,14 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { commentAnchor } from '../utils/anchor.js';
+import { cardDir, cardLang, detectLang } from '../utils/card-dir.js';
 import { errorText, wakeLabel } from '../utils/card-text.js';
 import {
   answerText,
   decisionStates,
   parseDecisionComment
 } from '../utils/decision-comment.js';
-import { t } from '../utils/i18n.js';
+import { t, tIn } from '../utils/i18n.js';
 import { showToast } from '../utils/toast.js';
 import { createWsClient } from '../ws.js';
 
@@ -245,19 +246,35 @@ function paint(el, p) {
   );
 }
 
+/**
+ * One labelled field: the label is its own block, the value its own
+ * dir="auto" block.
+ *
+ * @param {string} labelKey
+ * @param {string} lang
+ * @param {string} value
+ * @param {string} [extra] extra class
+ */
+function field(labelKey, lang, value, extra = '') {
+  return html`<div class="cd__line ${extra}">
+    <b class="cd__fl">${tIn(labelKey, lang)}</b>
+    <span class="cd__fv" dir="auto">${value}</span>
+  </div>`;
+}
+
 /** @param {any} c */
 function cardBody(c) {
-  return html`<div class="cd__body" dir="auto" data-cardtext>
-    <p class="cd__q">${c.q}</p>
-    ${c.effect
-      ? html`<p class="cd__line"><b>${t('cd_effect')}:</b> ${c.effect}</p>`
-      : nothing}
-    ${c.show
-      ? html`<p class="cd__line"><b>${t('cd_show')}:</b> ${c.show}</p>`
-      : nothing}
-    ${c.blocks
-      ? html`<p class="cd__line cd__blk">${t('cd_blocks')}: ${c.blocks}</p>`
-      : nothing}
+  const lang = cardLang(c.lang);
+  return html`<div
+    class="cd__body"
+    dir=${cardDir(lang)}
+    lang=${lang}
+    data-cardtext
+  >
+    <p class="cd__q" dir="auto">${c.q}</p>
+    ${c.effect ? field('cd_effect', lang, c.effect) : nothing}
+    ${c.show ? field('cd_show', lang, c.show) : nothing}
+    ${c.blocks ? field('cd_blocks', lang, c.blocks, 'cd__blk') : nothing}
   </div>`;
 }
 
@@ -340,8 +357,10 @@ function answerArea(el, p, d) {
             paint(el, p);
           }}
         >
-          <span>${o.n}. ${o.l}</span>
-          ${o.rec ? html`<small>${t('cd_rec')}</small>` : nothing}
+          <span dir="auto">${o.n}. ${o.l}</span>
+          ${o.rec
+            ? html`<small>${tIn('cd_rec', cardLang(c.lang))}</small>`
+            : nothing}
           ${o.note ? html`<small dir="auto">${o.note}</small>` : nothing}
         </button>`
     )}
@@ -525,17 +544,12 @@ const inlines = new WeakMap();
  * @param {boolean} [listOpts] false when the options are buttons below
  */
 function staticCard(d, answer, pickedN, listOpts = true) {
-  return html`<div class="cd__body" dir="auto">
-    <p class="cd__q">${d.q}</p>
-    ${d.effect
-      ? html`<p class="cd__line"><b>${t('cd_effect')}:</b> ${d.effect}</p>`
-      : nothing}
-    ${d.show
-      ? html`<p class="cd__line"><b>${t('cd_show')}:</b> ${d.show}</p>`
-      : nothing}
-    ${d.blocks
-      ? html`<p class="cd__line cd__blk">${t('cd_blocks')}: ${d.blocks}</p>`
-      : nothing}
+  const lang = detectLang(d.q);
+  return html`<div class="cd__body" dir=${cardDir(lang)} lang=${lang}>
+    <p class="cd__q" dir="auto">${d.q}</p>
+    ${d.effect ? field('cd_effect', lang, d.effect) : nothing}
+    ${d.show ? field('cd_show', lang, d.show) : nothing}
+    ${d.blocks ? field('cd_blocks', lang, d.blocks, 'cd__blk') : nothing}
     ${listOpts
       ? html`<ol class="dc__opts">
           ${d.opts.map(
@@ -543,8 +557,8 @@ function staticCard(d, answer, pickedN, listOpts = true) {
               html`<li
                 class=${o.n === pickedN ? 'dc__opt is-picked' : 'dc__opt'}
               >
-                ${o.n}. ${o.l}
-                ${o.rec ? html`<small>${t('cd_rec')}</small>` : nothing}
+                <span dir="auto">${o.n}. ${o.l}</span>
+                ${o.rec ? html`<small>${tIn('cd_rec', lang)}</small>` : nothing}
                 ${o.note ? html`<small dir="auto">${o.note}</small>` : nothing}
               </li>`
           )}
@@ -552,7 +566,7 @@ function staticCard(d, answer, pickedN, listOpts = true) {
       : nothing}
     ${answer
       ? html`<p class="cd__rec" data-answered dir="auto">
-          ${t('dc_answered')}: ${answer}
+          ${tIn('dc_answered', lang)}: ${answer}
         </p>`
       : nothing}
   </div>`;
@@ -582,7 +596,7 @@ export function mountDecisionComment(el, issue) {
     return;
   }
   const st = decisionStates(comments, issue).get(idx) || { kind: 'closed' };
-  const lang = /[\u0600-\u06FF]/.test(d.q) ? 'ar' : 'en';
+  const lang = detectLang(d.q);
   const frame = (/** @type {any} */ body) =>
     html`<section
       class="cd dc"
@@ -689,8 +703,10 @@ function paintNonBlocking(el, issue, d, cid, s, frame) {
                       again();
                     }}
                   >
-                    <span>${x.n}. ${x.l}</span>
-                    ${x.rec ? html`<small>${t('cd_rec')}</small>` : nothing}
+                    <span dir="auto">${x.n}. ${x.l}</span>
+                    ${x.rec
+                      ? html`<small>${tIn('cd_rec', detectLang(d.q))}</small>`
+                      : nothing}
                   </button>`
               )}
         </div>

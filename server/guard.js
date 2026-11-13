@@ -204,3 +204,52 @@ export const MUTATING_TYPES = new Set([
   'delete-issue',
   'set-workspace'
 ]);
+
+/**
+ * One check for every board POST that is not a websocket (SEC B1, ask-Claude
+ * beads-lite-1bo5.6.56; shared by /api/report and /api/ask). The global
+ * middleware lets a request with no Origin through (curl, the CLI); a POST that
+ * can spend money or write must be a real page of this door:
+ *  - Origin present and equal to this door (a cross-site form cannot be),
+ *  - X-Board-Token valid for this door,
+ *  - Content-Type as expected (415), Content-Length <= max (413), and present
+ *    when `require_length` (411),
+ *  - Sec-Fetch-Site, when the browser sends it, is same-origin.
+ *
+ * @param {{ headers: Record<string, string | string[] | undefined> }} req
+ * @param {Door} door
+ * @param {{ content_type: string, max_body: number, require_length?: boolean }} opts
+ * @returns {{ ok: true } | { ok: false, status: number, error: string }}
+ */
+export function checkBoardPost(req, door, opts) {
+  const h = req.headers;
+  const host = typeof h.host === 'string' ? h.host : undefined;
+  const origin = typeof h.origin === 'string' ? h.origin : undefined;
+  if (!origin || !isAllowedOrigin(origin, host, door)) {
+    return { ok: false, status: 403, error: 'forbidden' };
+  }
+  const site = h['sec-fetch-site'];
+  if (site !== undefined && site !== 'same-origin') {
+    return { ok: false, status: 403, error: 'forbidden' };
+  }
+  const tok = h['x-board-token'];
+  if (typeof tok !== 'string' || !isValidToken(tok, door)) {
+    return { ok: false, status: 403, error: 'forbidden' };
+  }
+  const ct = String(h['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (ct !== opts.content_type) {
+    return { ok: false, status: 415, error: 'bad_type' };
+  }
+  const raw = h['content-length'];
+  if (typeof raw !== 'string' || !/^\d{1,10}$/.test(raw)) {
+    if (opts.require_length) {
+      return { ok: false, status: 411, error: 'length_required' };
+    }
+  } else if (Number(raw) > opts.max_body) {
+    return { ok: false, status: 413, error: 'too_large' };
+  }
+  return { ok: true };
+}

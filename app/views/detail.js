@@ -1722,6 +1722,7 @@ export function createDetailView(
               ${depsSection('Dependencies', issue.dependencies || [])}
               ${depsSection('Dependents', issue.dependents || [])}
               <div class="detail-slot" data-slot="outputs"></div>
+              <div class="detail-slot ask-slot" data-slot="ask"></div>
             </div>
           </div>
         </div>

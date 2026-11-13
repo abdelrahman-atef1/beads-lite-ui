@@ -37,6 +37,29 @@ export function createApp(config, door = 'pc') {
   // Basic hardening and config
   app.disable('x-powered-by');
 
+  // No site may frame the board (clickjacking): every response, both doors,
+  // refusals included. The board frames none of its own pages.
+  app.use((_req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    // A later handler (express's own 404/error page, a feature route) may set
+    // its own CSP: add the directive back just before headers go out.
+    const writeHead = res.writeHead;
+    res.writeHead = /** @type {any} */ (
+      function (/** @type {any[]} */ ...a) {
+        const csp = String(res.getHeader('Content-Security-Policy') || '');
+        if (!csp.includes('frame-ancestors')) {
+          res.setHeader(
+            'Content-Security-Policy',
+            `${csp}; frame-ancestors 'none'`.replace(/^; /, '')
+          );
+        }
+        return writeHead.apply(this, /** @type {any} */ (a));
+      }
+    );
+    next();
+  });
+
   // D8: refuse unknown Host (DNS rebinding) and any request whose Origin is
   // not this board's own origin. Requests with no Origin (curl, the CLI) pass.
   // Phone door: first the owner's Tailscale identity (a Funnel request or a

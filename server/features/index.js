@@ -6,6 +6,7 @@
  * file (and one line in FEATURE_MESSAGE_TYPES), never ws.js/app.js/protocol.js.
  */
 import { allowPhoneFeatureType } from '../phone.js';
+import * as ask from './ask.js';
 import * as cards from './cards.js';
 import * as decisionsFeed from './decisions-feed.js';
 import * as localImg from './local-img.js';
@@ -79,7 +80,8 @@ for (const f of [
   push,
   outputs,
   releases,
-  cards
+  cards,
+  ask
 ]) {
   f.register({ registerHandler, registerRoute });
 }

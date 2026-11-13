@@ -260,7 +260,9 @@ describe('POST /api/report', () => {
     expect(a.status).toBe(200);
     expect(a.headers['content-type']).toBe('image/png');
     expect(a.headers['x-content-type-options']).toBe('nosniff');
-    expect(a.headers['content-security-policy']).toBe("default-src 'none'");
+    expect(a.headers['content-security-policy']).toBe(
+      "default-src 'none'; frame-ancestors 'none'"
+    );
     expect(a.body.includes('SECRETMETA')).toBe(false);
   });
 
