@@ -21,6 +21,18 @@ const STATUSES = [
   'weird'
 ];
 const flush = () => new Promise((r) => setTimeout(r, 80));
+/**
+ * Wait (bounded) until the rest-of-cards paint has landed.
+ *
+ * @param {HTMLElement} a
+ * @param {number} n
+ */
+async function until(a, n) {
+  for (let i = 0; i < 100; i++) {
+    if (a.querySelectorAll('.u3t-board .u3t-card').length >= n) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 
 /** @param {number} n */
 function fixture(n) {
@@ -123,6 +135,7 @@ const MAP = {
 describe('ui/views/tasks (v3)', () => {
   test('column contents equal the legacy board for the same stores', async () => {
     const { a, b } = setup(200);
+    await until(a, 200);
     await flush();
     for (const [id, leg] of Object.entries(MAP)) {
       const mine = col(a, `#u3t-${id} .u3t-card`);
