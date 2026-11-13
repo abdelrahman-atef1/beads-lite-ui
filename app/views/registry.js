@@ -16,7 +16,8 @@ export const VIEWS = {
   report: () => import('./report.js'),
   notifications: () => import('./notifications.js'),
   outputs: () => import('./outputs-panel.js'),
-  card: () => import('./card-panel.js')
+  card: () => import('./card-panel.js'),
+  ask: () => import('./ask.js')
 };
 
 /** @type {Map<string, Promise<any>>} */
@@ -91,7 +92,8 @@ const SLOTS = {
   outputs: ['outputs', 'mountOutputs'],
   'outputs-project': ['outputs', 'mountProjectOutputs'],
   card: ['card', 'mountCard'],
-  dcard: ['card', 'mountDecisionComment']
+  dcard: ['card', 'mountDecisionComment'],
+  ask: ['ask', 'mountAsk']
 };
 
 /**
