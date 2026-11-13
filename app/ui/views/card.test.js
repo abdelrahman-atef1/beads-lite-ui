@@ -1,7 +1,7 @@
 // @ts-nocheck -- fixture-heavy view test
 import { render } from 'lit-html';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { cardDir, cardLang, detectLang } from '../card/dir.js';
+import { cardDir, cardLang, detectLang } from '../../utils/card-dir.js';
 import { renderCard, renderStepsComment, setCardClient } from './card.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 20));

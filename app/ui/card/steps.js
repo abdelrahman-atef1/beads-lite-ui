@@ -6,7 +6,7 @@ import { card as frame } from '../components/card.js';
 import { chip } from '../components/chip.js';
 import { roleChip } from '../components/role-chip.js';
 import { ageText, clientOf, tc } from './common.js';
-import { cardDir, detectLang } from './dir.js';
+import { cardDir, detectLang } from '../../utils/card-dir.js';
 
 /**
  * Steps comment contract (beads-lite-1bo5.6.59.3, convention on .58): first

@@ -12,7 +12,7 @@ import { ref } from 'lit-html/directives/ref.js';
 import { errorText } from '../../utils/card-text.js';
 import { showToast } from '../../utils/toast.js';
 import { ageText, clientOf, stepsHref, taskHref, tc } from '../card/common.js';
-import { cardDir, cardLang, detectLang } from '../card/dir.js';
+import { cardDir, cardLang, detectLang } from '../../utils/card-dir.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button } from '../components/button.js';
 import { card as frame } from '../components/card.js';
