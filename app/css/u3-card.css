@@ -1,1 +1,325 @@
-/* Board v3 card screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 card screens: decision card, steps card, steps comment (.59.4).
+   Scoped under .u3; logical properties only so RTL needs no overrides. */
+.u3 .u3-cd {
+  max-width: 720px;
+}
+.u3 .u3-cd__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2) var(--u3-sp-3);
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__id {
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.u3 .u3-cd__age {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+.u3 .u3-cd__q {
+  font-size: var(--u3-fs-l);
+  font-weight: 700;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-cd__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+}
+/* a label is its own block; the value is its own dir=auto block (.61) */
+.u3 .u3-cd__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--u3-sp-3);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-surface-2);
+}
+.u3 .u3-cd__fl {
+  color: var(--u3-amber);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__fv {
+  color: var(--u3-text-2);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-cd__blk {
+  background: var(--u3-amber-soft);
+}
+.u3 .u3-cd__blk .u3-cd__fv {
+  color: var(--u3-amber);
+}
+.u3 .u3-cd__note,
+.u3 .u3-cd__rec {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  line-height: 1.7;
+}
+.u3 .u3-cd__rec small {
+  margin-inline-start: var(--u3-sp-2);
+}
+.u3 .u3-cd__err {
+  color: var(--u3-red);
+  background: var(--u3-red-soft);
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border-radius: var(--u3-radius-s);
+}
+.u3 .u3-cd__wake {
+  display: flex;
+}
+
+/* options: tap, then confirm. Labels may be long, so they wrap. */
+.u3 .u3-cd__opts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-cd__opt {
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 48px;
+  padding-block: var(--u3-sp-2);
+  white-space: normal;
+  text-align: center;
+  border-radius: 999px;
+}
+.u3 .u3-cd__opt small {
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+/* thread inside the card */
+.u3 .u3-cd__thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+}
+.u3 .u3-cd__thead {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__msg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 88%;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border-radius: var(--u3-radius-m);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-cd__msg--q {
+  align-self: flex-start;
+  background: var(--u3-blue);
+  color: var(--u3-blue-ink);
+}
+.u3 .u3-cd__msg--a {
+  align-self: flex-end;
+  background: var(--u3-surface-2);
+}
+.u3 .u3-cd__who {
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__msg--a .u3-cd__who {
+  color: var(--u3-teal);
+}
+.u3 .u3-cd__msg blockquote {
+  margin: 0;
+  padding-inline-start: var(--u3-sp-2);
+  border-inline-start: 2px solid currentColor;
+  opacity: 0.8;
+}
+
+/* ask form */
+.u3 .u3-cd__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-cd__lbl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__sel,
+.u3 .u3-cd__text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-surface-2);
+  color: var(--u3-text);
+  font: inherit;
+}
+.u3 .u3-cd__text {
+  resize: vertical;
+  min-height: 48px;
+}
+.u3 .u3-cd__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-cd__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-cd__ask,
+.u3 .u3-cd__link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.u3 .u3-cd__ask {
+  color: var(--u3-text-2);
+}
+.u3 .u3-cd__link {
+  color: var(--u3-blue);
+  margin-inline-start: auto;
+}
+
+/* steps card: numbered 1-3 in teal */
+.u3 .u3-cd__nums {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2) var(--u3-sp-3);
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-cd__numlist {
+  display: flex;
+  gap: var(--u3-sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u3 .u3-cd__numlist li,
+.u3 .u3-st__num {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--u3-teal-soft);
+  color: var(--u3-teal);
+  font-size: var(--u3-fs-s);
+  font-weight: 700;
+  font-variant-numeric: lining-nums;
+}
+
+/* steps comment (task page) */
+.u3 .u3-st {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-stcomment .u3-card {
+  border-color: var(--u3-teal);
+}
+.u3 .u3-st__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u3 .u3-st__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--u3-sp-3);
+  line-height: 1.7;
+  cursor: pointer;
+}
+.u3 .u3-st__box {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 2px 0 0;
+  accent-color: var(--u3-teal);
+}
+.u3 .u3-st__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-st__text code {
+  padding: 0 var(--u3-sp-1);
+  border-radius: 4px;
+  background: var(--u3-surface-2);
+}
+.u3 .u3-st__cmd {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-2);
+  margin-inline-start: calc(22px + 24px + 2 * var(--u3-sp-3));
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-bg);
+}
+.u3 .u3-st__code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.u3 .u3-st__copy {
+  flex: none;
+  min-height: 36px;
+  padding: 0 var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-surface-2);
+  color: var(--u3-text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.u3 .u3-st__copy[data-copied] {
+  color: var(--u3-teal);
+}
+.u3 .u3-st__act {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-st__act .u3-cd__ask {
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .u3 .u3-st__cmd {
+    margin-inline-start: 0;
+  }
+  .u3 .u3-cd__msg {
+    max-width: 94%;
+  }
+}
+
+.u3 .u3-stcomment {
+  max-width: 720px;
+}
