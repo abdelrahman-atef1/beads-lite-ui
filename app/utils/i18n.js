@@ -130,6 +130,22 @@ export function t(key) {
   return e[getLang()] || e.en;
 }
 
+/**
+ * Label in a given language (a decision card's own language, not the board's),
+ * so the label and the text beside it share one script (beads-lite-1bo5.6.61).
+ *
+ * @param {string} key
+ * @param {string} lang
+ * @returns {string}
+ */
+export function tIn(key, lang) {
+  const e = STRINGS[key];
+  if (!e) {
+    return key;
+  }
+  return e[lang === 'ar' ? 'ar' : 'en'] || e.en;
+}
+
 /** Apply the stored language to <html>. */
 export function applyLang() {
   const lang = getLang();

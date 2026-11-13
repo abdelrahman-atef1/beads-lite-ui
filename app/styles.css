@@ -2169,6 +2169,16 @@ body {
   font-size: var(--fs-l);
   line-height: var(--lh-tight);
 }
+.qcard__lbl,
+.qcard__eff > span,
+.qcard__show > span,
+.qcard__blk > span {
+  display: block;
+}
+.qcard__lbl {
+  font-size: var(--fs-xs, 0.75rem);
+  opacity: 0.8;
+}
 .qcard__eff {
   color: var(--text-2);
   margin: var(--sp-2) 0;
