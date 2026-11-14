@@ -22,7 +22,7 @@ import {
 import { priorityName } from '../../utils/priority.js';
 import { roleChip } from '../components/index.js';
 import { t3 } from '../i18n.js';
-import { renderBulkBar } from '../tasks/bulk.js';
+import { createBulk, renderBulkBar } from '../tasks/bulk.js';
 import {
   GROUPS,
   groupIssues,
@@ -89,8 +89,13 @@ export function mount(el, ctx) {
   let rest_timer = null;
   /** @type {ReturnType<typeof setTimeout>|null} */
   let q_timer = null;
-  /** @type {Set<string>} */
-  const selected = new Set(); // task 11 fills it
+  const bulk = createBulk({
+    host: el,
+    redraw: () => draw(),
+    all: () => snap('tab:all'),
+    visible: () => visibleIds()
+  });
+  const selected = bulk.selected;
 
   // v3 skips the legacy subscribe step: subscribe here.
   for (const id of IDS) {
@@ -141,6 +146,16 @@ export function mount(el, ctx) {
     return first ? first.id : '';
   }
 
+  /** Ids of the cards the current filter shows (select all, hidden count). */
+  function visibleIds() {
+    if (!model) return [];
+    return [
+      ...Object.values(model.columns).flat(),
+      ...model.other,
+      ...model.closed
+    ].map((i) => i.id);
+  }
+
   const colLabel = (/** @type {{id:string}} */ c) => t3('u3_tk_col_' + c.id);
 
   /**
@@ -154,11 +169,28 @@ export function mount(el, ctx) {
       ? it.blocked_by_detail
       : [];
     const pri = typeof it.priority === 'number' ? it.priority : 2;
+    const picked = bulk.isSelected(it.id);
+    const h = bulk.handlers;
     return html`<a
-      class="u3t-card"
+      class="u3t-card ${picked ? 'is-selected' : ''}"
       data-issue-id=${it.id}
+      data-selected=${picked ? '1' : '0'}
       href=${'#/issues?issue=' + encodeURIComponent(it.id)}
+      @pointerdown=${(/** @type {PointerEvent} */ e) => h.down(e, it.id)}
+      @pointermove=${h.move}
+      @pointerup=${h.up}
+      @pointercancel=${h.up}
+      @pointerleave=${h.up}
+      @click=${(/** @type {Event} */ e) => h.click(e, it.id)}
+      @contextmenu=${h.context}
     >
+      ${bulk.isMode()
+        ? html`<span
+            class="u3bk-tick"
+            role="checkbox"
+            aria-checked=${picked ? 'true' : 'false'}
+          ></span>`
+        : ''}
       <span class="u3t-card__id u3-mono">${it.id}</span>
       <span class="u3t-card__title" dir="auto">${primary}</span>
       ${secondary
@@ -290,6 +322,17 @@ export function mount(el, ctx) {
                 >`
               : ''}
           </span>
+          ${bulk.isMode()
+            ? html`<button
+                type="button"
+                class="u3-btn u3-btn--ghost u3bk-lane-all"
+                data-testid="bulk-lane-all"
+                @click=${() =>
+                  bulk.selectMany(g.issues.map((/** @type {any} */ i) => i.id))}
+              >
+                ${t3('u3_bk_lane_all')}
+              </button>`
+            : ''}
         </h2>
         ${shut ? '' : board(s.columns, s.other)}
       </section>`;
@@ -437,7 +480,7 @@ export function mount(el, ctx) {
           }}
         />
         <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
-          ${quick('u3_tk_mine', 'mine')} ${quick('u3_tk_p01', 'p01')}
+          ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')} ${quick('u3_tk_p01', 'p01')}
           ${quick('u3_tk_decision', 'decision')}
           ${quick('u3_tk_blocked', 'blocked')} ${menu('type', fc.types)}
           ${menu('label', fc.labels)} ${menu('assignee', fc.assignees)}
@@ -492,7 +535,7 @@ export function mount(el, ctx) {
               class="u3t-skel"
               aria-label=${t3('u3_tk_loading')}
             ></div>`}
-        ${renderBulkBar(selected, ctx)}
+        ${renderBulkBar(selected, { ...ctx, bulk })}
       </section>`,
       el
     );
@@ -537,6 +580,7 @@ export function mount(el, ctx) {
       alive = false;
       if (rest_timer) clearTimeout(rest_timer);
       if (q_timer) clearTimeout(q_timer);
+      bulk.destroy();
       offF();
       if (typeof offS === 'function') offS();
       window.removeEventListener('bdui-lang', onLang);
