@@ -31,11 +31,8 @@ import {
   saveCollapsed,
   saveGroup
 } from '../tasks/lanes.js';
-import {
-  CLOSED_PAGE,
-  FIRST_PAINT_CARDS,
-  buildBoard
-} from '../tasks/model.js';
+import { CLOSED_PAGE, FIRST_PAINT_CARDS, buildBoard } from '../tasks/model.js';
+import { openNewTask } from './new-task.js';
 
 const IDS = [
   'tab:all',
@@ -351,19 +348,20 @@ export function mount(el, ctx) {
     >
       <span class="u3t-group__l">${t3('u3_tk_group')}</span>
       ${GROUPS.map(
-        (g) => html`<button
-          type="button"
-          class="u3t-group__b"
-          data-group-by=${g}
-          aria-pressed=${group_by === g ? 'true' : 'false'}
-          @click=${() => {
-            group_by = /** @type {import('../tasks/lanes.js').GroupBy} */ (g);
-            saveGroup(group_by);
-            draw();
-          }}
-        >
-          ${t3('u3_tk_group_' + g)}
-        </button>`
+        (g) =>
+          html`<button
+            type="button"
+            class="u3t-group__b"
+            data-group-by=${g}
+            aria-pressed=${group_by === g ? 'true' : 'false'}
+            @click=${() => {
+              group_by = /** @type {import('../tasks/lanes.js').GroupBy} */ (g);
+              saveGroup(group_by);
+              draw();
+            }}
+          >
+            ${t3('u3_tk_group_' + g)}
+          </button>`
       )}
     </div>`;
   }
@@ -468,6 +466,13 @@ export function mount(el, ctx) {
       </label>`;
     return html`<div class="u3t-bar">
         ${groupBar()}
+        <button
+          type="button"
+          class="u3-btn u3-btn--primary u3t-new"
+          @click=${() => openNewTask(el.closest('.u3') || el, ctx)}
+        >
+          + ${t3('u3_nt_new')}
+        </button>
         <input
           class="u3t-search"
           type="search"
@@ -484,8 +489,8 @@ export function mount(el, ctx) {
           }}
         />
         <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
-          ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')} ${quick('u3_tk_p01', 'p01')}
-          ${quick('u3_tk_decision', 'decision')}
+          ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')}
+          ${quick('u3_tk_p01', 'p01')} ${quick('u3_tk_decision', 'decision')}
           ${quick('u3_tk_blocked', 'blocked')} ${menu('type', fc.types)}
           ${menu('label', fc.labels)} ${menu('assignee', fc.assignees)}
           ${menu('prio', ['0', '1', '2', '3', '4'], (v) =>
