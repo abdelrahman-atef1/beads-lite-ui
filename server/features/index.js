@@ -10,6 +10,7 @@ import * as ask from './ask.js';
 import * as bulk from './bulk.js';
 import * as cards from './cards.js';
 import * as decisionsFeed from './decisions-feed.js';
+import * as flow from './flow.js';
 import * as localImg from './local-img.js';
 import * as mention from './mention.js';
 import * as notifier from './notifier.js';
@@ -82,6 +83,7 @@ for (const f of [
   push,
   outputs,
   releases,
+  flow,
   bulk,
   cards,
   ask,
