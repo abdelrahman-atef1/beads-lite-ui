@@ -31,7 +31,9 @@ const ALLOWED = [
   // @mentions (beads-lite-1bo5.6.64.1): these exact files only.
   /^server\/features\/mention(\.test)?\.js$/,
   /^server\/features\/board-posted\.js$/,
-  /^scripts\/mention-(scan|e2e)\.mjs$/
+  /^scripts\/mention-(scan|e2e)\.mjs$/,
+  // Time screens (beads-lite-1bo5.6.59.12): the read-only flow-rollup handler and its test, these exact files only.
+  /^server\/features\/flow(\.test)?\.js$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the
@@ -164,7 +166,10 @@ const SEAM = {
       // @mentions (beads-lite-1bo5.6.64.1)
       "import * as mention from './mention.js';",
       'ask,',
-      'mention'
+      'mention',
+      // Time screens (beads-lite-1bo5.6.59.12)
+      "import * as flow from './flow.js';",
+      'flow,'
     ],
     del: ['ask']
   },
@@ -177,9 +182,11 @@ const SEAM = {
       '// @mentions (beads-lite-1bo5.6.64.1)',
       "'mention-roles',",
       "'mention-scan',",
-      "'mention-chips'"
+      "'mention-chips',",
+      '// Time screens (beads-lite-1bo5.6.59.12)',
+      "'flow-rollup'"
     ],
-    del: ["'releases-get'", "'bulk-undo'"]
+    del: ["'releases-get'", "'bulk-undo'", "'mention-chips'"]
   }
 };
 const HOOK = [
