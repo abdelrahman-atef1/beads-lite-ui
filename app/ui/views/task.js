@@ -312,17 +312,28 @@ export function mount(el, ctx) {
     </section>`;
   }
 
+  /**
+   * One outer template for both pages: the ask head is its last child, so it
+   * is the same DOM node when the page goes from loading to loaded (a second
+   * host would drop an open panel, beads-lite-1bo5.6.59.8).
+   *
+   * @param {import('lit-html').TemplateResult} inner
+   */
+  const page = (inner) =>
+    html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
+      ${inner}${renderAskHead(route, ctx)}
+    </section>`;
+
   function draw() {
     if (!alive) return;
     if (!issue) {
       render(
-        html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
-          <p class="u3-muted u3-mono" dir="ltr">${id}</p>
-          <p class="u3-muted">
-            ${loaded ? t3('u3_ts_missing') : t3('u3_ts_loading')}
-          </p>
-          ${renderAskHead(route, ctx)}
-        </section>`,
+        page(
+          html`<p class="u3-muted u3-mono" dir="ltr">${id}</p>
+            <p class="u3-muted">
+              ${loaded ? t3('u3_ts_missing') : t3('u3_ts_loading')}
+            </p>`
+        ),
         el
       );
       return;
@@ -345,8 +356,7 @@ export function mount(el, ctx) {
       ['u3_ts_acceptance', 'acceptance', acceptance]
     ].filter(([, , on]) => String(on || '').trim() || on === true);
     render(
-      html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
-        <div class="u3-ts__top">
+      page(html`<div class="u3-ts__top">
           <a class="u3-ts__back" href="#/issues" aria-label=${t3('u3_ts_back')}
             >&larr;</a
           >
@@ -361,7 +371,7 @@ export function mount(el, ctx) {
           </div>
         </div>
         <h2 class="u3-ts__title" dir="auto">${i.title}</h2>
-        ${renderAskHead(route, ctx)} ${renderTimeSlot(i, ctx)}
+        ${renderTimeSlot(i, ctx)}
         <nav class="u3-ts__jump">
           ${jump.map(
             ([k, a]) =>
@@ -418,8 +428,7 @@ export function mount(el, ctx) {
               ? row(t3('u3_ts_close_reason'), i.close_reason)
               : nothing}
           </aside>
-        </div>
-      </section>`,
+        </div>`),
       el
     );
     bindAttClicks(el);

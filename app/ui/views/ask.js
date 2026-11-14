@@ -184,12 +184,15 @@ export function mountAsk(host, opts = {}) {
 
   function open() {
     isOpen = true;
+    // Escape on the document: focus may be on the body (answer shown, input off).
+    document.addEventListener('keydown', onKey);
     draw();
     void loadStatus();
     setTimeout(() => host.querySelector('textarea')?.focus(), 0);
   }
   function close() {
     isOpen = false;
+    document.removeEventListener('keydown', onKey);
     reset(); // nothing kept
     draw();
     /** @type {HTMLElement | null} */ (
@@ -332,7 +335,6 @@ export function mountAsk(host, opts = {}) {
                 role="dialog"
                 aria-modal="false"
                 aria-labelledby="u3-ask-title"
-                @keydown=${onKey}
               >
                 <div class="u3-ask__grip" aria-hidden="true"></div>
                 <div class="u3-ask__hd">
@@ -382,6 +384,7 @@ export function mountAsk(host, opts = {}) {
 
   const handle = {
     destroy() {
+      document.removeEventListener('keydown', onKey);
       reset();
       mo.disconnect();
       window.removeEventListener('bdui-lang', onLang);

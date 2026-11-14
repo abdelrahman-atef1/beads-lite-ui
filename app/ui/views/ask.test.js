@@ -210,6 +210,37 @@ describe('ask head and sheet', () => {
     expect(kept).not.toContain('secret');
   });
 
+  test('Escape closes with focus outside the panel, answer shown or input off', async () => {
+    const esc = () =>
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+      );
+    // answer shown
+    let t = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'A', truncated: false })
+    );
+    t.q('.u3-ask__head').click();
+    await tick();
+    ask(t.q, 'q');
+    await tick();
+    await tick();
+    expect(t.q('.u3-ask__answer')).not.toBeNull();
+    document.body.focus();
+    esc();
+    expect(t.q('.u3-ask__sheet')).toBeNull();
+    // signed out: textarea disabled
+    t = setup(() => reply({ ...STATUS_OK, signed_in: false }));
+    t.q('.u3-ask__head').click();
+    await tick();
+    expect(t.q('textarea').disabled).toBe(true);
+    esc();
+    expect(t.q('.u3-ask__sheet')).toBeNull();
+    // closed: the listener is gone and nothing throws
+    esc();
+  });
+
   test('another task id drops the open question', async () => {
     const { host, q } = setup(() => reply(STATUS_OK));
     q('.u3-ask__head').click();
