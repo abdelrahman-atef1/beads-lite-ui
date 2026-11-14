@@ -184,9 +184,12 @@ const SEAM = {
       "'mention-scan',",
       "'mention-chips',",
       '// Time screens (beads-lite-1bo5.6.59.12)',
-      "'flow-rollup'"
+      "'flow-rollup',",
+      // Experiment view and weekly digest (beads-lite-1bo5.6.66.7)
+      '// Experiment view and weekly digest (beads-lite-1bo5.6.66.7)',
+      "'flow-digest'"
     ],
-    del: ["'releases-get'", "'bulk-undo'", "'mention-chips'"]
+    del: ["'releases-get'", "'bulk-undo'", "'mention-chips'", "'flow-rollup'"]
   }
 };
 const HOOK = [
