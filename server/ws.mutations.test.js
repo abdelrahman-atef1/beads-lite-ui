@@ -487,6 +487,52 @@ describe('ws mutation handlers', () => {
     expect(obj.payload && obj.payload.created).toBe(true);
   });
 
+  test('create-issue passes parent and assignee to bd and echoes the id', async () => {
+    const mRun = /** @type {import('vitest').Mock} */ (runBd);
+    mRun.mockResolvedValueOnce({ code: 0, stdout: 'UI-97', stderr: '' });
+    const ws = makeStubSocket();
+    await handleMessage(
+      /** @type {any} */ (ws),
+      Buffer.from(
+        JSON.stringify({
+          id: 'r9',
+          type: 'create-issue',
+          payload: { title: 'T', parent: 'UI-1', assignee: 'swe' }
+        })
+      )
+    );
+    const args = mRun.mock.calls[mRun.mock.calls.length - 1][0];
+    expect(args).toContain('--parent');
+    expect(args[args.indexOf('--parent') + 1]).toBe('UI-1');
+    expect(args[args.indexOf('--assignee') + 1]).toBe('swe');
+    const obj = JSON.parse(ws.sent[ws.sent.length - 1]);
+    expect(obj.payload).toMatchObject({
+      created: true,
+      id: 'UI-97',
+      parent: 'UI-1',
+      assignee: 'swe'
+    });
+  });
+
+  test('create-issue ignores a parent or assignee shaped like a flag', async () => {
+    const mRun = /** @type {import('vitest').Mock} */ (runBd);
+    mRun.mockResolvedValueOnce({ code: 0, stdout: 'UI-96', stderr: '' });
+    const ws = makeStubSocket();
+    await handleMessage(
+      /** @type {any} */ (ws),
+      Buffer.from(
+        JSON.stringify({
+          id: 'r10',
+          type: 'create-issue',
+          payload: { title: 'T', parent: '--force', assignee: '-x' }
+        })
+      )
+    );
+    const args = mRun.mock.calls[mRun.mock.calls.length - 1][0];
+    expect(args).not.toContain('--parent');
+    expect(args).not.toContain('--assignee');
+  });
+
   test('create-issue passes the title after -- so --help is not a flag', async () => {
     const mRun = /** @type {import('vitest').Mock} */ (runBd);
     mRun.mockResolvedValueOnce({ code: 0, stdout: 'UI-98', stderr: '' });
