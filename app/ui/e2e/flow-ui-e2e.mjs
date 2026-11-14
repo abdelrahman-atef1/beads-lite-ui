@@ -73,6 +73,8 @@ const flowHome = path.join(data, 'flow');
 const digestHome = path.join(data, 'digest');
 const boardHome = path.join(data, 'board-home');
 const proj = path.join(data, 'proj');
+// a re-run starts from clean copies (this folder is the script's own)
+fs.rmSync(data, { recursive: true, force: true });
 copyDir(flowSrc, flowHome);
 copyDir(digestSrc, digestHome);
 fs.mkdirSync(proj, { recursive: true });
