@@ -72,5 +72,6 @@ export const strings = {
   u3_bk_r_blockers: { en: 'Waiting on other tasks', ar: 'معطّلة بانتظار مهام تانية' },
   u3_bk_r_live: { en: 'An agent is working on it (tick take over to include it)', ar: 'فيه وكيل شغّال عليها (علّم خد الشغل الشغّال عشان تدخل)' },
   u3_bk_r_same: { en: 'Already in that status', ar: 'أصلاً في الحالة دي' },
-  u3_bk_r_missing: { en: 'Not found', ar: 'مش موجودة' }
+  u3_bk_r_missing: { en: 'Not found', ar: 'مش موجودة' },
+  u3_bk_r_failed: { en: 'Could not be changed', ar: 'ماقدرناش نغيّرها' }
 };

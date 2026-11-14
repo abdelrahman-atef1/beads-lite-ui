@@ -22,7 +22,8 @@ export const REASONS = [
   'blockers',
   'live',
   'same',
-  'missing'
+  'missing',
+  'failed'
 ];
 
 /**
