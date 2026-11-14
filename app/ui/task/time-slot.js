@@ -1,12 +1,14 @@
-/* eslint-disable no-unused-vars -- seam stub: later task uses the args */
 import { html } from 'lit-html';
+import '../views/time-section.js';
 
 /**
- * SEAM (task 12 owns the body): time chip / per-role bar slot on the task page.
+ * SEAM (task 12 owns the body): the Time section of the task page. One
+ * <u3-time-slot> element; it fetches the rollup row of the task once and draws
+ * time beside the quality counters. Missing rollup = an empty-state line.
  *
- * @param {any} _issue
- * @param {any} _ctx
+ * @param {any} issue
+ * @param {any} ctx
  */
-export function renderTimeSlot(_issue, _ctx) {
-  return html``;
+export function renderTimeSlot(issue, ctx) {
+  return html`<u3-time-slot .ctx=${ctx} .issue=${issue}></u3-time-slot>`;
 }
