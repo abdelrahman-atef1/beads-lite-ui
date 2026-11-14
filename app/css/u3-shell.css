@@ -73,6 +73,7 @@ html[data-ui='3'][data-theme='light'] body {
   border-block-end: 1px solid var(--u3-border);
 }
 .u3-top__title {
+  min-width: 0;
   flex: 1;
   font-size: var(--u3-fs-xl);
   font-weight: 600;

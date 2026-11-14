@@ -129,7 +129,23 @@
     display: block;
   }
   .u3 .u3-search.is-open .u3-search__input {
-    width: calc(100vw - 150px);
+    width: 100%;
+  }
+  /* search open on a phone: the field takes the bar, the rest folds away */
+  .u3 .u3-top.u3-top--search > :not([data-slot='search']) {
+    display: none;
+  }
+  .u3 .u3-top.u3-top--search [data-slot='search'] {
+    flex: 1;
+    min-width: 0;
+  }
+  .u3 .u3-top.u3-top--search .u3-search {
+    width: 100%;
+    min-width: 0;
+  }
+  .u3 .u3-search.is-open .u3-search__field {
+    flex: 1;
+    min-width: 0;
   }
   .u3 .u3-search__pop {
     position: fixed;
