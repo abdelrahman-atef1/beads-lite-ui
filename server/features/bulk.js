@@ -253,7 +253,13 @@ function commandFor(action, ids, p, force, batch) {
   return ['update', ...ids, '--assignee', p.assignee, ...mark, ...f];
 }
 
-/** Has the task reached the state the action asks for? @param {string} action @param {any} it @param {any} p */
+/**
+ * Has the task reached the state the action asks for?
+ *
+ * @param {string} action
+ * @param {any} it
+ * @param {any} p
+ */
 function reached(action, it, p) {
   if (!it) return false;
   if (action === 'close') return it.status === 'closed';
