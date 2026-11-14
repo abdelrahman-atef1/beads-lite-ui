@@ -2,13 +2,14 @@
 /**
  * Build the browser bundle for the UI using esbuild.
  *
- * - Produces `app/main.bundle.js` with an external source map.
+ * - Produces `app/main.bundle.js` plus `app/chunks/*.js` (one chunk per
+ *   screen opened by import(), beads-lite-1bo5.6.59.19) with external maps.
  * - Minifies in production builds.
  * - Keeps ESM output targeting modern browsers.
  *
  * @import { BuildOptions } from 'esbuild'
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { debug } from '../server/logging.js';
@@ -23,10 +24,12 @@ async function run() {
   const repo_root = path.resolve(path.dirname(this_file), '..');
   const app_dir = path.join(repo_root, 'app');
   const entry = path.join(app_dir, 'main.js');
-  const outfile = path.join(app_dir, 'main.bundle.js');
 
   // Ensure output directory exists when running from a fresh checkout
   mkdirSync(app_dir, { recursive: true });
+  // The chunk folder is this script's own output: start it empty so a stale
+  // chunk from an older build is never shipped.
+  rmSync(path.join(app_dir, 'chunks'), { recursive: true, force: true });
 
   /** @type {BuildOptions} */
   const options = {
@@ -35,7 +38,10 @@ async function run() {
     format: 'esm',
     platform: 'browser',
     target: 'es2020',
-    outfile,
+    splitting: true,
+    outdir: app_dir,
+    entryNames: 'main.bundle',
+    chunkNames: 'chunks/[hash]',
     sourcemap: true, // write external .map file next to the bundle
     minify: true,
     legalComments: 'none'
@@ -44,7 +50,10 @@ async function run() {
   try {
     const esbuild = await import('esbuild');
     await esbuild.build(options);
-    log('built %s', path.relative(repo_root, outfile));
+    log(
+      'built %s',
+      path.relative(repo_root, path.join(app_dir, 'main.bundle.js'))
+    );
   } catch (err) {
     log('bundle error %o', err);
     process.exitCode = 1;

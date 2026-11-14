@@ -139,6 +139,7 @@ export function createApp(config, door = 'pc') {
     ['/main.bundle.js', /^\/main\.[0-9a-f]{12}\.js$/],
     perf.bundleHandler
   );
+  app.get(/^\/chunks\/[\w-]+\.js$/, perf.chunkHandler);
   app.get(/^\/app\.[0-9a-f]{12}\.css$/, perf.cssHandler);
 
   // Page with the per-launch token injected (D8); before static so it wins.

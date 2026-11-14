@@ -7,6 +7,11 @@
  *   precompressed, ETag, and a content-hashed URL (/main.<hash>.js, immutable).
  *   `/main.bundle.js` keeps working (service worker shell, older pages).
  *   A prebuilt app/main.bundle.js (npm pack) is used as is, never rebuilt.
+ *   Screens behind import() are split into /chunks/<hash>.js (esbuild
+ *   splitting, beads-lite-1bo5.6.59.19): the page loads the shell and the
+ *   desk, a screen's chunk loads when it first opens. Chunk names are content
+ *   hashes, so they are immutable; old ones stay in memory so an open page
+ *   racing a rebuild still finds its chunk.
  * - One stylesheet: the css files index.html links are joined, in order, into
  *   /app.<hash>.css (one request instead of twelve; on HTTP/1.1 the extra
  *   requests queue the bundle behind them).
@@ -26,6 +31,7 @@ const brotli = promisify(zlib.brotliCompress);
 const COMPRESSIBLE = /\.(css|js|mjs|svg|webmanifest|json|html)$/;
 const CSS_LINK =
   /[ \t]*<link rel="stylesheet" href="\.\/((?:css\/)?[\w-]+\.css)" \/>\r?\n?/g;
+const CHUNK_NAME = /^[\w-]+\.js$/;
 const YEAR = 'public, max-age=31536000, immutable';
 
 /**
@@ -108,6 +114,7 @@ function sendPacked(req, res, p, type, cache) {
 export function createPerf(config) {
   const app_dir = config.app_dir;
   const built_file = path.join(app_dir, 'main.bundle.js');
+  const chunks_dir = path.join(app_dir, 'chunks');
 
   /** @type {{ packed: Packed, inputs: Array<[string, number]> } | null} */
   let bundle = null;
@@ -115,6 +122,13 @@ export function createPerf(config) {
   let building = null;
   /** @type {Map<string, { mtime: number, size: number, packed: Packed }>} */
   const files = new Map();
+  /** @type {Map<string, Packed>} chunk file name -> packed (never evicted: bounded by rebuilds) */
+  const chunks = new Map();
+
+  /** @param {string} name - @param {Buffer} raw */
+  async function addChunk(name, raw) {
+    if (!chunks.has(name)) chunks.set(name, await pack(raw));
+  }
 
   /** @param {Array<[string, number]>} inputs */
   function inputsFresh(inputs) {
@@ -132,6 +146,12 @@ export function createPerf(config) {
     const st = fs.statSync(built_file, { throwIfNoEntry: false });
     if (st) {
       const packed = await pack(fs.readFileSync(built_file));
+      if (fs.existsSync(chunks_dir)) {
+        for (const f of fs.readdirSync(chunks_dir)) {
+          if (CHUNK_NAME.test(f))
+            await addChunk(f, fs.readFileSync(path.join(chunks_dir, f)));
+        }
+      }
       bundle = { packed, inputs: [[built_file, st.mtimeMs]] };
       return packed;
     }
@@ -139,6 +159,10 @@ export function createPerf(config) {
     const result = await esbuild.build({
       entryPoints: [path.join(app_dir, 'main.js')],
       bundle: true,
+      splitting: true,
+      outdir: app_dir,
+      entryNames: 'main.bundle',
+      chunkNames: 'chunks/[hash]',
       format: 'esm',
       platform: 'browser',
       target: 'es2020',
@@ -148,8 +172,13 @@ export function createPerf(config) {
       metafile: true,
       write: false
     });
-    const out = result.outputFiles && result.outputFiles[0];
+    const outs = result.outputFiles || [];
+    const out = outs.find((o) => path.basename(o.path) === 'main.bundle.js');
     if (!out) throw new Error('no output');
+    for (const o of outs) {
+      if (o !== out && path.dirname(o.path) === chunks_dir)
+        await addChunk(path.basename(o.path), Buffer.from(o.contents));
+    }
     const inputs = /** @type {Array<[string, number]>} */ ([]);
     for (const rel of Object.keys(result.metafile.inputs)) {
       const abs = path.resolve(rel);
@@ -200,6 +229,23 @@ export function createPerf(config) {
       // bytes, revalidated (an old page racing a rebuild).
       const cache = named && named[1] === p.hash ? YEAR : 'no-cache';
       sendPacked(req, res, p, 'application/javascript; charset=utf-8', cache);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** One split chunk: the name is its content hash, so it is immutable. */
+  /** @type {import('express').RequestHandler} */
+  async function chunkHandler(req, res, next) {
+    try {
+      await getBundle(); // makes sure the chunks of the current build exist
+      const name = path.basename(req.path);
+      const p = CHUNK_NAME.test(name) ? chunks.get(name) : undefined;
+      if (!p) {
+        next();
+        return;
+      }
+      sendPacked(req, res, p, 'application/javascript; charset=utf-8', YEAR);
     } catch (err) {
       next(err);
     }
@@ -334,6 +380,7 @@ export function createPerf(config) {
   return {
     stats,
     bundleHandler,
+    chunkHandler,
     cssHandler,
     staticHandler,
     rewriteIndex,

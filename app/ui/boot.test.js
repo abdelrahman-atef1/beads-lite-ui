@@ -1,6 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
 import { bootstrap } from '../main.js';
-import { seams } from './boot.js';
+import { renderAskHead } from './ask/head-slot.js';
+import { renderStepsComment } from './card/steps.js';
+import { renderComposerExtras } from './task/composer-ext.js';
+import { renderTimeSlot } from './task/time-slot.js';
+import { renderBulkBar } from './tasks/bulk.js';
+import { groupIssues } from './tasks/lanes.js';
 
 vi.mock('../ws.js', () => ({
   createWsClient: () => ({
@@ -53,21 +58,37 @@ describe('?ui=3 boot', () => {
     expect(document.querySelector('.dk3')).not.toBeNull();
     window.location.hash = '#/releases';
     window.dispatchEvent(new HashChangeEvent('hashchange'));
-    expect(document.querySelector('[data-view="releases"]')).not.toBeNull();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-view="releases"]')).not.toBeNull()
+    );
     document.getElementById('u3')?.remove();
   });
 
   test('every seam exists', () => {
-    for (const k of [
-      'renderStepsComment',
-      'renderComposerExtras',
-      'renderTimeSlot',
-      'groupIssues',
-      'renderBulkBar',
-      'renderAskHead'
+    for (const f of [
+      renderStepsComment,
+      renderComposerExtras,
+      renderTimeSlot,
+      groupIssues,
+      renderBulkBar,
+      renderAskHead
     ]) {
-      expect(typeof (/** @type {any} */ (seams)[k])).toBe('function');
+      expect(typeof f).toBe('function');
     }
+  });
+
+  test('screens are lazy: a route opens once its chunk has loaded, a stale one never mounts', async () => {
+    const root = setup('#/', '?ui=3');
+    await bootstrap(root).ready;
+    window.location.hash = '#/releases';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    window.location.hash = '#/projects';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-view="projects"]')).not.toBeNull()
+    );
+    expect(document.querySelector('[data-view="releases"]')).toBeNull();
+    document.getElementById('u3')?.remove();
   });
 });
 

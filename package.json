@@ -31,7 +31,7 @@
     "version": "changes --commits --footer",
     "postversion": "git push --follow-tags && npm publish",
     "prepack": "npm run build",
-    "postpack": "rm app/main.bundle.js app/main.bundle.js.map"
+    "postpack": "rm -rf app/main.bundle.js app/main.bundle.js.map app/chunks"
   },
   "dependencies": {
     "debug": "^4.4.3",
@@ -66,6 +66,7 @@
     "app/styles.css",
     "app/main.bundle.js",
     "app/main.bundle.js.map",
+    "app/chunks",
     "app/protocol.js",
     "bin",
     "server",

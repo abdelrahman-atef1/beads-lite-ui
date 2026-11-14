@@ -134,6 +134,40 @@ describe('first paint on a slow link (1bo5.6.31)', () => {
     });
   });
 
+  test('a screen behind import() is its own immutable chunk under /chunks/ (.59.19)', async () => {
+    const dir = makeAppDir();
+    fs.writeFileSync(
+      path.join(dir, 'main.js'),
+      "export const open = () => import('./screen.js');\nconsole.log('shell');\n"
+    );
+    fs.writeFileSync(
+      path.join(dir, 'screen.js'),
+      "export const mount = () => 'the-screen-body ' + '.'.repeat(60);\n"
+    );
+    await withServer(dir, async (base) => {
+      const idx = /** @type {any} */ (await get(base + '/'));
+      const js = /src="(\/main\.[0-9a-f]{12}\.js)"/.exec(idx.body.toString());
+      const main = /** @type {any} */ (
+        await get(base + js?.[1], { 'accept-encoding': 'gzip' })
+      );
+      const text = zlib.gunzipSync(main.body).toString();
+      expect(text).not.toContain('the-screen-body'); // not in the first load
+      const ref = /import\("\.\/(chunks\/[\w-]+\.js)"\)/.exec(text);
+      expect(ref).toBeTruthy();
+      const r = /** @type {any} */ (
+        await get(base + '/' + ref?.[1], { 'accept-encoding': 'gzip' })
+      );
+      expect(r.status).toBe(200);
+      expect(r.headers['cache-control']).toMatch(/immutable/);
+      expect(r.headers['content-type']).toMatch(/javascript/);
+      expect(zlib.gunzipSync(r.body).toString()).toContain('the-screen-body');
+      // anything that is not a built chunk name is not served from here
+      expect(
+        /** @type {any} */ (await get(base + '/chunks/nope.js')).status
+      ).toBe(404);
+    });
+  });
+
   test('built once, rebuilt only when a source file changes', async () => {
     const dir = makeAppDir();
     await withServer(dir, async (base, app) => {
