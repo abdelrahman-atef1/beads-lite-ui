@@ -193,6 +193,37 @@ async function main() {
       return l.includes('bk-new') && !l.includes('bk-old');
     })
   );
+  // "After a reload": the board reads the list; it must agree with bd show.
+  const listed = (label) =>
+    bd(['list', '--json', '-n', '0', '-l', label]).stdout;
+  check(
+    '4 reload: list by label agrees for all 4',
+    mv.every(
+      (id) => listed('bk-new').includes(id) && !listed('bk-old').includes(id)
+    )
+  );
+  r = await apply('label', mv, { add: ['bk-extra'], remove: [] });
+  const lb = r.payload.batch;
+  check(
+    '4 add one label to 4',
+    mv.every((id) => (show(id).labels || []).includes('bk-extra'))
+  );
+  await send('bulk-undo', { batch: lb });
+  check(
+    '4 undo of label add',
+    mv.every((id) => !(show(id).labels || []).includes('bk-extra'))
+  );
+  r = await apply('assign', mv, { assignee: 'qa' });
+  check(
+    'assign 4 to a role',
+    r.payload.results.every((x) => x.ok) &&
+      mv.every((id) => show(id).assignee === 'qa')
+  );
+  await send('bulk-undo', { batch: r.payload.batch });
+  check(
+    'assign undo clears',
+    mv.every((id) => !show(id).assignee)
+  );
   r = await apply('move', mv, { status: 'blocked' });
   check(
     '4 move to same status refused same',
