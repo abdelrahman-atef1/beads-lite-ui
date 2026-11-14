@@ -304,3 +304,152 @@
     overflow-x: visible;
   }
 }
+
+/* ---- bulk select (task .59.11). Lives here: u3-bulk.css is not linked in the
+   frozen index.html. Logical properties so RTL needs nothing extra. ---- */
+.u3 .u3t-card {
+  position: relative;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.u3 .u3t-card.is-selected {
+  border-color: var(--u3-blue);
+  box-shadow: 0 0 0 2px var(--u3-blue);
+  background: var(--u3-blue-soft);
+}
+.u3 .u3bk-tick {
+  position: absolute;
+  inset-block-start: var(--u3-sp-3);
+  inset-inline-end: var(--u3-sp-3);
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--u3-text-3);
+  border-radius: 50%;
+  background: transparent;
+}
+.u3 .is-selected .u3bk-tick {
+  border-color: var(--u3-blue);
+  background: var(--u3-blue);
+  box-shadow: inset 0 0 0 4px var(--u3-surface);
+}
+.u3 .u3bk-bar {
+  position: sticky;
+  bottom: var(--u3-sp-3);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  padding: var(--u3-sp-3);
+  border: 1px solid var(--u3-blue);
+  border-radius: var(--u3-radius-l);
+  background: var(--u3-surface);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 40%);
+}
+.u3 .u3bk-bar__top,
+.u3 .u3bk-bar__acts {
+  display: flex;
+  gap: var(--u3-sp-2);
+  align-items: center;
+  min-width: 0;
+}
+.u3 .u3bk-bar__top .u3-btn:last-child {
+  margin-inline-start: auto;
+}
+.u3 .u3bk-bar__acts .u3-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.u3 .u3bk-count {
+  white-space: nowrap;
+  color: var(--u3-blue);
+}
+.u3 .u3bk-note {
+  margin: 0;
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3bk-note--bad {
+  color: var(--u3-red);
+}
+.u3 .u3bk-toast {
+  position: sticky;
+  bottom: var(--u3-sp-3);
+  z-index: 16;
+  display: flex;
+  gap: var(--u3-sp-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface-2);
+  border: 1px solid var(--u3-border);
+}
+.u3 .u3bk-form,
+.u3 .u3bk-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding-block-start: var(--u3-sp-3);
+}
+.u3 .u3bk-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+}
+.u3 .u3bk-field input,
+.u3 .u3bk-field select {
+  min-height: 44px;
+  padding: 0 var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-bg);
+  color: var(--u3-text);
+  font: inherit;
+}
+.u3 .u3bk-check {
+  display: flex;
+  gap: var(--u3-sp-2);
+  align-items: center;
+  min-height: 44px;
+}
+.u3 .u3bk-check input {
+  width: 22px;
+  height: 22px;
+}
+.u3 .u3bk-confirm {
+  margin: 0;
+  min-height: 1.4em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.u3 .u3bk-big {
+  margin: 0;
+  font-size: var(--u3-fs-xl);
+  font-weight: 700;
+  color: var(--u3-green);
+}
+.u3 .u3bk-big--bad {
+  color: var(--u3-red);
+}
+.u3 .u3bk-refused {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3bk-refused li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.u3 .u3bk-refused .u3-mono {
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-3);
+}
+@media (max-width: 767px) {
+  .u3 .u3bk-bar,
+  .u3 .u3bk-toast {
+    bottom: calc(var(--u3-tabbar-h) + var(--u3-sp-3));
+  }
+}
