@@ -45,17 +45,64 @@ export const strings = {
   u3_bk_close: { en: 'Close', ar: 'اقفل' },
   u3_bk_move: { en: 'Move', ar: 'غيّر الحالة' },
   u3_bk_defer: { en: 'Defer', ar: 'أجّل' },
-  u3_bk_hidden: { en: '{n} selected are hidden by the filter', ar: '{n} محدّدة مخفية بالفلتر' },
-  u3_bk_too_many: { en: '{n} selected. The limit is {max} per action, so nothing was changed. Unselect some.', ar: 'محدّد {n}. الحد {max} في المرة، فمفيش حاجة اتغيّرت. شيل التحديد عن البعض.' },
-  u3_bk_failed: { en: 'Could not apply. Nothing was changed.', ar: 'معرفتش أنفّذ. مفيش حاجة اتغيّرت.' },
+  u3_bk_label: { en: 'Label', ar: 'وسم' },
+  u3_bk_assign: { en: 'Assign', ar: 'عيّن' },
+  u3_bk_label_mode: { en: 'What to do', ar: 'عايز تعمل إيه' },
+  u3_bk_label_add: { en: 'Add a label', ar: 'ضيف وسم' },
+  u3_bk_label_rm: { en: 'Remove a label', ar: 'شيل وسم' },
+  u3_bk_label_name: { en: 'Label (one word)', ar: 'الوسم (كلمة واحدة)' },
+  u3_bk_assign_to: { en: 'Assign to', ar: 'عيّن لـ' },
+  u3_bk_unassign: { en: 'Nobody (clear)', ar: 'محدش (امسح)' },
+  u3_bk_c_label_add: {
+    en: 'Add label {label} to {n} tasks',
+    ar: 'هتضيف الوسم {label} على {n} مهمة'
+  },
+  u3_bk_c_label_rm: {
+    en: 'Remove label {label} from {n} tasks',
+    ar: 'هتشيل الوسم {label} من {n} مهمة'
+  },
+  u3_bk_c_assign: {
+    en: 'Assign {n} tasks to {role}',
+    ar: 'هتعيّن {n} مهمة لـ {role}'
+  },
+  u3_bk_c_unassign: {
+    en: 'Clear the assignee of {n} tasks',
+    ar: 'هتمسح المكلّف من {n} مهمة'
+  },
+  u3_bk_a_label: { en: 'Label {n} tasks', ar: 'وسم {n} مهمة' },
+  u3_bk_a_assign: { en: 'Assign {n} tasks', ar: 'عيّن {n} مهمة' },
+  u3_bk_hidden: {
+    en: '{n} selected are hidden by the filter',
+    ar: '{n} محدّدة مخفية بالفلتر'
+  },
+  u3_bk_too_many: {
+    en: '{n} selected. The limit is {max} per action, so nothing was changed. Unselect some.',
+    ar: 'محدّد {n}. الحد {max} في المرة، فمفيش حاجة اتغيّرت. شيل التحديد عن البعض.'
+  },
+  u3_bk_failed: {
+    en: 'Could not apply. Nothing was changed.',
+    ar: 'معرفتش أنفّذ. مفيش حاجة اتغيّرت.'
+  },
   u3_bk_reason: { en: 'Reason (one line)', ar: 'السبب (سطر واحد)' },
   u3_bk_move_to: { en: 'Move to', ar: 'انقل لحالة' },
   u3_bk_until: { en: 'Defer until', ar: 'أجّل لحد' },
   u3_bk_until_reopen: { en: 'Until I reopen', ar: 'لحد ما أفتحها تاني' },
-  u3_bk_take_over: { en: 'Also take over live work', ar: 'وكمان خد الشغل الشغّال' },
-  u3_bk_c_close: { en: 'Close {n} tasks as: {reason}', ar: 'هتقفل {n} مهمة بسبب: {reason}' },
-  u3_bk_c_move: { en: 'Move {n} tasks to: {to}', ar: 'هتنقل {n} مهمة إلى: {to}' },
-  u3_bk_c_defer: { en: 'Defer {n} tasks until: {until}', ar: 'هتأجّل {n} مهمة لحد: {until}' },
+  u3_bk_take_over: {
+    en: 'Also take over live work',
+    ar: 'وكمان خد الشغل الشغّال'
+  },
+  u3_bk_c_close: {
+    en: 'Close {n} tasks as: {reason}',
+    ar: 'هتقفل {n} مهمة بسبب: {reason}'
+  },
+  u3_bk_c_move: {
+    en: 'Move {n} tasks to: {to}',
+    ar: 'هتنقل {n} مهمة إلى: {to}'
+  },
+  u3_bk_c_defer: {
+    en: 'Defer {n} tasks until: {until}',
+    ar: 'هتأجّل {n} مهمة لحد: {until}'
+  },
   u3_bk_a_close: { en: 'Close {n} tasks', ar: 'اقفل {n} مهمة' },
   u3_bk_a_move: { en: 'Move {n} tasks', ar: 'انقل {n} مهمة' },
   u3_bk_a_defer: { en: 'Defer {n} tasks', ar: 'أجّل {n} مهمة' },
@@ -63,14 +110,26 @@ export const strings = {
   u3_bk_ok: { en: 'OK', ar: 'تمام' },
   u3_bk_done: { en: 'Done {n}', ar: 'اتنفّذ {n}' },
   u3_bk_refused: { en: 'Refused {n}', ar: 'اترفض {n}' },
-  u3_bk_preview: { en: 'Preview only: the server side is not connected yet, nothing was saved.', ar: 'معاينة بس: الجزء بتاع السيرفر لسه مش متوصّل، ومفيش حاجة اتحفظت.' },
+  u3_bk_preview: {
+    en: 'Preview only: the server side is not connected yet, nothing was saved.',
+    ar: 'معاينة بس: الجزء بتاع السيرفر لسه مش متوصّل، ومفيش حاجة اتحفظت.'
+  },
   u3_bk_undo: { en: 'Undo', ar: 'تراجع' },
   u3_bk_undone: { en: 'Undone for {n} tasks', ar: 'اتراجع عن {n} مهمة' },
-  u3_bk_r_decision: { en: 'Waiting for your decision: answer it on its card', ar: 'بانتظار قرارك: جاوب عليه من كارته' },
+  u3_bk_r_decision: {
+    en: 'Waiting for your decision: answer it on its card',
+    ar: 'بانتظار قرارك: جاوب عليه من كارته'
+  },
   u3_bk_r_already_closed: { en: 'Already closed', ar: 'مقفولة أصلاً' },
   u3_bk_r_children: { en: 'Has open sub-tasks', ar: 'فيها مهام فرعية مفتوحة' },
-  u3_bk_r_blockers: { en: 'Waiting on other tasks', ar: 'معطّلة بانتظار مهام تانية' },
-  u3_bk_r_live: { en: 'An agent is working on it (tick take over to include it)', ar: 'فيه وكيل شغّال عليها (علّم خد الشغل الشغّال عشان تدخل)' },
+  u3_bk_r_blockers: {
+    en: 'Waiting on other tasks',
+    ar: 'معطّلة بانتظار مهام تانية'
+  },
+  u3_bk_r_live: {
+    en: 'An agent is working on it (tick take over to include it)',
+    ar: 'فيه وكيل شغّال عليها (علّم خد الشغل الشغّال عشان تدخل)'
+  },
   u3_bk_r_same: { en: 'Already in that status', ar: 'أصلاً في الحالة دي' },
   u3_bk_r_missing: { en: 'Not found', ar: 'مش موجودة' },
   u3_bk_r_failed: { en: 'Could not be changed', ar: 'ماقدرناش نغيّرها' }
