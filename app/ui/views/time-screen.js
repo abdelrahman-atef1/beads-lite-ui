@@ -10,9 +10,12 @@
 import { html, nothing, render } from 'lit-html';
 import { chip } from '../components/chip.js';
 import { roleChip } from '../components/role-chip.js';
+import { loadDigest } from '../data/flow-digest.js';
 import { compareKey, roleReport } from '../data/time-math.js';
 import { PERIODS, loadRollup } from '../data/time.js';
 import { t3 } from '../i18n.js';
+import { digestCard } from './time-digest.js';
+import { expSection } from './time-exp.js';
 import { dur, footer, nf, qualityChips, tr } from './time-section.js';
 
 const DAY = 86_400_000;
@@ -95,6 +98,12 @@ export function mount(el, ctx) {
   let data = { present: false, rows: [], built_at: null };
   let seq = 0;
   let dead = false;
+  /**
+   * Weekly digest and experiments: one read when the screen opens, never polled.
+   * @type {any}
+   */
+  let flow = null;
+  let openExp = '';
   const send = (/** @type {string} */ t, /** @type {any} */ p) =>
     ctx.send ? ctx.send(t, p) : ctx.client.send(t, p);
 
@@ -176,9 +185,20 @@ export function mount(el, ctx) {
           )}
         </div>
       </header>
-      ${body()}
+      ${digestCard(flow ? flow.digest : null, { fixture: flow?.fixture })}
+      ${body()} ${expSection(flow ? flow.exps : [], openExp, pickExp)}
     </section>`;
 
+  /** @param {string} slug */
+  const pickExp = (slug) => {
+    openExp = slug;
+    draw();
+  };
+
+  void loadDigest({ send }).then((r) => {
+    flow = r;
+    draw();
+  });
   fetchRows();
   return {
     unmount() {
