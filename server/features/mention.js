@@ -280,8 +280,9 @@ export function createMention(opts = {}) {
   }
   const lockDir = path.join(home, 'mention.lock');
   /** A mkdir lock around load and save: stale after 60 s, refuses on timeout (sec M3). */
-  function lock() {
+  async function lock() {
     fs.mkdirSync(home, { recursive: true });
+    let wait = 10;
     const end = Date.now() + (opts.lockWaitMs ?? 20_000);
     for (;;) {
       try {
@@ -307,7 +308,8 @@ export function createMention(opts = {}) {
             code: 'busy'
           });
         }
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+        wait = Math.min(wait * 2, 200);
+        await new Promise((r) => setTimeout(r, wait));
       }
     }
   }
@@ -376,7 +378,7 @@ export function createMention(opts = {}) {
     }
     const comments = await listComments(cwd, bead);
     if (!comments) return { results: [] };
-    const unlock = lock();
+    const unlock = await lock();
     try {
       return await scanLocked(cwd, project, bead, via, comments);
     } finally {

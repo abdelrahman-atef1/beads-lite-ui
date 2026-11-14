@@ -552,3 +552,19 @@ wakeDescribe('sec review fixes M1-M6', () => {
     expect(fs.existsSync(path.join(r.wakeRoot, 'router.log'))).toBe(false);
   });
 });
+
+wakeDescribe('sec M7 async lock', () => {
+  test('M7 other work runs while the lock is held (event loop not blocked)', async () => {
+    const r = rig({ lockWaitMs: 600 });
+    fs.mkdirSync(path.join(r.home, 'mention.lock'), { recursive: true });
+    r.say(OWNER, '@qa once');
+    const p = r.scan().catch((e) => e);
+    let ticks = 0;
+    const iv = setInterval(() => ticks++, 20);
+    const e = await p;
+    clearInterval(iv);
+    expect(e.code).toBe('busy'); // same timeout, fail closed
+    expect(ticks).toBeGreaterThan(10); // the loop kept answering during ~600 ms
+    expect(r.pending()).toHaveLength(0);
+  });
+});
