@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, the push log (server/features/push.js and push-log.test.js), server/bd-resolve.test.js and four exact hunks of server/bd.js (the bd lookup), plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, the push log (server/features/push.js and push-log.test.js), server/bd-resolve.test.js and four exact hunks of server/bd.js (the bd lookup), the weekly flow push lines of app/sw.js, plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -43,6 +43,24 @@ const ALLOWED = [
 // the bulk feature. Nothing else may be added; the one removed line is the
 // trailing-comma rewrite of the previous array entry.
 const SEAM = {
+  // Weekly flow push text and click target (beads-lite-1bo5.6.66.7): two message lines and the url ternary of app/sw.js only.
+  'app/sw.js': {
+    hunks: ['@@ -86,0 +87 @@', '@@ -100,0 +102 @@', '@@ -130,3 +132,5 @@'],
+    add: [
+      "flow: () => 'Weekly flow review has findings',",
+      "flow: () => 'مراجعة التدفق الأسبوعية فيها ملاحظات',",
+      ": kind === 'flow'",
+      "? '/#/time'",
+      ': bead',
+      "? '/#/issues?issue=' + encodeURIComponent(bead)",
+      ": '/#/decisions'"
+    ],
+    del: [
+      ': bead',
+      "? '/#/issues?issue=' + encodeURIComponent(bead)",
+      ": '/#/decisions'"
+    ]
+  },
   // Board finds bd itself (beads-lite-1bo5.6.59.21): these four hunks of server/bd.js only.
   'server/bd.js': {
     hunks: [

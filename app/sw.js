@@ -84,6 +84,7 @@ const MSG = {
         : p.title
           ? 'Release shipped: ' + p.title
           : 'A release shipped in ' + p.project,
+    flow: () => 'Weekly flow review has findings',
     more: () => 'More on the board'
   },
   ar: {
@@ -98,6 +99,7 @@ const MSG = {
         : p.title
           ? 'تم نشر إصدار: ' + p.title
           : 'تم نشر إصدار في ' + p.project,
+    flow: () => 'مراجعة التدفق الأسبوعية فيها ملاحظات',
     more: () => 'المزيد على اللوحة'
   }
 };
@@ -127,9 +129,11 @@ function describePush(p) {
         url:
           kind === 'release'
             ? '/#/releases'
-            : bead
-              ? '/#/issues?issue=' + encodeURIComponent(bead)
-              : '/#/decisions'
+            : kind === 'flow'
+              ? '/#/time'
+              : bead
+                ? '/#/issues?issue=' + encodeURIComponent(bead)
+                : '/#/decisions'
       }
     }
   };
