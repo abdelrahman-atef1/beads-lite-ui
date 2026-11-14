@@ -67,14 +67,17 @@ export function summarize(row, now) {
   const buckets = Object.fromEntries(BUCKETS.map((k) => [k, null]));
   /** @type {Record<string, number>} */
   const roles = {};
-  const list = iv.map((/** @type {any} */ i) => {
-    const ms = i.running
-      ? Math.max(0, now - i.from)
-      : Math.max(0, i.to - i.from);
-    buckets[i.bucket] = (buckets[i.bucket] || 0) + ms;
-    roles[i.role] = (roles[i.role] || 0) + ms;
-    return { ...i, ms };
-  });
+  // a zero-length stretch (created, then claimed in the same second) has no duration to show
+  const list = iv
+    .filter((/** @type {any} */ i) => i.running || i.to > i.from)
+    .map((/** @type {any} */ i) => {
+      const ms = i.running
+        ? Math.max(0, now - i.from)
+        : Math.max(0, i.to - i.from);
+      buckets[i.bucket] = (buckets[i.bucket] || 0) + ms;
+      roles[i.role] = (roles[i.role] || 0) + ms;
+      return { ...i, ms };
+    });
   const known = list.length > 0 && row.active_ms !== null;
   const active = known ? buckets.active || 0 : null;
   const waiting = known

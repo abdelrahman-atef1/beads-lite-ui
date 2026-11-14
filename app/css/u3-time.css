@@ -3,6 +3,7 @@
    digits in a sans font (monospace only for ids and code). */
 .u3 u3-time-slot {
   display: block;
+  scroll-margin-block-start: 72px;
   min-width: 0;
 }
 .u3 .u3-chip--purple {

@@ -78,15 +78,13 @@ export function fixtureRows(now) {
   const D = 86_400_000;
   /** @type {any[]} */
   const rows = [];
-  // 3 roles x 8 beads closed in the last 12 days; swe halves its time in the newest days but fails more
+  // 3 roles x 8 beads closed in the last 12 days; swe is faster than before but fails more
   const roles = ['qa', 'sre', 'swe'];
   for (let i = 0; i < 24; i++) {
     const role = roles[i % 3];
     const age = 1 + Math.floor(i / 2); // days ago
-    const recent = age <= 6;
-    const act = role === 'swe' && recent ? 40 + i : 80 + i * 3;
-    const fails =
-      role === 'swe' && recent ? (i % 2 ? 1 : 0) : i % 8 === 0 ? 1 : 0;
+    const act = role === 'swe' ? 40 + i : 80 + i * 3;
+    const fails = role === 'swe' ? (i % 2 ? 1 : 0) : i % 8 === 0 ? 1 : 0;
     rows.push(
       mk(
         'fx-' + i,
@@ -108,7 +106,7 @@ export function fixtureRows(now) {
       mk(
         'fo-' + i,
         role,
-        now - (16 + Math.floor(i / 2)) * D,
+        now - (31 + Math.floor(i / 2)) * D,
         [
           ['in_progress', role, act],
           ['waiting_for_test', 'qa', 25]
