@@ -293,11 +293,11 @@ function ownerMuted() {
 let inflight = null;
 
 /**
- * Push the newest weekly digest once. Never throws. Returns what happened.
- *  - no file, older than 8 days, no findings, already handled: nothing is sent
- *  - one push per weekly file and at most one per 6 days, however often this runs
- *  - the board sender decides the rest (subscribers, mute, 2-minute and daily caps);
- *    a refusal there leaves the file unmarked so a later boot or file event can retry
+ * Push the newest weekly digest once, and return what happened. Never throws.
+ * No file, older than 8 days, no findings or already handled: nothing is sent.
+ * One push per weekly file and at most one per 6 days, however often this runs.
+ * The board sender decides the rest (subscribers, mute, 2-minute and daily caps);
+ * a refusal there leaves the file unmarked so a later boot or file event can retry.
  * @param {{ push?: { send: Function }, now?: number, dir?: string, state?: string, muted?: boolean }} [o]
  * @returns {Promise<string>}
  */
