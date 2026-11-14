@@ -4,10 +4,10 @@
  * flushQueue, loadShrunk, encodeCanvas, validVersion, projectKey): POST
  * /api/report, offline reports kept in IndexedDB and retried, same
  * localStorage keys for draft, project and recent versions. The image is
- * shrunk in the browser. Not carried over: the finger-drawing editor (the
- * screenshot is attached as is); noted on the bead.
+ * shrunk in the browser; it can be drawn on with a finger (panels/draw.js).
  */
 import { html, render } from 'lit-html';
+import { ref } from 'lit-html/directives/ref.js';
 import {
   createQueue,
   encodeCanvas,
@@ -18,6 +18,7 @@ import {
   validVersion
 } from '../../views/report.js';
 import { openSheet } from '../components/index.js';
+import { PENS, openEditor, paintStrokes } from '../panels/draw.js';
 import { tp } from '../panels/i18n.js';
 
 const LS_VERSIONS = 'bdui.report.versions';
@@ -114,6 +115,9 @@ export function openReportSheet(o) {
     projects: /** @type {string[]} */ ([]),
     /** @type {HTMLCanvasElement | null} */
     img: null,
+    /** @type {{ c: string, p: number[][] }[]} */
+    strokes: [],
+    pen: PENS[0][0],
     busy: false,
     /** @type {'' | 'ok' | 'err'} */
     tone: '',
@@ -136,6 +140,7 @@ export function openReportSheet(o) {
     if (!f) return;
     try {
       st.img = await loadShrunk(f);
+      st.strokes = [];
       st.msg = '';
       st.tone = '';
     } catch {
@@ -162,7 +167,14 @@ export function openReportSheet(o) {
     st.tone = '';
     paint();
     try {
-      const image = st.img ? await encodeCanvas(st.img) : null;
+      let image = null;
+      if (st.img) {
+        const c = document.createElement('canvas');
+        c.width = st.img.width;
+        c.height = st.img.height;
+        paintStrokes(c, st.img, st.strokes);
+        image = await encodeCanvas(c);
+      }
       const d = { project: st.project, text, version, image };
       const r = await submitReport(d);
       const done = () => {
@@ -171,6 +183,7 @@ export function openReportSheet(o) {
         lsSet(LS_DRAFT, '{}');
         st.text = '';
         st.img = null;
+        st.strokes = [];
         st.tone = 'ok';
       };
       if (r.ok) {
@@ -267,18 +280,57 @@ export function openReportSheet(o) {
       <div class="u3-pn__media">
         ${st.img
           ? html`<div class="u3-pn__shot">
-              <span>${tp('pn_attached')}</span>
-              <button
-                type="button"
-                class="u3-pn__lnk"
-                data-act="shot-remove"
-                @click=${() => {
-                  st.img = null;
-                  paint();
-                }}
-              >
-                ${tp('rpt_remove')}
-              </button>
+              <canvas
+                class="u3-pn__preview"
+                role="img"
+                aria-label=${tp('rpt_canvas')}
+                width=${st.img.width}
+                height=${st.img.height}
+                ${ref((c) => {
+                  if (c && st.img) {
+                    paintStrokes(
+                      /** @type {HTMLCanvasElement} */ (c),
+                      st.img,
+                      st.strokes
+                    );
+                  }
+                })}
+              ></canvas>
+              <div class="u3-pn__shotbar">
+                <button
+                  type="button"
+                  class="u3-btn u3-btn--ghost"
+                  data-act="shot-edit"
+                  @click=${() => {
+                    if (!st.img) return;
+                    openEditor({
+                      host: o.host,
+                      base: st.img,
+                      strokes: st.strokes,
+                      pen: st.pen,
+                      onDone: (strokes, pen) => {
+                        st.strokes = strokes;
+                        st.pen = pen;
+                        paint();
+                      }
+                    });
+                  }}
+                >
+                  ${tp('rpt_edit')}
+                </button>
+                <button
+                  type="button"
+                  class="u3-pn__lnk"
+                  data-act="shot-remove"
+                  @click=${() => {
+                    st.img = null;
+                    st.strokes = [];
+                    paint();
+                  }}
+                >
+                  ${tp('rpt_remove')}
+                </button>
+              </div>
             </div>`
           : html`<label class="u3-pn__drop">
                 <input

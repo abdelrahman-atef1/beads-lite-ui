@@ -175,8 +175,7 @@
   border-block-start: 1px solid var(--u3-border);
 }
 .u3-pn__phones li,
-.u3-pn__sw,
-.u3-pn__shot {
+.u3-pn__sw {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -258,11 +257,74 @@
   font-size: var(--u3-fs-s);
 }
 .u3-pn__shot {
-  flex: 1;
-  padding: var(--u3-sp-2) var(--u3-sp-3);
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  min-width: 0;
+}
+.u3-pn__preview {
+  display: block;
+  width: 100%;
+  max-height: 40dvh;
+  object-fit: contain;
+  border: 1px solid var(--u3-border);
   border-radius: var(--u3-radius-m);
-  background: var(--u3-teal-soft);
-  color: var(--u3-teal);
+  background: var(--u3-surface-2);
+  touch-action: pan-y;
+}
+.u3-pn__shotbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* finger-drawing editor: full screen above the sheet */
+.u3-draw {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-3) var(--u3-sp-4);
+  background: var(--u3-bg);
+  color: var(--u3-text);
+}
+.u3-draw__bar,
+.u3-draw__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  justify-content: space-between;
+}
+.u3-draw__stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.u3-draw__canvas {
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  border-radius: var(--u3-radius-s);
+  background: #fff;
+}
+.u3-draw__sp {
+  flex: 1;
+}
+.u3-draw__pen {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  background: var(--c);
+  cursor: pointer;
+}
+.u3-draw__pen[aria-pressed='true'] {
+  border-color: var(--u3-text);
 }
 
 /* outputs (legacy row builders, v3 look) */

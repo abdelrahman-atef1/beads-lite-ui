@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { mountBell } from '../views/notifications.js';
 import { openProjectOutputs } from '../views/outputs.js';
 import { openReportSheet } from '../views/report.js';
+import { PENS, openEditor, paintStrokes } from './draw.js';
 import { mountPanels } from './mount.js';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -371,5 +372,72 @@ describe('mountPanels', () => {
       )
     ).toEqual(['outputs', 'report', 'bell']);
     await flush();
+  });
+});
+
+describe('finger-drawing editor', () => {
+  test('Done commits strokes, Cancel and Escape drop them, undo and clear work', () => {
+    const root = stage();
+    const base = document.createElement('canvas');
+    base.width = 200;
+    base.height = 100;
+    const got = /** @type {any[]} */ ([]);
+    const open = () =>
+      openEditor({
+        host: root,
+        base,
+        strokes: [
+          {
+            c: PENS[0][0],
+            p: [
+              [1, 1],
+              [5, 5]
+            ]
+          }
+        ],
+        pen: PENS[0][0],
+        onDone: (s, pen) => got.push({ s, pen })
+      });
+    open();
+    const c = /** @type {HTMLCanvasElement} */ (
+      root.querySelector('.u3-draw__canvas')
+    );
+    c.getBoundingClientRect = () =>
+      /** @type {any} */ ({ left: 0, top: 0, width: 200, height: 100 });
+    const ev = (/** @type {string} */ t, /** @type {number} */ x) => {
+      const e = new Event(t);
+      Object.assign(e, { clientX: x, clientY: 10, pointerId: 1 });
+      c.dispatchEvent(e);
+    };
+    /** @type {HTMLElement} */ (
+      root.querySelector('[data-pen="#1e88e5"]')
+    ).click();
+    ev('pointerdown', 10);
+    ev('pointermove', 20);
+    ev('pointerup', 20);
+    /** @type {HTMLElement} */ (root.querySelector('[data-act=done]')).click();
+    expect(root.querySelector('.u3-draw')).toBeNull();
+    expect(got[0].s.length).toBe(2);
+    expect(got[0].s[1].c).toBe('#1e88e5');
+    expect(got[0].pen).toBe('#1e88e5');
+    open();
+    /** @type {HTMLElement} */ (root.querySelector('[data-act=clear]')).click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(root.querySelector('.u3-draw')).toBeNull();
+    expect(got.length).toBe(1);
+    open();
+    /** @type {HTMLElement} */ (
+      root.querySelector('[data-act=cancel]')
+    ).click();
+    expect(got.length).toBe(1);
+  });
+
+  test('paintStrokes draws without throwing on a single-point stroke', () => {
+    const c = document.createElement('canvas');
+    c.width = 10;
+    c.height = 10;
+    expect(() =>
+      paintStrokes(c, c, [{ c: '#000', p: [[1, 1]] }])
+    ).not.toThrow();
   });
 });
