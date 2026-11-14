@@ -195,6 +195,94 @@
   border: 1px solid var(--u3-border);
   border-radius: var(--u3-radius-l);
   padding: var(--u3-sp-3);
+  margin-block-end: var(--u3-sp-3);
+  min-width: 0;
+}
+.u3 .u3t-lane__head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  margin: 0 0 var(--u3-sp-2);
+  padding-block: var(--u3-sp-2);
+  background: var(--u3-bg);
+  font-size: var(--u3-fs-m, 1rem);
+}
+.u3 .u3t-lane__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 var(--u3-sp-2);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.u3 .u3t-lane__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3t-lane__chev {
+  width: 8px;
+  height: 8px;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+.u3 .u3t-lane[data-collapsed='1'] .u3t-lane__chev {
+  transform: rotate(-45deg);
+}
+[dir='rtl'] .u3 .u3t-lane[data-collapsed='1'] .u3t-lane__chev {
+  transform: rotate(135deg);
+}
+.u3 .u3t-lane__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  margin-inline-start: auto;
+}
+.u3 .u3t-lane__counts .u3-chip {
+  white-space: nowrap;
+}
+.u3 .u3t-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 2px;
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+}
+.u3 .u3t-group__l {
+  padding-inline: var(--u3-sp-3);
+  color: var(--u3-text-3);
+  white-space: nowrap;
+}
+.u3 .u3t-group__b {
+  min-height: 36px;
+  padding: 0 var(--u3-sp-3);
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.u3 .u3t-group__b[aria-pressed='true'] {
+  background: var(--u3-blue);
+  color: var(--u3-blue-ink);
 }
 .u3 .u3t-closed-grid {
   display: grid;

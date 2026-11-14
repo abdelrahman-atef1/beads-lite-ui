@@ -23,12 +23,18 @@ import { priorityName } from '../../utils/priority.js';
 import { roleChip } from '../components/index.js';
 import { t3 } from '../i18n.js';
 import { renderBulkBar } from '../tasks/bulk.js';
-import { groupIssues } from '../tasks/lanes.js';
+import {
+  GROUPS,
+  groupIssues,
+  loadCollapsed,
+  loadGroup,
+  saveCollapsed,
+  saveGroup
+} from '../tasks/lanes.js';
 import {
   CLOSED_PAGE,
   FIRST_PAINT_CARDS,
-  buildBoard,
-  columnsOf
+  buildBoard
 } from '../tasks/model.js';
 
 const IDS = [
@@ -75,7 +81,8 @@ export function mount(el, ctx) {
   let closed_open = false;
   let closed_shown = CLOSED_PAGE;
   /** @type {'none'|'project'|'assignee'|'epic'} */
-  const group_by = 'none'; // task 10 turns this on
+  let group_by = loadGroup();
+  const collapsed = loadCollapsed();
   let budget = Infinity;
   let first_paint_done = false;
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -220,29 +227,98 @@ export function mount(el, ctx) {
     return html`<div class="u3t-board">${list}</div>`;
   }
 
+  function laneName(/** @type {any} */ g) {
+    return g.label || t3('u3_tk_lane_' + (g.kind || 'none'));
+  }
+
   function lanes() {
     const m = /** @type {NonNullable<typeof model>} */ (model);
     const everything = [...Object.values(m.columns).flat(), ...m.other];
-    const groups = groupIssues(everything, group_by);
-    if (groups.length === 1 && !groups[0].key) {
-      return board(m.columns, m.other);
-    }
     const ready_ids = new Set(
       snap('tab:board:ready').map((/** @type {any} */ i) => i.id)
     );
     const blocked_ids = new Set(
       snap('tab:board:blocked').map((/** @type {any} */ i) => i.id)
     );
+    const groups = groupIssues(everything, group_by, {
+      all: m.facetItems,
+      ready_ids,
+      blocked_ids
+    });
+    if (group_by === 'none') {
+      return board(m.columns, m.other);
+    }
     return html`${groups.map((g) => {
-      const s = columnsOf(g.issues, ready_ids, blocked_ids);
-      return html`<section class="u3t-lane" data-lane=${g.key}>
+      const id = group_by + ':' + g.key;
+      const shut = collapsed.has(id);
+      const s = /** @type {NonNullable<typeof g.s>} */ (g.s);
+      return html`<section
+        class="u3t-lane"
+        data-lane=${g.key}
+        data-collapsed=${shut ? '1' : '0'}
+      >
         <h2 class="u3t-lane__head">
-          <span dir="auto">${g.key}</span>
-          <span class="u3-chip">${g.issues.length}</span>
+          <button
+            type="button"
+            class="u3t-lane__btn"
+            aria-expanded=${shut ? 'false' : 'true'}
+            @click=${() => {
+              if (shut) collapsed.delete(id);
+              else collapsed.add(id);
+              saveCollapsed(collapsed);
+              draw();
+            }}
+          >
+            <span class="u3t-lane__chev" aria-hidden="true"></span>
+            <span class="u3t-lane__name" dir="auto">${laneName(g)}</span>
+            <span class="u3-chip">${g.issues.length}</span>
+          </button>
+          <span class="u3t-lane__counts">
+            ${g.owner
+              ? html`<span class="u3-chip u3-chip--amber"
+                  >${t3('u3_tk_col_owner')} ${g.owner}</span
+                >`
+              : ''}
+            ${g.blocked
+              ? html`<span class="u3-chip u3-chip--red"
+                  >${t3('u3_tk_col_blocked')} ${g.blocked}</span
+                >`
+              : ''}
+            ${g.progress
+              ? html`<span class="u3-chip u3-chip--blue"
+                  >${t3('u3_tk_col_progress')} ${g.progress}</span
+                >`
+              : ''}
+          </span>
         </h2>
-        ${board(s.columns, s.other)}
+        ${shut ? '' : board(s.columns, s.other)}
       </section>`;
     })}`;
+  }
+
+  function groupBar() {
+    return html`<div
+      class="u3t-group"
+      role="group"
+      aria-label=${t3('u3_tk_group')}
+    >
+      <span class="u3t-group__l">${t3('u3_tk_group')}</span>
+      ${GROUPS.map(
+        (g) => html`<button
+          type="button"
+          class="u3t-group__b"
+          data-group-by=${g}
+          aria-pressed=${group_by === g ? 'true' : 'false'}
+          @click=${() => {
+            group_by = /** @type {import('../tasks/lanes.js').GroupBy} */ (g);
+            saveGroup(group_by);
+            draw();
+          }}
+        >
+          ${t3('u3_tk_group_' + g)}
+        </button>`
+      )}
+    </div>`;
   }
 
   function closedBlock() {
@@ -344,6 +420,7 @@ export function mount(el, ctx) {
         </select>
       </label>`;
     return html`<div class="u3t-bar">
+        ${groupBar()}
         <input
           class="u3t-search"
           type="search"
