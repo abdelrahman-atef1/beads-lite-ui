@@ -457,3 +457,23 @@
   flex: none;
   margin-inline-start: auto;
 }
+.u3 .u3bk-enter {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text-2);
+  font: inherit;
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.u3 .u3bk-enter[aria-pressed='true'] {
+  background: var(--u3-blue-soft);
+  border-color: var(--u3-blue);
+  color: var(--u3-focus);
+}

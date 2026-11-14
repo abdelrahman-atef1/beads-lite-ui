@@ -309,11 +309,9 @@ export function createBulk(o) {
               until: st.reopen ? t3('u3_bk_until_reopen') : st.date
             });
     /** @param {Event} e */
-    const val = (e) =>
-      /** @type {HTMLInputElement} */ (e.target).value;
+    const val = (e) => /** @type {HTMLInputElement} */ (e.target).value;
     /** @param {Event} e */
-    const chk = (e) =>
-      /** @type {HTMLInputElement} */ (e.target).checked;
+    const chk = (e) => /** @type {HTMLInputElement} */ (e.target).checked;
     const paint = () =>
       render(
         html`<form
@@ -508,7 +506,7 @@ export function createBulk(o) {
   function enterButton() {
     return html`<button
       type="button"
-      class="u3t-fchip u3bk-enter"
+      class="u3bk-enter"
       data-testid="bulk-enter"
       aria-pressed=${mode ? 'true' : 'false'}
       @click=${() => (mode ? exit() : enter())}

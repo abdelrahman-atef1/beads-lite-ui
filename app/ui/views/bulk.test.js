@@ -156,7 +156,13 @@ describe('bulk data adapter (fixture)', () => {
       mk('d', { blocked_by_detail: [{ id: 'a' }] })
     ];
     const r = (/** @type {string} */ id) =>
-      refusal('close', all.find((i) => i.id === id), all, {}, false);
+      refusal(
+        'close',
+        all.find((i) => i.id === id),
+        all,
+        {},
+        false
+      );
     expect(r('a')).toBe('children');
     expect(r('b')).toBe('already_closed');
     expect(r('c')).toBe('decision');
@@ -170,10 +176,9 @@ describe('bulk data adapter (fixture)', () => {
     await expect(
       api.apply({ action: 'close', ids, params: {} }, [])
     ).rejects.toThrow();
-    const r = await api.apply(
-      { action: 'close', ids: ['a'], params: {} },
-      [mk('a')]
-    );
+    const r = await api.apply({ action: 'close', ids: ['a'], params: {} }, [
+      mk('a')
+    ]);
     expect(r.ok).toEqual(['a']);
     expect(await api.undo(r.batch)).toBe(1);
   });
