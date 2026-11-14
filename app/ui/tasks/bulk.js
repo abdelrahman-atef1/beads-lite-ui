@@ -13,6 +13,19 @@ import { MAX_BULK, UNDO_MS, createBulkApi } from '../data/bulk.js';
 import { t3 } from '../i18n.js';
 
 export const LONG_PRESS_MS = 450;
+export const ROLE_CHOICES = [
+  'cto',
+  'swe',
+  'sre',
+  'sec',
+  'pm',
+  'ux',
+  'qa',
+  'cos',
+  'legal',
+  'analytics',
+  'sup'
+];
 const MOVE_TO = [
   ['open', 'u3_tk_col_ready'],
   ['in_progress', 'u3_tk_col_progress'],
@@ -178,7 +191,7 @@ export function createBulk(o) {
   }
 
   /**
-   * @param {'close'|'move'|'defer'} action
+   * @param {'close'|'move'|'defer'|'label'|'assign'} action
    * @param {any} params
    * @param {boolean} take_over
    */
@@ -273,7 +286,7 @@ export function createBulk(o) {
     </button>`;
   }
 
-  /** @param {'close'|'move'|'defer'} action */
+  /** @param {'close'|'move'|'defer'|'label'|'assign'} action */
   function openAction(action) {
     const n = selected.size;
     if (n === 0) return;
@@ -287,7 +300,10 @@ export function createBulk(o) {
       status: 'open',
       date: '',
       reopen: false,
-      take: false
+      take: false,
+      label_mode: 'add',
+      label: '',
+      role: ROLE_CHOICES[0]
     };
     const body = document.createElement('div');
     const valid = () =>
@@ -295,7 +311,9 @@ export function createBulk(o) {
         ? st.reason.trim().length > 0
         : action === 'defer'
           ? st.reopen || st.date !== ''
-          : true;
+          : action === 'label'
+            ? /^[^\s,]{1,60}$/.test(st.label.trim())
+            : true;
     const confirmLine = () =>
       action === 'close'
         ? tt('u3_bk_c_close', { n, reason: st.reason.trim() })
@@ -304,16 +322,29 @@ export function createBulk(o) {
               n,
               to: t3(MOVE_TO.find((m) => m[0] === st.status)?.[1] || '')
             })
-          : tt('u3_bk_c_defer', {
-              n,
-              until: st.reopen ? t3('u3_bk_until_reopen') : st.date
-            });
+          : action === 'label'
+            ? tt(
+                st.label_mode === 'add'
+                  ? 'u3_bk_c_label_add'
+                  : 'u3_bk_c_label_rm',
+                {
+                  n,
+                  label: st.label.trim()
+                }
+              )
+            : action === 'assign'
+              ? tt(st.role ? 'u3_bk_c_assign' : 'u3_bk_c_unassign', {
+                  n,
+                  role: st.role
+                })
+              : tt('u3_bk_c_defer', {
+                  n,
+                  until: st.reopen ? t3('u3_bk_until_reopen') : st.date
+                });
     /** @param {Event} e */
-    const val = (e) =>
-      /** @type {HTMLInputElement} */ (e.target).value;
+    const val = (e) => /** @type {HTMLInputElement} */ (e.target).value;
     /** @param {Event} e */
-    const chk = (e) =>
-      /** @type {HTMLInputElement} */ (e.target).checked;
+    const chk = (e) => /** @type {HTMLInputElement} */ (e.target).checked;
     const paint = () =>
       render(
         html`<form
@@ -327,7 +358,13 @@ export function createBulk(o) {
                 ? { reason: st.reason.trim() }
                 : action === 'move'
                   ? { status: st.status }
-                  : { until: st.reopen ? '' : st.date },
+                  : action === 'label'
+                    ? st.label_mode === 'add'
+                      ? { add: [st.label.trim()], remove: [] }
+                      : { add: [], remove: [st.label.trim()] }
+                    : action === 'assign'
+                      ? { assignee: st.role }
+                      : { until: st.reopen ? '' : st.date },
               st.take
             );
           }}
@@ -362,6 +399,63 @@ export function createBulk(o) {
                         ${t3(k)}
                       </option>`
                   )}
+                </select></label
+              >`
+            : ''}
+          ${action === 'label'
+            ? html`<label class="u3bk-field"
+                  ><span>${t3('u3_bk_label_mode')}</span>
+                  <select
+                    data-testid="bulk-label-mode"
+                    @change=${(/** @type {Event} */ e) => {
+                      st.label_mode = val(e);
+                      paint();
+                    }}
+                  >
+                    <option value="add" ?selected=${st.label_mode === 'add'}>
+                      ${t3('u3_bk_label_add')}
+                    </option>
+                    <option
+                      value="remove"
+                      ?selected=${st.label_mode === 'remove'}
+                    >
+                      ${t3('u3_bk_label_rm')}
+                    </option>
+                  </select></label
+                >
+                <label class="u3bk-field"
+                  ><span>${t3('u3_bk_label_name')}</span>
+                  <input
+                    type="text"
+                    dir="auto"
+                    maxlength="60"
+                    data-testid="bulk-label-input"
+                    .value=${st.label}
+                    @input=${(/** @type {Event} */ e) => {
+                      st.label = val(e);
+                      paint();
+                    }}
+                /></label>`
+            : ''}
+          ${action === 'assign'
+            ? html`<label class="u3bk-field"
+                ><span>${t3('u3_bk_assign_to')}</span>
+                <select
+                  data-testid="bulk-role"
+                  @change=${(/** @type {Event} */ e) => {
+                    st.role = val(e);
+                    paint();
+                  }}
+                >
+                  ${ROLE_CHOICES.map(
+                    (r) =>
+                      html`<option value=${r} ?selected=${st.role === r}>
+                        ${r}
+                      </option>`
+                  )}
+                  <option value="" ?selected=${st.role === ''}>
+                    ${t3('u3_bk_unassign')}
+                  </option>
                 </select></label
               >`
             : ''}
@@ -487,7 +581,7 @@ export function createBulk(o) {
             </p>`
           : ''}
         <div class="u3bk-bar__acts">
-          ${['close', 'move', 'defer'].map(
+          ${['close', 'move', 'defer', 'label', 'assign'].map(
             (a) =>
               html`<button
                 type="button"

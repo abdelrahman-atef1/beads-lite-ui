@@ -87,6 +87,34 @@ describe('bulk select (v3 tasks)', () => {
     h.unmount();
   });
 
+  test('label and assign sheets: one label add/remove, pick a role, result + undo', async () => {
+    const { h } = setup([
+      mk('y-1'),
+      mk('y-2'),
+      mk('y-3', { status: 'owner_decision' })
+    ]);
+    await tick(10);
+    tid('bulk-enter').click();
+    await tick(10);
+    for (const id of ['y-1', 'y-2', 'y-3']) card(id).click();
+    await tick(10);
+    tid('bulk-label').click();
+    await tick(10);
+    expect(/** @type {HTMLButtonElement} */ (tid('bulk-apply')).disabled).toBe(
+      true
+    );
+    const lab = /** @type {HTMLInputElement} */ (tid('bulk-label-input'));
+    lab.value = 'urgent';
+    lab.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick(10);
+    expect(tid('bulk-confirm').textContent).toContain('urgent');
+    tid('bulk-apply').closest('form')?.requestSubmit();
+    await tick(10);
+    expect(tid('bulk-result').textContent).toContain('2');
+    expect(q('[data-testid="bulk-undo"]')).not.toBeNull();
+    h.unmount();
+  });
+
   test('mixed batch: per-task refusals, then 10 s undo that disappears', async () => {
     const { h } = setup([
       mk('y-1'),
@@ -156,7 +184,13 @@ describe('bulk data adapter (fixture)', () => {
       mk('d', { blocked_by_detail: [{ id: 'a' }] })
     ];
     const r = (/** @type {string} */ id) =>
-      refusal('close', all.find((i) => i.id === id), all, {}, false);
+      refusal(
+        'close',
+        all.find((i) => i.id === id),
+        all,
+        {},
+        false
+      );
     expect(r('a')).toBe('children');
     expect(r('b')).toBe('already_closed');
     expect(r('c')).toBe('decision');
@@ -170,10 +204,9 @@ describe('bulk data adapter (fixture)', () => {
     await expect(
       api.apply({ action: 'close', ids, params: {} }, [])
     ).rejects.toThrow();
-    const r = await api.apply(
-      { action: 'close', ids: ['a'], params: {} },
-      [mk('a')]
-    );
+    const r = await api.apply({ action: 'close', ids: ['a'], params: {} }, [
+      mk('a')
+    ]);
     expect(r.ok).toEqual(['a']);
     expect(await api.undo(r.batch)).toBe(1);
   });
