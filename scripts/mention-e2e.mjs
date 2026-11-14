@@ -6,7 +6,7 @@
  * one), asserts with `bd` and wake.mjs, stops the server by PID.
  *
  *   node scripts/mention-e2e.mjs <project-copy-dir> <out-dir>
- *   env: BD_BIN (real bd.exe), MENTION_WAKE_SCRIPT (wake.mjs with kind mention)
+ *   env: MENTION_WAKE_SCRIPT (BD_BIN optional, else found by server/bd.js), (wake.mjs with kind mention)
  */
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,6 +14,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
+import { getBdBin } from '../server/bd.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const proj = path.resolve(process.argv[2] || '');
@@ -22,12 +23,12 @@ if (!fs.existsSync(path.join(proj, '.beads')) || !process.argv[3]) {
   console.error('usage: mention-e2e.mjs <project-copy-dir> <out-dir>');
   process.exit(2);
 }
-if (!process.env.BD_BIN || !process.env.MENTION_WAKE_SCRIPT) {
-  console.error('set BD_BIN and MENTION_WAKE_SCRIPT');
+if (!process.env.MENTION_WAKE_SCRIPT) {
+  console.error('set MENTION_WAKE_SCRIPT');
   process.exit(2);
 }
 fs.mkdirSync(out, { recursive: true });
-const BD = process.env.BD_BIN;
+const BD = getBdBin();
 const WAKE = process.env.MENTION_WAKE_SCRIPT;
 const wakeRoot = path.join(out, 'wake-queue');
 const projects = path.join(out, 'projects.list');
