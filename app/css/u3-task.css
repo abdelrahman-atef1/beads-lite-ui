@@ -267,3 +267,104 @@ html[dir='rtl'] .u3 .u3-ts__back {
     top: var(--u3-sp-4);
   }
 }
+
+/* Edit mode and new-task dialog (beads-lite-1bo5.6.59.7). */
+.u3 .u3-ts__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  margin-inline-start: auto;
+}
+.u3 .u3-ed__toggle[aria-pressed='true'] {
+  background: var(--u3-blue);
+  color: var(--u3-blue-ink);
+}
+.u3 .u3-ed__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  align-items: flex-start;
+}
+.u3 .u3-ed__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+  padding-block: var(--u3-sp-2);
+  min-width: 0;
+}
+.u3 .u3-ed__lbl {
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-2);
+}
+.u3 .u3-ed__in {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  background: var(--u3-surface-2);
+  color: var(--u3-text);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  font: inherit;
+  font-size: var(--u3-fs-m);
+  min-width: 0;
+}
+.u3 .u3-ed__in:focus-visible {
+  outline: 2px solid var(--u3-focus);
+  outline-offset: 1px;
+}
+.u3 .u3-ed__ta {
+  resize: vertical;
+  line-height: 1.6;
+}
+.u3 .u3-ed__err {
+  color: var(--u3-red);
+  font-size: var(--u3-fs-s);
+  overflow-wrap: anywhere;
+}
+.u3 .u3-ed__lab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.u3 .u3-ed__x {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--u3-text-2);
+  font-size: 18px;
+  cursor: pointer;
+}
+.u3 .u3-ed__add {
+  display: flex;
+  gap: var(--u3-sp-2);
+  align-items: center;
+}
+.u3 .u3-nt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  min-width: 0;
+}
+.u3 .u3-nt__f {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+  min-width: 0;
+}
+.u3 .u3-nt__two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-nt__act {
+  display: flex;
+  justify-content: flex-end;
+}
+.u3 .u3t-new {
+  white-space: nowrap;
+}
+.u3 .u3-ed__row .u3-ts__labels {
+  justify-content: flex-start;
+}

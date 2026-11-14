@@ -28,6 +28,8 @@ import { t3 } from '../i18n.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
 import { renderTimeSlot } from '../task/time-slot.js';
 import { renderCard } from './card.js';
+import { openNewTask } from './new-task.js';
+import { createTaskEdit } from './task-edit.js';
 
 const COMMENT_MAX = 20000;
 
@@ -85,6 +87,15 @@ export function mount(el, ctx) {
   /** @type {null | (() => Promise<void>)} */
   let unsub_sub = null;
   let seq = 0;
+  const edit = createTaskEdit({
+    send,
+    ctx,
+    get: () => issue,
+    patch: (p) => {
+      issue = { ...issue, ...p };
+    },
+    redraw: () => draw()
+  });
 
   function readIssue() {
     const cid = `detail:${id}`;
@@ -111,6 +122,7 @@ export function mount(el, ctx) {
   /** @param {string} next */
   function open(next) {
     teardown();
+    edit.reset();
     id = next;
     issue = null;
     comments = null;
@@ -359,9 +371,17 @@ export function mount(el, ctx) {
             })}
             ${chip({ label: 'P' + Number(i.priority ?? 2) })}
           </div>
+          <span class="u3-ts__tools">
+            ${button({
+              label: t3('u3_nt_sub'),
+              variant: 'ghost',
+              onClick: () =>
+                openNewTask(el.closest('.u3') || el, ctx, { parent: i.id })
+            })}
+            ${edit.toggleButton()}
+          </span>
         </div>
-        <h2 class="u3-ts__title" dir="auto">${i.title}</h2>
-        ${renderAskHead(route, ctx)} ${renderTimeSlot(i, ctx)}
+        ${edit.title(i)} ${renderAskHead(route, ctx)} ${renderTimeSlot(i, ctx)}
         <nav class="u3-ts__jump">
           ${jump.map(
             ([k, a]) =>
@@ -372,7 +392,9 @@ export function mount(el, ctx) {
         </nav>
         <div class="u3-ts__cols">
           <div class="u3-ts__main">
-            ${field('u3_ts_description', 'description', i.description)}
+            ${edit.isEditing()
+              ? edit.description(i)
+              : field('u3_ts_description', 'description', i.description)}
             ${field('u3_ts_design', 'design', i.design)}
             ${field('u3_ts_notes', 'notes', i.notes)}
             ${field('u3_ts_acceptance', 'acceptance', acceptance)}
@@ -385,14 +407,16 @@ export function mount(el, ctx) {
           </div>
           <aside class="u3-ts__side">
             <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
-            ${row(t3('u3_ts_status'), statusLabel(i.status))}
-            ${row(
-              t3('u3_ts_assignee'),
-              i.assignee
-                ? roleChip({ role: String(i.assignee) })
-                : t3('u3_ts_none')
-            )}
-            ${row(t3('u3_ts_priority'), priorityName(i.priority))}
+            ${edit.isEditing()
+              ? edit.rows(i)
+              : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+                ${row(
+                  t3('u3_ts_assignee'),
+                  i.assignee
+                    ? roleChip({ role: String(i.assignee) })
+                    : t3('u3_ts_none')
+                )}
+                ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
             ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
             ${parent
               ? row(
@@ -404,7 +428,7 @@ export function mount(el, ctx) {
               : nothing}
             ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
             ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
-            ${labels.length
+            ${labels.length && !edit.isEditing()
               ? row(
                   t3('u3_ts_labels'),
                   html`<span class="u3-ts__labels"
