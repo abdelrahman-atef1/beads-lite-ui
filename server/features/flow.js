@@ -8,7 +8,7 @@
  * polls; the file is re-read only when its modified time changes. A missing or
  * unreadable file is not an error: { present: false, rows: [] } (the board shows an
  * empty state). ids: those beads (max 50). No ids: beads closed in the last `days`
- * (default 30, max 120) plus every running bead. Rows carry numbers only (no text);
+ * (default 30, max 200) plus every running bead. Rows carry numbers only (no text);
  * labels are cut to exp:* ones. On the phone door desk beads are left out.
  */
 import fs from 'node:fs';
@@ -74,7 +74,7 @@ export function flowRollup(payload, ctx = {}) {
     throw Object.assign(new Error('bad_input'), { code: 'bad_input' });
   }
   const d = Number(payload?.days);
-  const days = Number.isFinite(d) && d > 0 ? Math.min(Math.floor(d), 120) : 30;
+  const days = Number.isFinite(d) && d > 0 ? Math.min(Math.floor(d), 200) : 30;
   const doc = readDoc();
   if (!doc || typeof doc.beads !== 'object' || !doc.beads) {
     return { present: false, built_at: null, heavy_recorded: false, rows: [] };
