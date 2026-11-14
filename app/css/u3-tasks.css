@@ -320,7 +320,7 @@
 .u3 .u3bk-tick {
   position: absolute;
   inset-block-start: var(--u3-sp-3);
-  inset-inline-end: var(--u3-sp-3);
+  inset-inline-start: var(--u3-sp-3);
   width: 22px;
   height: 22px;
   border: 2px solid var(--u3-text-3);
@@ -476,4 +476,7 @@
   background: var(--u3-blue-soft);
   border-color: var(--u3-blue);
   color: var(--u3-focus);
+}
+.u3 .u3bk-tick ~ .u3t-card__id {
+  padding-inline-start: 30px;
 }
