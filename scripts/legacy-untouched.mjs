@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, the push log (server/features/push.js and push-log.test.js), server/bd-resolve.test.js and four exact hunks of server/bd.js (the bd lookup), plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -33,12 +33,94 @@ const ALLOWED = [
   /^server\/features\/board-posted\.js$/,
   /^scripts\/mention-(scan|e2e)\.mjs$/,
   // Time screens (beads-lite-1bo5.6.59.12): the read-only flow-rollup handler and its test, these exact files only.
-  /^server\/features\/flow(\.test)?\.js$/
+  /^server\/features\/flow(\.test)?\.js$/,
+  // Push log (beads-lite-1bo5.6.16.1): these exact files only.
+  /^server\/features\/push(-log\.test)?\.js$/,
+  // Board finds bd itself (beads-lite-1bo5.6.59.21): its test, this exact file only.
+  /^server\/bd-resolve\.test\.js$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the
 // trailing-comma rewrite of the previous array entry.
 const SEAM = {
+  // Board finds bd itself (beads-lite-1bo5.6.59.21): these four hunks of server/bd.js only.
+  'server/bd.js': {
+    hunks: [
+      '@@ -1 +1,4 @@',
+      '@@ -54 +57,57 @@',
+      '@@ -63 +122,6 @@',
+      '@@ -65,0 +130,3 @@'
+    ],
+    add: [
+      "import { execFileSync, spawn } from 'node:child_process';",
+      "import fs from 'node:fs';",
+      "import os from 'node:os';",
+      "import path from 'node:path';",
+      '* Find bd without BD_BIN (beads-lite-1bo5.6.59.21; same order as company',
+      '* scripts/flow/bd-bin.mjs). On Windows the npm `bd` on PATH is a .cmd shim that',
+      '* spawn() cannot start without a shell, so take a real bd.exe: first the one',
+      '* where.exe/which finds on PATH, then the @beads/bd package binary, else "bd".',
+      '*',
+      '* @param {{ platform?: string, appdata?: string, lookup?: () => string, exists?: (p: string) => boolean }} [deps]',
+      "* @returns {{ bin: string, via: 'path' | 'package' | 'fallback' }}",
+      '*/',
+      'export function findBdBin(deps = {}) {',
+      "const win = (deps.platform || process.platform) === 'win32';",
+      'const lookup =',
+      'deps.lookup ||',
+      '(() =>',
+      "execFileSync(win ? 'where.exe' : 'which', ['bd'], {",
+      "encoding: 'utf8',",
+      'windowsHide: true,',
+      "stdio: ['ignore', 'pipe', 'ignore']",
+      '}));',
+      'try {',
+      'const hit = String(lookup())',
+      '.split(/\\r?\\n/)',
+      '.map((l) => l.trim())',
+      '.find((l) => l && (!win || /\\.exe$/i.test(l)));',
+      'if (hit) {',
+      "return { bin: hit, via: 'path' };",
+      '}',
+      '} catch {',
+      '// not on PATH',
+      'const pkg = path.join(',
+      'deps.appdata ||',
+      'process.env.APPDATA ||',
+      "path.join(os.homedir(), 'AppData', 'Roaming'),",
+      "'npm',",
+      "'node_modules',",
+      "'@beads',",
+      "'bd',",
+      "'bin',",
+      "'bd.exe'",
+      ');',
+      'if ((deps.exists || fs.existsSync)(pkg)) {',
+      "return { bin: pkg, via: 'package' };",
+      "return { bin: 'bd', via: 'fallback' };",
+      '/** @type {string | undefined} */',
+      'let found_bd_bin;',
+      '/** Forget the looked-up path (tests only). */',
+      'export function resetBdBin() {',
+      'found_bd_bin = undefined;',
+      '/**',
+      '* Resolve the bd executable path. BD_BIN wins and is read live; otherwise the',
+      '* lookup runs once (at start-up, see the call below) and logs its choice.',
+      'if (!found_bd_bin) {',
+      'const { bin, via } = findBdBin();',
+      'found_bd_bin = bin;',
+      'console.log(`bd: using ${bin} (${via})`);',
+      'return found_bd_bin;',
+      '// Resolve once at start-up, not on the first request.',
+      'getBdBin();'
+    ],
+    del: [
+      "import { spawn } from 'node:child_process';",
+      '* Resolve the bd executable path.',
+      "return 'bd';"
+    ]
+  },
+
   // create-issue takes parent and assignee and echoes the id (1bo5.6.59.7):
   // the exact lines of that one handler and its two tests (blank lines ok).
   'server/ws.js': {
@@ -225,6 +307,13 @@ for (const f of names) {
   if (SEAM[f]) {
     for (const l of git(['diff', '-U0', base, '--', f]).split('\n')) {
       if (l.startsWith('---') || l.startsWith('+++')) continue;
+      // A seam with `hunks` allows only those exact hunks (header up to the context text).
+      if (l.startsWith('@@')) {
+        const h = (l.match(/^@@ [^@]*@@/) || [''])[0];
+        if (SEAM[f].hunks && !SEAM[f].hunks.includes(h))
+          bad.push(`${f}: a hunk outside the allowed ones: ${h}`);
+        continue;
+      }
       const t = l.slice(1).trim();
       if (l.startsWith('+') && t === '') continue;
       if (l.startsWith('-') && !SEAM[f].del.includes(t))
