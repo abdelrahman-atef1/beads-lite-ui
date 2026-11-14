@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -27,7 +27,11 @@ const ALLOWED = [
   /^server\/features\/outputs\.test\.js$/,
   // Bulk select server feature (1bo5.6.63.1): these exact files only.
   /^server\/features\/bulk(\.test)?\.js$/,
-  /^scripts\/bulk-e2e\.mjs$/
+  /^scripts\/bulk-e2e\.mjs$/,
+  // @mentions (beads-lite-1bo5.6.64.1): these exact files only.
+  /^server\/features\/mention(\.test)?\.js$/,
+  /^server\/features\/board-posted\.js$/,
+  /^scripts\/mention-(scan|e2e)\.mjs$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the
@@ -67,7 +71,18 @@ const SEAM = {
       '...(ok_assignee ? { assignee: ok_assignee } : {})',
       '})',
       ')',
-      ');'
+      ');',
+      "import { markBoardPosted } from './features/board-posted.js';",
+      '// @mentions (beads-lite-1bo5.6.64.1, sec M1): remember the comment this server just posted',
+      '{',
+      'const mine = comment_list',
+      '.filter(',
+      '(/** @type {any} */ c) =>',
+      'c && c.text === text.trim() && (!author || c.author === author)',
+      ')',
+      '.pop();',
+      "if (mine && typeof mine.id === 'string') markBoardPosted(mine.id);",
+      '}'
     ],
     del: [
       'const { title, type, priority, description } = /** @type {any} */ (',
@@ -112,18 +127,59 @@ const SEAM = {
     ],
     del: []
   },
-  'server/features/index.js': {
-    add: ["import * as bulk from './bulk.js';", 'bulk,'],
+  // @mentions (beads-lite-1bo5.6.64): one bell method and its module export, no deletions.
+  'server/features/notifier.js': {
+    add: [
+      '/**',
+      '* @mention of the owner in a comment (beads-lite-1bo5.6.64): one bell',
+      '* event, no title (no comment text), never a wake file.',
+      '* @param {string} project @param {string} bead',
+      '*/',
+      'raiseMention(project, bead) {',
+      'const at = new Date(now()).toISOString();',
+      'emit({',
+      'id: `n-${sha(`mention|${project}|${bead}|${at}`).slice(0, 12)}`,',
+      "kind: 'mention',",
+      'project,',
+      'bead,',
+      'title: null,',
+      'desk: false,',
+      'count: 1,',
+      'at,',
+      'read: false',
+      '});',
+      'saveStore();',
+      '},',
+      '* Bell event for an @owner mention (beads-lite-1bo5.6.64).',
+      'export function raiseMention(project, bead) {',
+      '(live ||= createNotifier()).raiseMention(project, bead);',
+      '}'
+    ],
     del: []
+  },
+  'server/features/index.js': {
+    add: [
+      "import * as bulk from './bulk.js';",
+      'bulk,',
+      // @mentions (beads-lite-1bo5.6.64.1)
+      "import * as mention from './mention.js';",
+      'ask,',
+      'mention'
+    ],
+    del: ['ask']
   },
   'server/features/types.js': {
     add: [
       "'releases-get',",
       '// bulk select on the board (beads-lite-1bo5.6.63.1)',
       "'bulk-apply',",
-      "'bulk-undo'"
+      "'bulk-undo',",
+      '// @mentions (beads-lite-1bo5.6.64.1)',
+      "'mention-roles',",
+      "'mention-scan',",
+      "'mention-chips'"
     ],
-    del: ["'releases-get'"]
+    del: ["'releases-get'", "'bulk-undo'"]
   }
 };
 const HOOK = [
