@@ -1484,9 +1484,8 @@ async function handleMessageUnsafe(ws, data) {
   // create-issue
   if (req.type === 'create-issue') {
     log('create-issue');
-    const { title, type, priority, description } = /** @type {any} */ (
-      req.payload || {}
-    );
+    const { title, type, priority, description, parent, assignee } =
+      /** @type {any} */ (req.payload || {});
     if (typeof title !== 'string' || title.length === 0) {
       ws.send(
         JSON.stringify(
@@ -1518,6 +1517,20 @@ async function handleMessageUnsafe(ws, data) {
     if (typeof description === 'string' && description.length > 0) {
       long_description = description;
     }
+    // Board v3 new-task dialog: every bead has a parent. Bounded and shaped
+    // like an id / a name so neither can smuggle a flag into bd.
+    const ok_parent =
+      typeof parent === 'string' &&
+      /^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(parent)
+        ? parent
+        : '';
+    const ok_assignee =
+      typeof assignee === 'string' &&
+      /^[A-Za-z0-9][A-Za-z0-9._@-]{0,99}$/.test(assignee)
+        ? assignee
+        : '';
+    if (ok_parent) args.push('--parent', ok_parent);
+    if (ok_assignee) args.push('--assignee', ok_assignee);
     // '--' so a title like '--help' is a title, never a bd flag.
     clearDetailCaches([bd_options.cwd]);
     // D6: a board-created task is marked and wakes CoS (agents never pass here).
@@ -1545,7 +1558,22 @@ async function handleMessageUnsafe(ws, data) {
       /** @type {any} */ (ws).hostHeader
     );
     // Reply with a minimal ack
-    ws.send(JSON.stringify(makeOk(req, { created: true, wake })));
+    // `--silent` prints the new id; echo it with what was applied so a client
+    // need not guess the id from the title.
+    const new_id = String(res.stdout || '')
+      .trim()
+      .split(/\s+/)[0];
+    ws.send(
+      JSON.stringify(
+        makeOk(req, {
+          created: true,
+          wake,
+          ...(new_id ? { id: new_id } : {}),
+          ...(ok_parent ? { parent: ok_parent } : {}),
+          ...(ok_assignee ? { assignee: ok_assignee } : {})
+        })
+      )
+    );
     // Refresh active subscriptions once (watcher or timeout)
     try {
       triggerMutationRefreshOnce(
