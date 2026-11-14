@@ -324,17 +324,28 @@ export function mount(el, ctx) {
     </section>`;
   }
 
+  /**
+   * One outer template for both pages: the ask head is its last child, so it
+   * is the same DOM node when the page goes from loading to loaded (a second
+   * host would drop an open panel, beads-lite-1bo5.6.59.8).
+   *
+   * @param {import('lit-html').TemplateResult} inner
+   */
+  const page = (inner) =>
+    html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
+      ${inner}${renderAskHead(route, ctx)}
+    </section>`;
+
   function draw() {
     if (!alive) return;
     if (!issue) {
       render(
-        html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
-          <p class="u3-muted u3-mono" dir="ltr">${id}</p>
-          <p class="u3-muted">
-            ${loaded ? t3('u3_ts_missing') : t3('u3_ts_loading')}
-          </p>
-          ${renderAskHead(route, ctx)}
-        </section>`,
+        page(
+          html`<p class="u3-muted u3-mono" dir="ltr">${id}</p>
+            <p class="u3-muted">
+              ${loaded ? t3('u3_ts_missing') : t3('u3_ts_loading')}
+            </p>`
+        ),
         el
       );
       return;
@@ -357,93 +368,96 @@ export function mount(el, ctx) {
       ['u3_ts_acceptance', 'acceptance', acceptance]
     ].filter(([, , on]) => String(on || '').trim() || on === true);
     render(
-      html`<section class="u3-ts" data-view="task" data-at=${route.at ?? ''}>
-        <div class="u3-ts__top">
-          <a class="u3-ts__back" href="#/issues" aria-label=${t3('u3_ts_back')}
-            >&larr;</a
-          >
-          <div class="u3-ts__chips">
-            ${chip({ label: projectOf(i.id), tone: 'blue' })}
-            ${chip({ label: i.id, mono: true })}
-            ${chip({
-              label: statusLabel(i.status),
-              tone: TONE[i.status] || 'neutral'
-            })}
-            ${chip({ label: 'P' + Number(i.priority ?? 2) })}
+      page(
+        html`<div class="u3-ts__top">
+            <a
+              class="u3-ts__back"
+              href="#/issues"
+              aria-label=${t3('u3_ts_back')}
+              >&larr;</a
+            >
+            <div class="u3-ts__chips">
+              ${chip({ label: projectOf(i.id), tone: 'blue' })}
+              ${chip({ label: i.id, mono: true })}
+              ${chip({
+                label: statusLabel(i.status),
+                tone: TONE[i.status] || 'neutral'
+              })}
+              ${chip({ label: 'P' + Number(i.priority ?? 2) })}
+            </div>
+            <span class="u3-ts__tools">
+              ${button({
+                label: t3('u3_nt_sub'),
+                variant: 'ghost',
+                onClick: () =>
+                  openNewTask(el.closest('.u3') || el, ctx, { parent: i.id })
+              })}
+              ${edit.toggleButton()}
+            </span>
           </div>
-          <span class="u3-ts__tools">
-            ${button({
-              label: t3('u3_nt_sub'),
-              variant: 'ghost',
-              onClick: () =>
-                openNewTask(el.closest('.u3') || el, ctx, { parent: i.id })
-            })}
-            ${edit.toggleButton()}
-          </span>
-        </div>
-        ${edit.title(i)} ${renderAskHead(route, ctx)} ${renderTimeSlot(i, ctx)}
-        <nav class="u3-ts__jump">
-          ${jump.map(
-            ([k, a]) =>
-              html`<a class="u3-ts__j" href=${href(id) + '&at=' + a}
-                >${t3(String(k))}</a
-              >`
-          )}
-        </nav>
-        <div class="u3-ts__cols">
-          <div class="u3-ts__main">
-            ${edit.isEditing()
-              ? edit.description(i)
-              : field('u3_ts_description', 'description', i.description)}
-            ${field('u3_ts_design', 'design', i.design)}
-            ${field('u3_ts_notes', 'notes', i.notes)}
-            ${field('u3_ts_acceptance', 'acceptance', acceptance)}
-            ${relations('u3_ts_children', children)}
-            ${relations(
-              'u3_ts_deps',
-              deps.filter((/** @type {any} */ d) => d !== parent)
+          ${edit.title(i)} ${renderTimeSlot(i, ctx)}
+          <nav class="u3-ts__jump">
+            ${jump.map(
+              ([k, a]) =>
+                html`<a class="u3-ts__j" href=${href(id) + '&at=' + a}
+                  >${t3(String(k))}</a
+                >`
             )}
-            ${relations('u3_ts_dependents', others)} ${commentsBlock()}
-          </div>
-          <aside class="u3-ts__side">
-            <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
-            ${edit.isEditing()
-              ? edit.rows(i)
-              : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
-                ${row(
-                  t3('u3_ts_assignee'),
-                  i.assignee
-                    ? roleChip({ role: String(i.assignee) })
-                    : t3('u3_ts_none')
-                )}
-                ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
-            ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
-            ${parent
-              ? row(
-                  t3('u3_ts_parent'),
-                  html`<a class="u3-mono" href=${href(parent.id)}
-                    >${parent.id}</a
-                  >`
-                )
-              : nothing}
-            ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
-            ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
-            ${labels.length && !edit.isEditing()
-              ? row(
-                  t3('u3_ts_labels'),
-                  html`<span class="u3-ts__labels"
-                    >${labels.map((/** @type {string} */ l) =>
-                      chip({ label: l })
-                    )}</span
-                  >`
-                )
-              : nothing}
-            ${i.close_reason
-              ? row(t3('u3_ts_close_reason'), i.close_reason)
-              : nothing}
-          </aside>
-        </div>
-      </section>`,
+          </nav>
+          <div class="u3-ts__cols">
+            <div class="u3-ts__main">
+              ${edit.isEditing()
+                ? edit.description(i)
+                : field('u3_ts_description', 'description', i.description)}
+              ${field('u3_ts_design', 'design', i.design)}
+              ${field('u3_ts_notes', 'notes', i.notes)}
+              ${field('u3_ts_acceptance', 'acceptance', acceptance)}
+              ${relations('u3_ts_children', children)}
+              ${relations(
+                'u3_ts_deps',
+                deps.filter((/** @type {any} */ d) => d !== parent)
+              )}
+              ${relations('u3_ts_dependents', others)} ${commentsBlock()}
+            </div>
+            <aside class="u3-ts__side">
+              <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
+              ${edit.isEditing()
+                ? edit.rows(i)
+                : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+                  ${row(
+                    t3('u3_ts_assignee'),
+                    i.assignee
+                      ? roleChip({ role: String(i.assignee) })
+                      : t3('u3_ts_none')
+                  )}
+                  ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
+              ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
+              ${parent
+                ? row(
+                    t3('u3_ts_parent'),
+                    html`<a class="u3-mono" href=${href(parent.id)}
+                      >${parent.id}</a
+                    >`
+                  )
+                : nothing}
+              ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
+              ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
+              ${labels.length && !edit.isEditing()
+                ? row(
+                    t3('u3_ts_labels'),
+                    html`<span class="u3-ts__labels"
+                      >${labels.map((/** @type {string} */ l) =>
+                        chip({ label: l })
+                      )}</span
+                    >`
+                  )
+                : nothing}
+              ${i.close_reason
+                ? row(t3('u3_ts_close_reason'), i.close_reason)
+                : nothing}
+            </aside>
+          </div>`
+      ),
       el
     );
     bindAttClicks(el);

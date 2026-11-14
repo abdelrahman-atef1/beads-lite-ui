@@ -1,4 +1,5 @@
 // @ts-nocheck -- fixture-heavy view test
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { mount } from './task.js';
 
@@ -80,6 +81,51 @@ describe('task page', () => {
     expect(el.querySelector('.u3-ts__c').textContent).toContain('last one');
     expect(el.textContent).toContain('p-2');
     expect(el.querySelector('[data-anchor="description"]')).toBeTruthy();
+  });
+
+  test('ask head keeps one host and its open panel from loading to loaded', async () => {
+    document.body.innerHTML = '<div id="v"></div>';
+    window.localStorage.setItem('beads-ui.lang', 'en');
+    window.location.hash = '#/issues?issue=p-1';
+    let have = false;
+    let notify = () => {};
+    const send = vi.fn(async () => COMMENTS);
+    const ctx = {
+      route: { name: 'task', id: 'p-1', at: null },
+      send,
+      client: { send },
+      sub_issue_stores: {
+        register() {},
+        subscribeFor: (_ids, fn) => {
+          notify = fn;
+          return () => {};
+        },
+        isLoaded: () => have,
+        snapshotFor: () => (have ? [structuredClone(ISSUE)] : [])
+      },
+      subscriptions: { subscribeList: async () => async () => {} }
+    };
+    const el = document.getElementById('v');
+    mount(el, ctx);
+    await tick();
+    const host = el.querySelector('.u3-ask');
+    expect(host).toBeTruthy();
+    expect(el.querySelector('.u3-ts__title')).toBeNull(); // still loading
+    host.querySelector('.u3-ask__head').click();
+    expect(host.querySelector('.u3-ask__sheet')).toBeTruthy();
+    have = true;
+    notify();
+    await tick();
+    expect(el.querySelector('.u3-ts__title')).toBeTruthy(); // loaded
+    expect(el.querySelectorAll('.u3-ask').length).toBe(1);
+    expect(el.querySelector('.u3-ask')).toBe(host); // same node, not remade
+    expect(host.querySelector('.u3-ask__sheet')).toBeTruthy(); // still open
+  });
+
+  test('page keeps room below it for the floating ask button', () => {
+    // the floating button needs room below the page content (390 RTL)
+    const css = readFileSync('app/css/u3-task.css', 'utf8');
+    expect(css).toMatch(/\.u3 \.u3-ts \{[^}]*padding-block-end: calc\(56px/);
   });
 
   test('c-last highlights the newest comment', async () => {

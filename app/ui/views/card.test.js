@@ -260,23 +260,44 @@ describe('renderStepsComment', () => {
     expect(el.querySelector('[data-act="steps-done"]')).toBeNull();
   });
 
-  test('question goes through card-ask, falls back to a comment', async () => {
-    const send = vi.fn(async (type) => {
-      if (type === 'card-ask') throw new Error('bad-card');
-      return {};
-    });
+  async function askWith(send, text) {
     const el = mountSteps({ client: { send } });
     el.querySelector('[data-act="steps-ask"]').click();
     await tick();
     const ta = el.querySelector('textarea');
-    ta.value = 'مش لاقي التبويب';
+    ta.value = text;
     ta.dispatchEvent(new Event('input'));
     el.querySelector('form').dispatchEvent(
       new Event('submit', { cancelable: true })
     );
     await tick();
-    expect(send.mock.calls[0][0]).toBe('card-ask');
-    expect(send.mock.calls[1][0]).toBe('add-comment');
+    return el;
+  }
+
+  test('question goes through card-ask only', async () => {
+    const send = vi.fn(async () => ({}));
+    const el = await askWith(send, 'مش لاقي التبويب');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith('card-ask', {
+      id: 'b-1',
+      scope: 'question',
+      question: 'مش لاقي التبويب'
+    });
+    expect(el.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  test.each([
+    ['secret-refused', /secret|سر/],
+    ['round-cap', /No questions left|لا أسئلة/],
+    ['no-steps', /steps changed|الخطوات تغيرت/]
+  ])('refusal %s shows its reason, never a plain comment', async (code, re) => {
+    const send = vi.fn(async () => {
+      throw new Error(code);
+    });
+    const el = await askWith(send, 'my key is sk-ant-api03-ZZZZZZZZZZZZZZZZ');
+    expect(send.mock.calls.map((c) => c[0])).toEqual(['card-ask']);
+    expect(el.querySelector('[role="alert"]').textContent).toMatch(re);
+    expect(el.textContent).not.toMatch(/Question sent|تم إرسال السؤال/);
   });
 
   test('open:false hides the buttons; a non-steps comment draws nothing', () => {

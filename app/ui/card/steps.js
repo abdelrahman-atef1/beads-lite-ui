@@ -102,6 +102,27 @@ function cmdBlock(cmd, lang) {
 }
 
 /**
+ * Reason shown when the card CLI refuses a question on a steps item.
+ *
+ * @param {string} code
+ * @param {string} lang
+ */
+export function askErrorText(code, lang) {
+  const c = code.replace(/_/g, '-');
+  switch (c) {
+    case 'secret-refused':
+      return tc('u3_steps_err_secret', lang);
+    case 'round-cap':
+      return tc('u3_steps_err_cap', lang);
+    case 'no-steps':
+    case 'stale-steps':
+      return tc('u3_steps_err_nosteps', lang);
+    default:
+      return errorText(c);
+  }
+}
+
+/**
  * @typedef {object} StepsState
  * @property {Set<number>} checked
  * @property {boolean} busy
@@ -117,7 +138,7 @@ const states = new WeakMap();
 
 /**
  * Draw a steps comment: checklist, copyable commands, "I finished" (task 3
- * steps-done) and "I have a question" (card-ask, else a plain comment).
+ * steps-done) and "I have a question" (card-ask, refusal shown).
  * The task page (task 6) puts the returned template where the comment body
  * goes. `ctx` = { issueId, client?, open?: boolean, now?: number }; open false
  * draws the list without the buttons (steps already done or superseded).
@@ -190,26 +211,21 @@ function paintSteps(el, comment, parsed, ctx) {
     st.error = '';
     again();
     try {
-      const c = clientOf(ctx);
-      try {
-        await c.send('card-ask', {
-          id: ctx.issueId,
-          scope: 'question',
-          question: q
-        });
-      } catch {
-        // a steps bead without a decision card has nothing to ask on: leave a plain comment
-        await c.send('add-comment', {
-          id: ctx.issueId,
-          text: `QUESTION (owner, steps ${ref8}): ${q}`
-        });
-      }
+      // The card CLI's ask (secret scan, 3-round cap); no plain-comment fallback.
+      await clientOf(ctx).send('card-ask', {
+        id: ctx.issueId,
+        scope: 'question',
+        question: q
+      });
       st.sent = true;
       st.asking = false;
       st.question = '';
       showToast(tc('u3_card_sent', lang), 'success', 2000);
     } catch (err) {
-      st.error = errorText(String(/** @type {any} */ (err)?.message || ''));
+      st.error = askErrorText(
+        String(/** @type {any} */ (err)?.message || ''),
+        lang
+      );
     }
     st.busy = false;
     again();

@@ -5,6 +5,8 @@
   flex-direction: column;
   gap: var(--u3-sp-4);
   min-width: 0;
+  /* clear the floating ask button so it never covers the composer's Send */
+  padding-block-end: calc(56px + var(--u3-sp-4));
 }
 .u3 .u3-ts__top {
   display: flex;

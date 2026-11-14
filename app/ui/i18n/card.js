@@ -39,6 +39,18 @@ export const strings = {
   u3_card_via_pc: { en: 'from the PC', ar: 'من الكمبيوتر' },
   u3_card_recorded: { en: 'Answer recorded', ar: 'تم تسجيل الرد' },
   u3_card_sent: { en: 'Question sent', ar: 'تم إرسال السؤال' },
+  u3_steps_err_secret: {
+    en: 'Not sent: the text looks like a secret, code or long number.',
+    ar: 'لم يُرسل: النص يشبه سرا أو كودا أو رقما طويلا.'
+  },
+  u3_steps_err_cap: {
+    en: 'No questions left on this item.',
+    ar: 'لا أسئلة متبقية على هذا البند.'
+  },
+  u3_steps_err_nosteps: {
+    en: 'These steps changed or are closed. Reload and read them again.',
+    ar: 'الخطوات تغيرت أو أُغلقت. أعد التحميل واقرأها مرة أخرى.'
+  },
   u3_card_open_task: { en: 'Open the task', ar: 'افتح المهمة' },
   u3_card_load_failed: {
     en: 'Could not load the card.',
