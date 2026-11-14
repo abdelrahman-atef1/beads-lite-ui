@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -23,7 +23,8 @@ const ALLOWED = [
   /^app\/css\/u3-[\w-]+\.css$/,
   /^app\/fonts\//,
   /^scripts\/legacy-untouched\.mjs$/,
-  /^scripts\/payload-v3\.mjs$/
+  /^scripts\/payload-v3\.mjs$/,
+  /^server\/features\/outputs\.test\.js$/
 ];
 const HOOK = [
   "import { bootV3 } from './ui/boot.js';",

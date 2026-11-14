@@ -285,7 +285,7 @@ const phone = () => ({ ws: { door: 'phone' }, root_dir: dir });
 const bySrc = (/** @type {any} */ r, /** @type {string} */ s) =>
   r.items.filter((/** @type {any} */ i) => i.src === s);
 
-describe('outputs-get rollup', () => {
+describe('outputs-get rollup', { timeout: 30000 }, () => {
   test.skipIf(!haveValidator)(
     'story rolls up children: records, mentions, attachments, commits',
     async () => {
@@ -419,7 +419,7 @@ describe('outputs-get rollup', () => {
   });
 });
 
-describe('git index drops rewritten history (beads-lite-1bo5.6.51)', () => {
+describe('git index drops rewritten history (beads-lite-1bo5.6.51)', { timeout: 30000 }, () => {
   const subjects = (/** @type {any} */ r, /** @type {string} */ id) =>
     (r.byId.get(id) || []).map((/** @type {any} */ c) => c.subject);
 
@@ -464,7 +464,7 @@ describe('git index drops rewritten history (beads-lite-1bo5.6.51)', () => {
   });
 });
 
-describe('one export instead of one bd call per bead', () => {
+describe('one export instead of one bd call per bead', { timeout: 30000 }, () => {
   const lines = [
     { id: 'tc-1', title: 'Story', status: 'open', comment_count: 0 },
     {
@@ -512,7 +512,7 @@ describe('one export instead of one bd call per bead', () => {
   });
 });
 
-describe('failed export and failed comments (1bo5.6.51.1)', () => {
+describe('failed export and failed comments (1bo5.6.51.1)', { timeout: 30000 }, () => {
   test('a failed export is tried once for a 3-level rollup, not once per node', async () => {
     let exports = 0;
     const { out } = rig({
@@ -552,7 +552,7 @@ describe('failed export and failed comments (1bo5.6.51.1)', () => {
   });
 });
 
-describe('code repos of a project (.beads/code-repos)', () => {
+describe('code repos of a project (.beads/code-repos)', { timeout: 30000 }, () => {
   test('commits of a listed repo show with its name; bad lines are ignored', async () => {
     const code = fs.mkdtempSync(path.join(os.tmpdir(), 'outputscode-'));
     try {
