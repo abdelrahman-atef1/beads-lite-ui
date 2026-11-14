@@ -39,5 +39,7 @@ export const FEATURE_MESSAGE_TYPES = [
   'mention-scan',
   'mention-chips',
   // Time screens (beads-lite-1bo5.6.59.12)
-  'flow-rollup'
+  'flow-rollup',
+  // Experiment view and weekly digest (beads-lite-1bo5.6.66.7)
+  'flow-digest'
 ];
