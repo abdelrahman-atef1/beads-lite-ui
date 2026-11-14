@@ -39,6 +39,7 @@ const MAX_SUBS = 5;
 const MAX_ENDPOINT = 1000;
 const TTL_S = 3600;
 const SEND_TIMEOUT_MS = 10000;
+const LOG_MAX_BYTES = 1024 * 1024;
 const SUBJECT =
   process.env.BDUI_VAPID_SUBJECT || 'mailto:board@codesters-inc.com';
 // Only the public push services the browsers use; also the SSRF guard.
@@ -210,6 +211,7 @@ export function createPush(opts = {}) {
   const keyFile = path.join(home, 'vapid.json');
   const subsFile = path.join(home, 'push-subs.json');
   const stateFile = path.join(home, 'push-state.json');
+  const logFile = path.join(home, 'push-log.jsonl');
   const now = opts.now || Date.now;
   const lock = opts.lock || lockDir;
   const setTimer =
@@ -282,6 +284,38 @@ export function createPush(opts = {}) {
     return keys;
   }
 
+  /**
+   * One JSON line per push attempt (company-1bo5.6.16.1). Proof a card
+   * reached the push service. Holds the short sub id only, never the
+   * endpoint, keys or an error message. Capped ~1 MB: the old half moves to
+   * push-log.jsonl.1. Never throws.
+   * @param {any} payload @param {{ endpoint: string }} s
+   * @param {number|string} result @param {number} ms
+   */
+  function logAttempt(payload, s, result, ms) {
+    try {
+      const line = JSON.stringify({
+        at: new Date(now()).toISOString(),
+        kind: payload.kind,
+        bead: payload.bead ?? null,
+        sub: subId(s.endpoint),
+        result,
+        ms
+      });
+      fs.mkdirSync(home, { recursive: true });
+      try {
+        if (fs.statSync(logFile).size > LOG_MAX_BYTES) {
+          fs.renameSync(logFile, `${logFile}.1`);
+        }
+      } catch {
+        // no log yet, or rotation raced: append anyway
+      }
+      fs.appendFileSync(logFile, line + '\n', { mode: 0o600 });
+    } catch {
+      // the log is a courtesy; never break a push
+    }
+  }
+
   function rollDay() {
     const d = dayOf(now());
     if (state.day !== d) {
@@ -310,8 +344,9 @@ export function createPush(opts = {}) {
     let ok = 0;
     await Promise.all(
       subs.map(async (s) => {
+        const t0 = Date.now();
         try {
-          await w.sendNotification(
+          const res = await w.sendNotification(
             { endpoint: s.endpoint, keys: s.keys },
             body,
             {
@@ -321,10 +356,18 @@ export function createPush(opts = {}) {
               timeout: SEND_TIMEOUT_MS
             }
           );
+          logAttempt(payload, s, res?.statusCode ?? 201, Date.now() - t0);
           ok += 1;
           s.ok = new Date(now()).toISOString();
         } catch (e) {
           const code = /** @type {any} */ (e)?.statusCode;
+          const err = /** @type {any} */ (e);
+          logAttempt(
+            payload,
+            s,
+            code ?? String(err?.code || err?.name || 'error').slice(0, 40),
+            Date.now() - t0
+          );
           if (code === 404 || code === 410) {
             subs = subs.filter((x) => x.endpoint !== s.endpoint);
             saveSubs();
