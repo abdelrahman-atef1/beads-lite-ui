@@ -72,7 +72,7 @@ export const strings = {
     ar: '{n} بدون سجل، مستبعدة من الأوقات'
   },
   u3_tm_running_n: {
-    en: '{n} tasks running now',
+    en: '{n} running now',
     ar: '{n} مهام شغّالة دلوقتي'
   },
   u3_tm_no_closed: {

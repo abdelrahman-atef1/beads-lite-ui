@@ -81,7 +81,7 @@ html[dir='rtl'] .u3 .u3-tm__q {
   padding: 0 6px;
   border-radius: 999px;
   text-align: center;
-  background: rgb(0 0 0 / 0.25);
+  background: rgb(128 128 128 / 0.25);
 }
 .u3 .u3-tm__q--ok {
   background: var(--u3-green-soft);
