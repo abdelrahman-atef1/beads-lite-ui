@@ -30,6 +30,19 @@ describe('service worker', () => {
     }
   });
 
+  test('built chunks are in the shell list, their maps are not (.59.19)', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-chunks-'));
+    fs.mkdirSync(path.join(tmp, 'chunks'));
+    fs.writeFileSync(path.join(tmp, 'main.bundle.js'), 'x');
+    fs.writeFileSync(path.join(tmp, 'chunks', 'AB12.js'), 'y');
+    fs.writeFileSync(path.join(tmp, 'chunks', 'AB12.js.map'), '{}');
+    const list = listShell(tmp);
+    expect(list).toContain('/main.bundle.js');
+    expect(list).toContain('/chunks/AB12.js');
+    expect(list.some((u) => u.endsWith('.map'))).toBe(false);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
   test('version changes when a shell file changes', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-'));
     fs.mkdirSync(path.join(tmp, 'css'));

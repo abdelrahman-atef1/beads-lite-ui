@@ -12,7 +12,8 @@ export default defineConfig([
       'dist',
       '.beads',
       'app/main.bundle.js',
-      'app/main.bundle.js.map'
+      'app/main.bundle.js.map',
+      'app/chunks/**'
     ]
   },
   js.configs.recommended,

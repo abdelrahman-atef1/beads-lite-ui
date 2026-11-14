@@ -2,6 +2,7 @@
 tsconfig.tsbuildinfo
 app/main.bundle.js
 app/main.bundle.js.map
+app/chunks/
 .DS_Store
 .beads/issues.jsonl
 

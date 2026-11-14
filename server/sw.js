@@ -21,6 +21,14 @@ export function listShell(app_dir) {
   // Only a built bundle is stable enough to precache (the dev bundle is no-store).
   if (fs.existsSync(path.join(app_dir, 'main.bundle.js'))) {
     urls.push('/main.bundle.js');
+    // Split screens (import() chunks): precached with the shell so a screen
+    // opened offline, or on a flaky link, is already on the phone.
+    const chunks = path.join(app_dir, 'chunks');
+    if (fs.existsSync(chunks)) {
+      for (const f of fs.readdirSync(chunks).sort()) {
+        if (/^[\w-]+\.js$/.test(f)) urls.push('/chunks/' + f);
+      }
+    }
   }
   return urls.filter((u) => fs.existsSync(path.join(app_dir, u)));
 }

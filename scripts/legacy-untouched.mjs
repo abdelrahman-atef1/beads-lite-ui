@@ -37,7 +37,12 @@ const ALLOWED = [
   // Push log (beads-lite-1bo5.6.16.1): these exact files only.
   /^server\/features\/push(-log\.test)?\.js$/,
   // Board finds bd itself (beads-lite-1bo5.6.59.21): its test, this exact file only.
-  /^server\/bd-resolve\.test\.js$/
+  /^server\/bd-resolve\.test\.js$/,
+  // Per-screen chunks (beads-lite-1bo5.6.59.19): build, server and shell-list files, these exact files only.
+  /^(\.gitignore|eslint\.config\.js|package\.json)$/,
+  /^scripts\/build-frontend\.js$/,
+  /^server\/(app|sw)(\.test)?\.js$/,
+  /^server\/features\/perf(\.test)?\.js$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the
