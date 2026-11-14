@@ -65,6 +65,17 @@ export function fmtMetric(metric, v) {
 }
 
 /**
+ * A difference of medians (the 80% range): signed, so a drop reads as a drop.
+ *
+ * @param {string} metric
+ * @param {number} v
+ */
+export function fmtDelta(metric, v) {
+  if (v === 0) return fmtMetric(metric, 0);
+  return (v < 0 ? '-' : '+') + fmtMetric(metric, Math.abs(v));
+}
+
+/**
  * One arm: n, the median of the metric and, beside them, the rate of each quality counter.
  *
  * @param {{ cls: string, title: string, n: number | null, median: number | null, e: any, rate: 'base_rate' | 'treat_rate' }} a
@@ -171,8 +182,8 @@ export function expDetail(e) {
       ${e.interval80 && e.interval80.lo !== null && e.interval80.hi !== null
         ? html`<span
             >${tr('u3_ex_interval', {
-              lo: fmtMetric(e.metric, e.interval80.lo),
-              hi: fmtMetric(e.metric, e.interval80.hi)
+              lo: fmtDelta(e.metric, e.interval80.lo),
+              hi: fmtDelta(e.metric, e.interval80.hi)
             })}</span
           >`
         : nothing}
