@@ -453,3 +453,7 @@
     bottom: calc(var(--u3-tabbar-h) + var(--u3-sp-3));
   }
 }
+.u3 .u3bk-lane-all {
+  flex: none;
+  margin-inline-start: auto;
+}

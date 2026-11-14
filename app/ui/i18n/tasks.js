@@ -37,6 +37,7 @@ export const strings = {
   u3_tk_lane_noepic: { en: 'No epic', ar: 'بدون إيبك' },
   u3_tk_lane_others: { en: 'Others', ar: 'أخرى' },
   u3_tk_col_other: { en: 'Other', ar: 'أخرى' },
+  u3_bk_lane_all: { en: 'Select lane', ar: 'حدّد الحارة' },
   u3_bk_select: { en: 'Select', ar: 'تحديد' },
   u3_bk_selected: { en: 'selected', ar: 'محدّدة' },
   u3_bk_all: { en: 'Select all shown', ar: 'حدّد كل اللي ظاهر' },

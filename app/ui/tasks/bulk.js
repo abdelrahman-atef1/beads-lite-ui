@@ -517,7 +517,14 @@ export function createBulk(o) {
     </button>`;
   }
 
+  /** @param {string[]} ids */
+  function selectMany(ids) {
+    for (const id of ids) selected.add(id);
+    o.redraw();
+  }
+
   return {
+    selectMany,
     enterButton,
     selected,
     isMode: () => mode,

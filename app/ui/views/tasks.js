@@ -322,6 +322,17 @@ export function mount(el, ctx) {
                 >`
               : ''}
           </span>
+          ${bulk.isMode()
+            ? html`<button
+                type="button"
+                class="u3-btn u3-btn--ghost u3bk-lane-all"
+                data-testid="bulk-lane-all"
+                @click=${() =>
+                  bulk.selectMany(g.issues.map((/** @type {any} */ i) => i.id))}
+              >
+                ${t3('u3_bk_lane_all')}
+              </button>`
+            : ''}
         </h2>
         ${shut ? '' : board(s.columns, s.other)}
       </section>`;
