@@ -40,7 +40,20 @@ export const strings = {
   u3_bk_lane_all: { en: 'Select lane', ar: 'حدّد الحارة' },
   u3_bk_select: { en: 'Select', ar: 'تحديد' },
   u3_bk_selected: { en: 'selected', ar: 'محدّدة' },
-  u3_bk_all: { en: 'Select all shown', ar: 'حدّد كل اللي ظاهر' },
+  u3_bk_all_n: { en: 'Select all shown ({n})', ar: 'حدّد كل اللي ظاهر ({n})' },
+  u3_bk_all_in: {
+    en: 'Select all in {scope} ({n})',
+    ar: 'حدّد الكل في {scope} ({n})'
+  },
+  u3_bk_all_first: {
+    en: 'Select first {max} of {n}',
+    ar: 'حدّد أول {max} من {n}'
+  },
+  u3_bk_cap: {
+    en: '{n} shown. One action takes {max} at most, so select all picks the first {max}.',
+    ar: 'ظاهر {n}. الإجراء الواحد بياخد {max} بس، فالتحديد بياخد أول {max}.'
+  },
+  u3_bk_keep: { en: 'Keep first {max}', ar: 'سيب أول {max} بس' },
   u3_bk_cancel: { en: 'Cancel', ar: 'إلغاء' },
   u3_bk_close: { en: 'Close', ar: 'اقفل' },
   u3_bk_move: { en: 'Move', ar: 'غيّر الحالة' },
