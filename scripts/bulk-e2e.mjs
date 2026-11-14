@@ -4,7 +4,7 @@
  * against a COPY of a project's .beads. Starts a board server on a free port,
  * drives it over the real websocket, asserts with `bd`, stops it by PID.
  *
- *   node scripts/bulk-e2e.mjs <project-copy-dir> <out-dir>   (BD_BIN = real bd.exe)
+ *   node scripts/bulk-e2e.mjs <project-copy-dir> <out-dir>   (bd found by server/bd.js; BD_BIN overrides)
  *
  * Never point it at a live project: it creates and closes tasks.
  */
@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 import { createBulkApi } from '../app/ui/data/bulk.js';
+import { getBdBin } from '../server/bd.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const proj = path.resolve(process.argv[2] || '');
@@ -23,12 +24,8 @@ if (!fs.existsSync(path.join(proj, '.beads')) || !process.argv[3]) {
   console.error('usage: bulk-e2e.mjs <project-copy-dir> <out-dir>');
   process.exit(2);
 }
-if (!process.env.BD_BIN) {
-  console.error('set BD_BIN to the real bd.exe');
-  process.exit(2);
-}
 fs.mkdirSync(out, { recursive: true });
-const BD = process.env.BD_BIN;
+const BD = getBdBin();
 const rows = [];
 const check = (name, ok, detail = '') => {
   rows.push({ name, ok: Boolean(ok), detail });

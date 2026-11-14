@@ -1,4 +1,7 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { resolveDbPath } from './db.js';
 import { debug } from './logging.js';
 
@@ -51,7 +54,63 @@ export async function getGitUserName(options = {}) {
 }
 
 /**
- * Resolve the bd executable path.
+ * Find bd without BD_BIN (beads-lite-1bo5.6.59.21; same order as company
+ * scripts/flow/bd-bin.mjs). On Windows the npm `bd` on PATH is a .cmd shim that
+ * spawn() cannot start without a shell, so take a real bd.exe: first the one
+ * where.exe/which finds on PATH, then the @beads/bd package binary, else "bd".
+ *
+ * @param {{ platform?: string, appdata?: string, lookup?: () => string, exists?: (p: string) => boolean }} [deps]
+ * @returns {{ bin: string, via: 'path' | 'package' | 'fallback' }}
+ */
+export function findBdBin(deps = {}) {
+  const win = (deps.platform || process.platform) === 'win32';
+  const lookup =
+    deps.lookup ||
+    (() =>
+      execFileSync(win ? 'where.exe' : 'which', ['bd'], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore']
+      }));
+  try {
+    const hit = String(lookup())
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => l && (!win || /\.exe$/i.test(l)));
+    if (hit) {
+      return { bin: hit, via: 'path' };
+    }
+  } catch {
+    // not on PATH
+  }
+  const pkg = path.join(
+    deps.appdata ||
+      process.env.APPDATA ||
+      path.join(os.homedir(), 'AppData', 'Roaming'),
+    'npm',
+    'node_modules',
+    '@beads',
+    'bd',
+    'bin',
+    'bd.exe'
+  );
+  if ((deps.exists || fs.existsSync)(pkg)) {
+    return { bin: pkg, via: 'package' };
+  }
+  return { bin: 'bd', via: 'fallback' };
+}
+
+/** @type {string | undefined} */
+let found_bd_bin;
+
+/** Forget the looked-up path (tests only). */
+export function resetBdBin() {
+  found_bd_bin = undefined;
+}
+
+/**
+ * Resolve the bd executable path. BD_BIN wins and is read live; otherwise the
+ * lookup runs once (at start-up, see the call below) and logs its choice.
  *
  * @returns {string}
  */
@@ -60,8 +119,16 @@ export function getBdBin() {
   if (env_value && env_value.length > 0) {
     return env_value;
   }
-  return 'bd';
+  if (!found_bd_bin) {
+    const { bin, via } = findBdBin();
+    found_bd_bin = bin;
+    console.log(`bd: using ${bin} (${via})`);
+  }
+  return found_bd_bin;
 }
+
+// Resolve once at start-up, not on the first request.
+getBdBin();
 
 /**
  * Run the `bd` CLI with provided arguments.
