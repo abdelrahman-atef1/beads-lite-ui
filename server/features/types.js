@@ -37,5 +37,7 @@ export const FEATURE_MESSAGE_TYPES = [
   // @mentions (beads-lite-1bo5.6.64.1)
   'mention-roles',
   'mention-scan',
-  'mention-chips'
+  'mention-chips',
+  // Time screens (beads-lite-1bo5.6.59.12)
+  'flow-rollup'
 ];
