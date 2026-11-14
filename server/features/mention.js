@@ -38,6 +38,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { runBd, runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
+import { isBoardPosted } from './board-posted.js';
 import { boardHome, projectKey, raiseMention } from './notifier.js';
 
 const log = debug('mention');
@@ -76,6 +77,7 @@ export const FRESH_MS = 120_000;
 const MAX_SEEN = 300;
 const MAX_RECORDS = 60;
 const BEAD_RE = /^[a-z0-9]+(-[a-z0-9]+)*(\.[0-9]+)*$/;
+export const PROJECT_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/;
 
 /**
@@ -124,29 +126,21 @@ export function parseMentions(text) {
 }
 
 /**
- * Who wrote it: the owner, a known role, or nobody who may wake anyone.
+ * Who wrote it (sec M1). The owner is only a comment the board server itself
+ * posted (id in the board-posted set); every other comment needs an author
+ * that is exactly a role (or marketing:<role>), else null = no-actor. No
+ * name prefix ever counts as the owner.
  * @param {string} author
+ * @param {string} [id]
  * @returns {{ kind: 'owner' } | { kind: 'role', role: string } | null}
  */
-export function classifyAuthor(author) {
-  const a = String(author || '')
-    .trim()
-    .toLowerCase();
-  if (!a) return null;
-  if (a === 'owner' || a.startsWith('abdelrahman')) {
-    return a.includes('telegram') ? null : { kind: 'owner' };
-  }
-  const r = a.replace(/^marketing:/, '');
-  return ROLES.includes(r) ? { kind: 'role', role: r } : null;
-}
-
-/** @param {unknown} v @param {any} d */
-function readJson(v, d) {
-  try {
-    return JSON.parse(fs.readFileSync(/** @type {string} */ (v), 'utf8'));
-  } catch {
-    return d;
-  }
+export function classifyAuthor(author, id = '') {
+  if (id && isBoardPosted(id)) return { kind: 'owner' };
+  const a = String(author || '');
+  const r = a.startsWith('marketing:') ? a.slice(10) : a;
+  return /^[a-z]{2,12}$/.test(r) && ROLES.includes(r)
+    ? { kind: 'role', role: r }
+    : null;
 }
 
 /** @param {string} file @param {any} obj */
@@ -168,7 +162,10 @@ function writeJson(file, obj) {
  *   runWake?: (args: string[]) => { code: number, stdout: string },
  *   routerOff?: () => boolean,
  *   raiseOwner?: (project: string, bead: string) => void,
- *   fileCard?: (cwd: string, bead: string) => Promise<string|null>
+ *   fileCard?: (cwd: string, bead: string) => Promise<string|null>,
+ *   cardOpen?: (cwd: string, id: string) => Promise<boolean>,
+ *   lockWaitMs?: number,
+ *   writeState?: (file: string, obj: any) => void
  * }} Opts
  */
 
@@ -250,20 +247,78 @@ export function createMention(opts = {}) {
       return r.code === 0 ? String(r.stdout).trim() : null;
     });
 
-  /** @returns {{ seen: Record<string, string[]>, emits: Record<string, any[]>, recs: Record<string, Rec[]>, cards: Record<string, number> }} */
+  /**
+   * ENOENT = empty state. Any other read or parse error throws: the caller
+   * refuses, it never starts from an empty state (sec M3).
+   * @returns {{ seen: Record<string, string[]>, last: Record<string, number>, emits: Record<string, any[]>, recs: Record<string, Rec[]>, cards: Record<string, any> }}
+   */
   function load() {
-    const s = readJson(stateFile, {});
+    /** @type {any} */
+    let s = {};
+    try {
+      s = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      if (!s || typeof s !== 'object' || Array.isArray(s))
+        throw new Error('shape');
+    } catch (e) {
+      if (/** @type {any} */ (e).code !== 'ENOENT') {
+        throw Object.assign(new Error('state unreadable'), { code: 'state' });
+      }
+      s = {};
+    }
+    const o = (/** @type {any} */ v) => (v && typeof v === 'object' ? v : {});
     return {
-      seen: s.seen && typeof s.seen === 'object' ? s.seen : {},
-      emits: s.emits && typeof s.emits === 'object' ? s.emits : {},
-      recs: s.recs && typeof s.recs === 'object' ? s.recs : {},
-      cards: s.cards && typeof s.cards === 'object' ? s.cards : {}
+      seen: o(s.seen),
+      last: o(s.last),
+      emits: o(s.emits),
+      recs: o(s.recs),
+      cards: o(s.cards)
     };
   }
   /** @param {ReturnType<typeof load>} st */
   function save(st) {
-    writeJson(stateFile, st);
+    (opts.writeState || writeJson)(stateFile, st);
   }
+  const lockDir = path.join(home, 'mention.lock');
+  /** A mkdir lock around load and save: stale after 60 s, refuses on timeout (sec M3). */
+  function lock() {
+    fs.mkdirSync(home, { recursive: true });
+    const end = Date.now() + (opts.lockWaitMs ?? 20_000);
+    for (;;) {
+      try {
+        fs.mkdirSync(lockDir);
+        return () => {
+          try {
+            fs.rmdirSync(lockDir);
+          } catch {
+            /* ignore */
+          }
+        };
+      } catch (e) {
+        const c = /** @type {any} */ (e).code;
+        if (c !== 'EEXIST' && c !== 'EPERM' && c !== 'EBUSY') throw e;
+        try {
+          if (Date.now() - fs.statSync(lockDir).mtimeMs > 60_000)
+            fs.rmdirSync(lockDir);
+        } catch {
+          /* raced */
+        }
+        if (Date.now() > end) {
+          throw Object.assign(new Error('mention state busy'), {
+            code: 'busy'
+          });
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+      }
+    }
+  }
+
+  const cardOpen =
+    opts.cardOpen ||
+    (async (/** @type {string} */ cwd, /** @type {string} */ id) => {
+      const r = await runBdJson(['show', id, '--json'], { cwd });
+      const b = Array.isArray(r.stdoutJson) ? r.stdoutJson[0] : r.stdoutJson;
+      return !(r.code === 0 && b && b.status === 'closed'); // any doubt = still open
+    });
 
   /** @param {string} line */
   function routerLog(line) {
@@ -316,46 +371,88 @@ export function createMention(opts = {}) {
       throw Object.assign(new Error('bad bead id'), { code: 'bad_request' });
     }
     const project = projectKey(cwd);
-    const key = `${project}|${bead}`;
+    if (!PROJECT_RE.test(project)) {
+      throw Object.assign(new Error('bad project'), { code: 'bad_request' }); // M6
+    }
     const comments = await listComments(cwd, bead);
     if (!comments) return { results: [] };
-    const st = load();
+    const unlock = lock();
+    try {
+      return await scanLocked(cwd, project, bead, via, comments);
+    } finally {
+      unlock();
+    }
+  }
+
+  /**
+   * @param {string} cwd @param {string} project @param {string} bead
+   * @param {'pc'|'phone'} via @param {any[]} comments
+   */
+  async function scanLocked(cwd, project, bead, via, comments) {
+    const key = `${project}|${bead}`;
     const t = now();
-    const firstScan = !st.seen[key];
-    const seen = new Set(st.seen[key] || []);
-    /** @type {Rec[]} */
-    const results = [];
     const sorted = comments
       .filter((c) => c && typeof c.id === 'string')
       .sort((a, b) =>
         String(a.created_at || '').localeCompare(String(b.created_at || ''))
       );
+    /** @param {any} c */
+    const young = (c) => {
+      const ct = Date.parse(c.created_at);
+      return Number.isFinite(ct) && t - ct <= FRESH_MS;
+    };
+    /** @type {ReturnType<typeof load>} */
+    let st;
+    try {
+      st = load();
+    } catch {
+      // M3: refuse, never start from an empty state. Fresh mentions are shown, nothing is emitted or saved.
+      /** @type {Rec[]} */
+      const refused = [];
+      for (const c of sorted) {
+        if (!young(c)) continue;
+        const f = parseMentions(String(c.text || ''));
+        for (const role of [...f.roles, ...(f.owner ? ['owner'] : [])]) {
+          routerLog(`${project} mention ${bead} ${role} state-unreadable`);
+          refused.push({
+            comment: c.id,
+            role,
+            chip: 'limit',
+            verdict: 'state-unreadable',
+            at: new Date(t).toISOString()
+          });
+        }
+      }
+      return { results: refused.map(publicRec) };
+    }
+    const seen = new Set(st.seen[key] || []);
+    const lastAt = st.last[key] || 0;
+    /** @type {Rec[]} */
+    const results = [];
     for (const c of sorted) {
       if (seen.has(c.id)) continue;
-      seen.add(c.id); // marked first: fail closed, never twice
-      if (firstScan && t - Date.parse(c.created_at) > FRESH_MS) continue;
-      const author = classifyAuthor(c.author);
-      if (!author) continue;
+      seen.add(c.id);
+      const ct = Date.parse(c.created_at);
+      // M2: age and order checked on every scan, the seen list is only a second guard
+      const ok = young(c) && ct >= lastAt;
+      if (Number.isFinite(ct)) st.last[key] = Math.max(st.last[key] || 0, ct);
+      st.seen[key] = [...seen].slice(-MAX_SEEN);
+      save(st); // M3: seen is written before any emit; a failed write throws and nothing is emitted
+      if (!ok) continue;
       const found = parseMentions(String(c.text || ''));
       if (!found.roles.length && !found.owner) continue;
+      const author = classifyAuthor(c.author, c.id);
       const recs = await handleComment(
-        {
-          st,
-          cwd,
-          project,
-          bead,
-          key,
-          via,
-          t,
-          commentId: c.id,
-          author
-        },
+        { st, cwd, project, bead, key, via, t, commentId: c.id, author },
         found
       );
       results.push(...recs);
+      try {
+        save(st);
+      } catch (e) {
+        log('state save after emit failed %o', e); // seen is already on disk: no replay
+      }
     }
-    st.seen[key] = [...seen].slice(-MAX_SEEN);
-    save(st);
     return { results: results.map(publicRec) };
   }
 
@@ -365,7 +462,11 @@ export function createMention(opts = {}) {
    */
   async function handleComment(x, found) {
     const { st, key, t } = x;
-    const by = x.author.kind === 'role' ? x.author.role : 'owner';
+    const by = !x.author
+      ? 'none'
+      : x.author.kind === 'role'
+        ? x.author.role
+        : 'owner';
     st.emits[key] = (st.emits[key] || []).filter((e) => t - e.t < HOUR_MS);
     const emits = st.emits[key];
     /** @type {Rec[]} */
@@ -398,6 +499,13 @@ export function createMention(opts = {}) {
       return r;
     };
 
+    if (!x.author) {
+      // M1: not a board post and not an exact role: shown, never woken
+      for (const role of [...found.roles, ...(found.owner ? ['owner'] : [])]) {
+        rec(role, 'limit', 'no-actor');
+      }
+      return out;
+    }
     if (found.owner) {
       try {
         raiseOwner(x.project, x.bead);
@@ -415,6 +523,12 @@ export function createMention(opts = {}) {
         : [];
     const hop = woken.reduce((m, e) => Math.max(m, e.hop), 0) + 1;
     let needCard = false;
+    // M5: while the card filed for this bead is open, role-authored mentions are held
+    const prior = st.cards[key];
+    const hold =
+      x.author.kind === 'role' && prior && prior.id
+        ? await cardOpen(x.cwd, prior.id)
+        : false;
     for (let i = 0; i < found.roles.length; i++) {
       const role = found.roles[i];
       if (i >= MAX_ROLES_PER_COMMENT) {
@@ -427,6 +541,10 @@ export function createMention(opts = {}) {
       }
       if (x.author.kind === 'role' && role === x.author.role) {
         rec(role, 'limit', 'self');
+        continue;
+      }
+      if (hold) {
+        rec(role, 'limit', 'loop-hold');
         continue;
       }
       if (hop > MAX_HOPS || woken.some((e) => e.by === role)) {
@@ -470,10 +588,14 @@ export function createMention(opts = {}) {
       }
     }
     st.emits[key] = emits;
-    if (needCard && !(t - (st.cards[key] || 0) < HOUR_MS)) {
-      st.cards[key] = t;
+    if (
+      needCard &&
+      !(t - ((st.cards[key] && st.cards[key].t) || 0) < HOUR_MS)
+    ) {
+      st.cards[key] = { t, id: '' };
       try {
         const id = await fileCard(x.cwd, x.bead);
+        st.cards[key] = { t, id: id || '' };
         routerLog(`${x.project} mention-card ${x.bead} - ${id || 'failed'}`);
       } catch (e) {
         log('card failed %o', e);

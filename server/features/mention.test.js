@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, test } from 'vitest';
+import { clearBoardPosted, markBoardPosted } from './board-posted.js';
 import {
   classifyAuthor,
   createMention,
@@ -63,7 +64,10 @@ describe('parseMentions', () => {
 
 describe('classifyAuthor', () => {
   test('owner, role, others', () => {
-    expect(classifyAuthor(OWNER)).toEqual({ kind: 'owner' });
+    clearBoardPosted();
+    markBoardPosted('x1');
+    expect(classifyAuthor(OWNER, 'x1')).toEqual({ kind: 'owner' });
+    expect(classifyAuthor(OWNER, 'x2')).toBeNull();
     expect(classifyAuthor('swe')).toEqual({ kind: 'role', role: 'swe' });
     expect(classifyAuthor('marketing:brand')).toEqual({
       kind: 'role',
@@ -83,6 +87,7 @@ const made = [];
 beforeEach(() => {
   base = fs.mkdtempSync(path.join(os.tmpdir(), 'mention-'));
   made.push(base);
+  clearBoardPosted();
 });
 
 /** One fixture: temp queue, temp board home, a mutable comment list. */
@@ -113,13 +118,21 @@ function rig(/** @type {any} */ over = {}) {
     ...over
   });
   let k = 0;
-  const say = (/** @type {string} */ author, /** @type {string} */ text) => {
+  const say = (
+    /** @type {string} */ author,
+    /** @type {string} */ text,
+    /** @type {{ at?: number, notBoard?: boolean }} */ o = {}
+  ) => {
+    const id = `c${++k}`;
     comments.push({
-      id: `c${++k}`,
+      id,
       author,
       text,
-      created_at: new Date(clock).toISOString()
+      created_at: new Date(o.at ?? clock).toISOString()
     });
+    // the board server marks its own posts (ws.js add-comment)
+    if (author === OWNER && !o.notBoard) markBoardPosted(id);
+    return id;
   };
   const scan = () => m.scan('E:/Projects/rayeh', 'rayeh-b1');
   const pending = () =>
@@ -131,6 +144,7 @@ function rig(/** @type {any} */ over = {}) {
       JSON.parse(fs.readFileSync(path.join(wakeRoot, 'pending', f), 'utf8'))
     );
   return {
+    comments,
     wakeRoot,
     home,
     m,
@@ -366,4 +380,175 @@ wakeDescribe('mention wakes', () => {
 afterAll(() => {
   // only the temp folders this file made
   for (const d of made) fs.rmSync(d, { recursive: true, force: true });
+});
+
+wakeDescribe('sec review fixes M1-M6', () => {
+  const STATE = (/** @type {any} */ r) =>
+    path.join(r.home, 'mention-state.json');
+
+  test('M1 owner_name_not_board_posted_is_no_actor', async () => {
+    const r = rig();
+    r.say(OWNER, '@qa sneaky', { notBoard: true });
+    const out = await r.scan();
+    expect(out.results[0]).toMatchObject({
+      chip: 'limit',
+      verdict: 'no-actor'
+    });
+    expect(r.pending()).toHaveLength(0);
+  });
+  test('M1 abdelrahman_prefix_is_not_owner', async () => {
+    const r = rig();
+    r.say('abdelrahman-swe', '@qa hi');
+    r.say('swe ', '@qa trailing space is not a role');
+    r.say('SWE', '@qa case is not a role');
+    const out = await r.scan();
+    expect(out.results.map((x) => x.verdict)).toEqual([
+      'no-actor',
+      'no-actor',
+      'no-actor'
+    ]);
+    expect(r.pending()).toHaveLength(0);
+  });
+  test('M1 a role under its own name works, a board post is the owner', async () => {
+    const r = rig();
+    r.say('swe', '@qa ok');
+    r.say(OWNER, '@ux ok');
+    const out = await r.scan();
+    expect(out.results.map((x) => x.verdict)).toEqual(['queued', 'queued']);
+  });
+
+  test('M2 old_comment_on_known_bead_wakes_nobody', async () => {
+    const r = rig();
+    r.say(OWNER, 'first');
+    await r.scan();
+    r.tick(3 * HOUR);
+    r.say('qa', '@swe stale ask', { at: Date.parse('2026-11-14T12:00:01Z') });
+    r.say(OWNER, 'a new post');
+    await r.scan();
+    expect(r.pending()).toHaveLength(0);
+  });
+  test('M2 bead_with_301_comments_replays_nothing', async () => {
+    const r = rig();
+    r.say(OWNER, '@qa the old ask');
+    await r.scan();
+    expect(r.pending()).toHaveLength(1);
+    for (let i = 0; i < 305; i++) r.say('qa', 'chatter ' + i);
+    await r.scan();
+    r.tick(3 * HOUR);
+    r.say(OWNER, 'later');
+    const out = await r.scan();
+    expect(out.results).toEqual([]);
+    expect(r.pending()).toHaveLength(1);
+  });
+  test('M2 a comment with no usable date never fires', async () => {
+    const r = rig();
+    r.comments.push({
+      id: 'z1',
+      author: 'qa',
+      text: '@swe x',
+      created_at: 'nope'
+    });
+    await r.scan();
+    expect(r.pending()).toHaveLength(0);
+  });
+
+  test('M3 corrupt_state_fails_closed', async () => {
+    const r = rig();
+    fs.mkdirSync(r.home, { recursive: true });
+    fs.writeFileSync(STATE(r), '{not json');
+    r.say(OWNER, '@qa one');
+    const out = await r.scan();
+    expect(out.results[0]).toMatchObject({
+      chip: 'limit',
+      verdict: 'state-unreadable'
+    });
+    expect(r.pending()).toHaveLength(0);
+    expect(fs.readFileSync(STATE(r), 'utf8')).toBe('{not json');
+  });
+  test('M3 save_failure_never_refires', async () => {
+    let calls = 0;
+    let broken = false;
+    const r = rig({
+      writeState: (/** @type {string} */ file, /** @type {any} */ obj) => {
+        calls++;
+        if (calls % 2 === 0) {
+          // the write after the emits fails; the first one (seen) is on disk
+          broken = true;
+          throw new Error('EPERM');
+        }
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, JSON.stringify(obj));
+      }
+    });
+    r.say(OWNER, '@qa once');
+    await r.scan();
+    expect(broken).toBe(true);
+    expect(r.pending()).toHaveLength(1);
+    await r.scan();
+    expect(r.pending()).toHaveLength(1);
+  });
+  test('M3 a failed first write emits nothing', async () => {
+    const r = rig({
+      writeState: () => {
+        throw new Error('EPERM');
+      }
+    });
+    r.say(OWNER, '@qa once');
+    await expect(r.scan()).rejects.toThrow();
+    expect(r.pending()).toHaveLength(0);
+  });
+  test('M3 a held lock refuses instead of racing', async () => {
+    const r = rig({ lockWaitMs: 150 });
+    fs.mkdirSync(path.join(r.home, 'mention.lock'), { recursive: true });
+    r.say(OWNER, '@qa once');
+    await expect(r.scan()).rejects.toMatchObject({ code: 'busy' });
+    expect(r.pending()).toHaveLength(0);
+    fs.rmdirSync(path.join(r.home, 'mention.lock'));
+    expect((await r.scan()).results[0].verdict).toBe('queued');
+    expect(fs.existsSync(path.join(r.home, 'mention.lock'))).toBe(false);
+  });
+
+  test('M5 loop_card_holds_until_closed', async () => {
+    let open = true;
+    const r = rig({
+      fileCard: async (/** @type {string} */ _c, /** @type {string} */ b) => {
+        r.cards.push(b);
+        return 'card-9';
+      },
+      cardOpen: async () => open
+    });
+    r.say(OWNER, '@qa look');
+    await r.scan();
+    r.tick(60_000);
+    r.say('qa', '@swe fix');
+    await r.scan();
+    r.tick(60_000);
+    r.say('swe', '@qa back');
+    await r.scan();
+    expect(r.cards).toHaveLength(1);
+    // 2 hours later the hop window is empty, but the open card still holds role mentions
+    r.tick(2 * HOUR);
+    r.say('qa', '@swe again');
+    const held = await r.scan();
+    expect(held.results[0].verdict).toBe('loop-hold');
+    expect(r.cards).toHaveLength(1);
+    expect(r.pending()).toHaveLength(2);
+    // the owner's mention still wakes
+    r.say(OWNER, '@pm your turn');
+    expect((await r.scan()).results[0].verdict).toBe('queued');
+    // closing the card releases the hold
+    open = false;
+    r.tick(60_000);
+    r.say('qa', '@ux after close');
+    expect((await r.scan()).results[0].verdict).toBe('queued');
+  });
+
+  test('M6 bad_project_key_refused', async () => {
+    const r = rig();
+    r.say(OWNER, '@qa x');
+    await expect(r.m.scan('E:/Projects/bad name', 'rayeh-b1')).rejects.toThrow(
+      /bad project/
+    );
+    expect(fs.existsSync(path.join(r.wakeRoot, 'router.log'))).toBe(false);
+  });
 });

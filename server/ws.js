@@ -34,6 +34,7 @@ import {
 } from './workspace-context.js';
 import { withCounts } from './workspace-counts.js';
 import { withPrefixes } from './workspace-prefix.js';
+import { markBoardPosted } from './features/board-posted.js';
 
 const log = debug('ws');
 
@@ -1866,6 +1867,16 @@ async function handleMessageUnsafe(ws, data) {
     const comment_list = Array.isArray(comments.stdoutJson)
       ? comments.stdoutJson
       : [];
+    // @mentions (beads-lite-1bo5.6.64.1, sec M1): remember the comment this server just posted
+    {
+      const mine = comment_list
+        .filter(
+          (/** @type {any} */ c) =>
+            c && c.text === text.trim() && (!author || c.author === author)
+        )
+        .pop();
+      if (mine && typeof mine.id === 'string') markBoardPosted(mine.id);
+    }
     if (generation === DETAIL_CACHE_GENERATION) {
       COMMENTS_CACHE.set(
         issueDetailCacheKey(id, ctxFor(ws)),
