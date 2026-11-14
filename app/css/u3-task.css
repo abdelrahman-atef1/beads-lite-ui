@@ -1,1 +1,269 @@
-/* Board v3 task screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 task page (beads-lite-1bo5.6.59.6). Scoped under .u3; logical
+   properties only so RTL and LTR both work. */
+.u3 .u3-ts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.u3 .u3-ts__top {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-width: 0;
+}
+.u3 .u3-ts__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  background: var(--u3-surface-2);
+  color: var(--u3-text-2);
+  font-size: 20px;
+}
+html[dir='rtl'] .u3 .u3-ts__back {
+  transform: scaleX(-1);
+}
+.u3 .u3-ts__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  min-width: 0;
+}
+.u3 .u3-ts__title {
+  font-size: var(--u3-fs-xl);
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-ts__jump {
+  display: flex;
+  gap: var(--u3-sp-2);
+  overflow-x: auto;
+  border-block-end: 1px solid var(--u3-border);
+  scrollbar-width: none;
+}
+.u3 .u3-ts__j {
+  flex: none;
+  padding: var(--u3-sp-3) var(--u3-sp-3);
+  min-height: 44px;
+  color: var(--u3-text-2);
+  white-space: nowrap;
+}
+.u3 .u3-ts__j:hover {
+  color: var(--u3-blue);
+}
+.u3 .u3-ts__cols {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.u3 .u3-ts__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+  order: 2;
+}
+.u3 .u3-ts__side {
+  order: 1;
+  min-width: 0;
+  padding: var(--u3-sp-4);
+  background: var(--u3-surface);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+}
+.u3 .u3-ts__sec {
+  min-width: 0;
+  padding: var(--u3-sp-4);
+  background: var(--u3-surface);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  scroll-margin-block-start: 72px;
+}
+.u3 .u3-ts__h {
+  margin: 0 0 var(--u3-sp-3);
+  font-size: var(--u3-fs-m);
+  font-weight: 700;
+}
+.u3 .u3-ts__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  padding-block: var(--u3-sp-2);
+  min-width: 0;
+}
+.u3 .u3-ts__k {
+  flex: none;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-ts__v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+.u3 .u3-ts__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-1);
+  justify-content: flex-end;
+}
+.u3 .u3-ts__md {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.u3 .u3-ts__md pre,
+.u3 .u3-ts__cb pre {
+  overflow-x: auto;
+  direction: ltr;
+  text-align: left;
+  padding: var(--u3-sp-3);
+  background: var(--u3-bg);
+  border-radius: var(--u3-radius-s);
+}
+.u3 .u3-ts__md img,
+.u3 .u3-ts__cb img {
+  max-width: 100%;
+  height: auto;
+}
+.u3 .u3-ts__md table,
+.u3 .u3-ts__cb table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.u3 .u3-ts__md a,
+.u3 .u3-ts__cb a {
+  color: var(--u3-blue);
+}
+.u3 .u3-ts__flat {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-ts__rel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u3 .u3-ts__rl {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 44px;
+  min-width: 0;
+}
+.u3 .u3-ts__rid {
+  flex: none;
+  color: var(--u3-text-3);
+}
+.u3 .u3-ts__rt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3-ts__c {
+  margin-block-end: var(--u3-sp-3);
+  padding: var(--u3-sp-3);
+  background: var(--u3-surface-2);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  min-width: 0;
+  scroll-margin-block-start: 72px;
+}
+.u3 .u3-ts__ch {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  margin-block-end: var(--u3-sp-2);
+}
+.u3 .u3-ts__cd {
+  flex: 1;
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-ts__cl {
+  color: var(--u3-text-3);
+  padding: var(--u3-sp-2);
+}
+.u3 .u3-ts__cb {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.u3 .u3-ts__composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-3);
+}
+.u3 .u3-ts__lbl {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-ts__in {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 88px;
+  padding: var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-bg);
+  color: var(--u3-text);
+  font: inherit;
+  resize: vertical;
+}
+.u3 .u3-ts__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  justify-content: flex-end;
+}
+.u3 .u3-ts__err {
+  color: var(--u3-red);
+}
+.u3 .anchor-hit {
+  outline: 2px solid var(--u3-blue);
+  outline-offset: 2px;
+  background: var(--u3-blue-soft);
+  border-radius: var(--u3-radius-s);
+  animation: u3-ts-hit 2.4s ease-out;
+}
+@keyframes u3-ts-hit {
+  from {
+    background: var(--u3-blue);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .u3 .anchor-hit {
+    animation: none;
+  }
+}
+
+/* PC: details column beside the main column, never under the sidebar (the
+   shell already keeps .u3-main beside it). */
+@media (min-width: 1024px) {
+  .u3 .u3-ts__cols {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .u3 .u3-ts__main {
+    order: 1;
+    flex: 1;
+  }
+  .u3 .u3-ts__side {
+    order: 2;
+    flex: none;
+    width: 320px;
+    position: sticky;
+    top: var(--u3-sp-4);
+  }
+}
