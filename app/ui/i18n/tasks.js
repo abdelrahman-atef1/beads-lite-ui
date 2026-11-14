@@ -1,3 +1,32 @@
-/** Strings of the tasks screen (stub; its task fills it). Keys start with u3_. */
+/** Strings of the tasks screen. Keys start with u3_. */
 /** @type {Record<string, { en: string, ar: string }>} */
-export const strings = {};
+export const strings = {
+  u3_tk_search: { en: 'Search tasks', ar: 'دوّر في المهام' },
+  u3_tk_filters: { en: 'Filters', ar: 'الفلاتر' },
+  u3_tk_all: { en: 'All', ar: 'الكل' },
+  u3_tk_mine: { en: 'Mine', ar: 'مهامي' },
+  u3_tk_p01: { en: 'P0-P1', ar: 'P0-P1' },
+  u3_tk_decision: { en: 'Decisions', ar: 'قرارات' },
+  u3_tk_blocked: { en: 'Blocked', ar: 'معطّلة' },
+  u3_tk_type: { en: 'Type', ar: 'النوع' },
+  u3_tk_label: { en: 'Label', ar: 'الليبل' },
+  u3_tk_assignee: { en: 'Assignee', ar: 'المسؤول' },
+  u3_tk_prio: { en: 'Priority', ar: 'الأولوية' },
+  u3_tk_any: { en: 'Any', ar: 'أي' },
+  u3_tk_none: { en: 'No tasks', ar: 'لا توجد مهام' },
+  u3_tk_loading: { en: 'Loading', ar: 'جارٍ التحميل' },
+  u3_tk_closed: { en: 'Closed', ar: 'مغلقة' },
+  u3_tk_hide: { en: 'Hide', ar: 'إخفاء' },
+  u3_tk_more: { en: 'Show more', ar: 'اعرض أكتر' },
+  u3_tk_stalled: { en: 'Stalled', ar: 'واقفة' },
+  u3_tk_blocked_tag: { en: 'Blocked', ar: 'معطّلة' },
+  u3_tk_total: { en: 'Total', ar: 'المجموع' },
+  u3_tk_clear: { en: 'Clear filters', ar: 'امسح الفلاتر' },
+  u3_tk_col_owner: { en: 'Owner decision', ar: 'بانتظار قرارك' },
+  u3_tk_col_progress: { en: 'In progress', ar: 'قيد التنفيذ' },
+  u3_tk_col_test: { en: 'Waiting for test', ar: 'بانتظار الاختبار' },
+  u3_tk_col_merge: { en: 'Waiting for merge', ar: 'بانتظار الدمج' },
+  u3_tk_col_ready: { en: 'Ready', ar: 'جاهزة' },
+  u3_tk_col_blocked: { en: 'Blocked', ar: 'معطّلة' },
+  u3_tk_col_other: { en: 'Other', ar: 'أخرى' }
+};

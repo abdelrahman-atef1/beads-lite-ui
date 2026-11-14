@@ -1,1 +1,218 @@
-/* Board v3 tasks screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 tasks screen (task .59.9). Scope under .u3; per-screen variables here.
+   No page-level horizontal scroll: the column strip scrolls inside .u3t-board. */
+.u3 .u3t {
+  --u3t-col-w: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.u3 .u3t-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-3);
+  align-items: center;
+}
+.u3 .u3t-search {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text);
+  font: inherit;
+}
+.u3 .u3t-filters {
+  display: flex;
+  gap: var(--u3-sp-2);
+  align-items: center;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-block: 2px;
+}
+.u3 .u3t-fchip,
+.u3 .u3t-menu {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text-2);
+  font: inherit;
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.u3 .u3t-fchip[aria-pressed='true'],
+.u3 .u3t-menu[data-on='1'] {
+  background: var(--u3-blue-soft);
+  border-color: var(--u3-blue);
+  color: var(--u3-focus);
+}
+.u3 .u3t-menu select {
+  max-width: 110px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.u3 .u3t-stat {
+  display: flex;
+  gap: var(--u3-sp-3);
+  overflow-x: auto;
+  padding-block: 2px;
+}
+.u3 .u3t-stat__chip {
+  flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u3-sp-3);
+  min-height: 48px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.u3 .u3t-stat__chip[aria-pressed='true'] {
+  border-color: var(--u3-blue);
+  background: var(--u3-blue-soft);
+}
+.u3 .u3t-stat__n {
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  text-align: center;
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3t-stat__chip--owner .u3t-stat__n {
+  color: var(--u3-amber);
+}
+.u3 .u3t-stat__chip--blocked .u3t-stat__n {
+  color: var(--u3-red);
+}
+.u3 .u3t-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--u3t-col-w);
+  gap: var(--u3-sp-3);
+  align-items: start;
+  overflow-x: auto;
+  padding-block-end: var(--u3-sp-2);
+}
+.u3 .u3t-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  min-width: 0;
+}
+.u3 .u3t-col__head {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  margin: 0;
+  font-size: var(--u3-fs-m);
+  font-weight: 600;
+}
+.u3 .u3t-col__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3t-col--owner .u3t-card {
+  border-inline-start: 3px solid var(--u3-amber);
+}
+.u3 .u3t-empty {
+  margin: 0;
+  padding: var(--u3-sp-4);
+  border: 1px dashed var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  text-align: center;
+}
+.u3 .u3t-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  padding: var(--u3-sp-3) var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  color: var(--u3-text);
+  text-decoration: none;
+  min-width: 0;
+}
+.u3 .u3t-card:hover,
+.u3 .u3t-card:focus-visible {
+  border-color: var(--u3-blue);
+}
+.u3 .u3t-card__id {
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3t-card__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.u3 .u3t-card__sub {
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-3);
+  overflow-wrap: anywhere;
+}
+.u3 .u3t-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  align-items: center;
+  padding-block-start: var(--u3-sp-2);
+  border-block-start: 1px solid var(--u3-border);
+}
+.u3 .u3t-time {
+  margin-inline-start: auto;
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-3);
+  white-space: nowrap;
+}
+.u3 .u3t-time:empty {
+  display: none;
+}
+.u3 .u3t-lane {
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-l);
+  padding: var(--u3-sp-3);
+}
+.u3 .u3t-closed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: var(--u3-sp-3);
+}
+.u3 .u3t-skel {
+  min-height: 160px;
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+}
+
+/* phone: columns stack, no sideways strip */
+@media (max-width: 760px) {
+  .u3 .u3t-board {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: visible;
+  }
+}
