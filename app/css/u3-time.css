@@ -1,1 +1,301 @@
-/* Board v3 time screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 Time section (task page) and Time screen (#/time), beads-lite-1bo5.6.59.12.
+   Scoped under .u3; logical properties so RTL and LTR both work. Numbers are Western
+   digits in a sans font (monospace only for ids and code). */
+.u3 u3-time-slot {
+  display: block;
+  min-width: 0;
+}
+.u3 .u3-chip--purple {
+  background: #2a2147;
+  color: var(--u3-purple);
+}
+html[data-theme='light'] .u3 .u3-chip--purple {
+  background: #ece3fd;
+  color: #6f42c1;
+}
+
+.u3 .u3-tm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  min-width: 0;
+}
+.u3 .u3-tm__title {
+  margin: 0;
+  font-size: var(--u3-fs-l);
+}
+.u3 .u3-tm__h {
+  margin: var(--u3-sp-2) 0 0;
+  font-size: var(--u3-fs-m);
+  color: var(--u3-text-2);
+}
+.u3 .u3-tm__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-tm__total {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  white-space: nowrap;
+}
+.u3 .u3-tm__total small {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-tm__num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  unicode-bidi: plaintext;
+}
+.u3 .u3-tm__total .u3-tm__num {
+  font-size: var(--u3-fs-xl);
+}
+.u3 .u3-tm__qs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  min-width: 0;
+}
+.u3 .u3-tm__q {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 6px;
+  border-radius: 999px;
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+}
+html[dir='rtl'] .u3 .u3-tm__q {
+  padding: 2px 6px 2px 10px;
+}
+.u3 .u3-tm__q b {
+  min-width: 1.6em;
+  padding: 0 6px;
+  border-radius: 999px;
+  text-align: center;
+  background: rgb(0 0 0 / 0.25);
+}
+.u3 .u3-tm__q--ok {
+  background: var(--u3-green-soft);
+  color: var(--u3-green);
+}
+.u3 .u3-tm__q--bad {
+  background: var(--u3-amber-soft);
+  color: var(--u3-amber);
+}
+.u3 .u3-tm__wall,
+.u3 .u3-tm__note,
+.u3 .u3-tm__more {
+  margin: 0;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-tm__unk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--u3-sp-2);
+  margin: 0;
+  color: var(--u3-text-2);
+}
+.u3 .u3-tm__unk-s {
+  color: var(--u3-text-3);
+  font-style: italic;
+}
+.u3 .u3-tm__tok {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u3-sp-2);
+  margin: 0;
+}
+.u3 .u3-tm__bar {
+  display: flex;
+  overflow: hidden;
+  block-size: 10px;
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+}
+.u3 .u3-tm__seg {
+  display: block;
+  min-inline-size: 3px;
+}
+.u3 .u3-tm__seg--blue {
+  background: var(--u3-blue);
+}
+.u3 .u3-tm__seg--purple {
+  background: var(--u3-purple);
+}
+.u3 .u3-tm__seg--amber {
+  background: var(--u3-amber);
+}
+.u3 .u3-tm__seg--teal {
+  background: var(--u3-teal);
+}
+.u3 .u3-tm__seg--red {
+  background: var(--u3-red);
+}
+.u3 .u3-tm__seg--grey {
+  background: var(--u3-text-3);
+}
+.u3 .u3-tm__list,
+.u3 .u3-tm__ivs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.u3 .u3-tm__list li,
+.u3 .u3-tm__ivs li {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-width: 0;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: var(--u3-bg);
+}
+.u3 .u3-tm__list li > .u3-tm__num,
+.u3 .u3-tm__list li > .u3-tm__unk-s,
+.u3 .u3-tm__ivs li > .u3-tm__num {
+  margin-inline-start: auto;
+}
+.u3 .u3-tm__dot {
+  flex: none;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 50%;
+}
+.u3 .u3-tm__lbl {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.u3 .u3-tm__meter {
+  flex: 1 1 40px;
+  min-width: 24px;
+  block-size: 6px;
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  overflow: hidden;
+}
+.u3 .u3-tm__meter i {
+  display: block;
+  block-size: 100%;
+  background: var(--u3-blue);
+}
+.u3 .u3-tm__ivs li {
+  flex-wrap: wrap;
+}
+
+/* role screen */
+.u3 .u3-tms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.u3 .u3-tms__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-tms__title {
+  margin: 0;
+  font-size: var(--u3-fs-xl);
+}
+.u3 .u3-tms__sub {
+  margin: 0;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-tms__periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-tms__p {
+  min-block-size: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  background: var(--u3-surface);
+  color: var(--u3-text-2);
+  font: inherit;
+  font-size: var(--u3-fs-s);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.u3 .u3-tms__p.is-on {
+  background: var(--u3-blue-soft);
+  border-color: var(--u3-blue);
+  color: var(--u3-text);
+}
+.u3 .u3-tmr__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--u3-sp-3);
+}
+@media (min-width: 768px) {
+  .u3 .u3-tmr__grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+.u3 .u3-tmr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  min-width: 0;
+}
+.u3 .u3-tmr__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-tmr__n {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+}
+.u3 .u3-tmr__nums {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--u3-sp-2);
+  margin: 0;
+}
+.u3 .u3-tmr__nums dt {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-tmr__nums dd {
+  margin: 0;
+  font-size: var(--u3-fs-l);
+  font-weight: 700;
+}
+.u3 .u3-tmr__q {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-tmr__verdict {
+  margin: 0;
+  color: var(--u3-text-2);
+}
+.u3 .u3-tmr__verdict.is-bad b {
+  color: var(--u3-amber);
+}
