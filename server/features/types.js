@@ -33,5 +33,9 @@ export const FEATURE_MESSAGE_TYPES = [
   'releases-get',
   // bulk select on the board (beads-lite-1bo5.6.63.1)
   'bulk-apply',
-  'bulk-undo'
+  'bulk-undo',
+  // @mentions (beads-lite-1bo5.6.64.1)
+  'mention-roles',
+  'mention-scan',
+  'mention-chips'
 ];
