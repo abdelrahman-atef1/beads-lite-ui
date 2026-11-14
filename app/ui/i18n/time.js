@@ -99,5 +99,76 @@ export const strings = {
   u3_tm_vs: {
     en: 'Against the {n} days before:',
     ar: 'مقارنة بالـ {n} يوم اللي قبل:'
-  }
+  },
+  // experiment view and weekly digest (beads-lite-1bo5.6.66.7)
+  u3_ex_title: { en: 'Improvement experiments', ar: 'تجارب التحسين' },
+  u3_ex_sub: {
+    en: 'Each verdict is computed by a script from closed tasks. Time is shown with its quality counters.',
+    ar: 'كل حكم بيحسبه سكريبت من المهام المقفولة. الوقت معروض جنب مؤشرات الجودة.'
+  },
+  u3_ex_none: { en: 'No experiments yet.', ar: 'مفيش تجارب لسه.' },
+  u3_ex_v_adopt: { en: 'ADOPT', ar: 'اعتماد' },
+  u3_ex_v_extend: { en: 'EXTEND', ar: 'تمديد' },
+  u3_ex_v_rollback: { en: 'ROLL BACK', ar: 'تراجع' },
+  u3_ex_v_confounded: { en: 'confounded', ar: 'متداخل' },
+  u3_ex_v_few: { en: 'too few to tell', ar: 'عينة صغيرة، مينفعش نحكم' },
+  u3_ex_v_inconclusive: { en: 'inconclusive', ar: 'غير حاسم' },
+  u3_ex_running: { en: 'running', ar: 'شغّالة' },
+  u3_ex_ended: { en: 'ended', ar: 'خلصت' },
+  u3_ex_change: { en: 'Change:', ar: 'التغيير:' },
+  u3_ex_before: { en: 'Before', ar: 'قبل' },
+  u3_ex_during: { en: 'During', ar: 'أثناء التجربة' },
+  u3_ex_n: { en: 'tasks', ar: 'مهمة' },
+  u3_ex_m_active: { en: 'active median', ar: 'وسيط الشغل الفعلي' },
+  u3_ex_m_waiting: { en: 'waiting median', ar: 'وسيط الانتظار' },
+  u3_ex_m_wall: { en: 'wall median', ar: 'وسيط الإجمالي' },
+  u3_ex_m_tokens: { en: 'tokens median', ar: 'وسيط التوكنز' },
+  u3_ex_target: {
+    en: 'Target: {m} down {p}% or more',
+    ar: 'الهدف: {m} ينزل {p}% أو أكتر'
+  },
+  u3_ex_measured: { en: 'Measured: {p}%', ar: 'المقاس: {p}%' },
+  u3_ex_no_change: {
+    en: 'Measured: not enough data',
+    ar: 'المقاس: مفيش بيانات كفاية'
+  },
+  u3_ex_interval: {
+    en: '80% range: {lo} to {hi}',
+    ar: 'مدى 80%: من {lo} إلى {hi}'
+  },
+  u3_ex_unk: {
+    en: '{n} tasks without a known {m}, left out',
+    ar: '{n} مهام من غير {m} معروف، مستبعدة'
+  },
+  u3_ex_control: {
+    en: 'Other roles: {n} tasks, {p}% change',
+    ar: 'الأدوار التانية: {n} مهمة، تغيّر {p}%'
+  },
+  u3_ex_market: { en: 'the market moved too', ar: 'باقي الأدوار اتحسنت كمان' },
+  u3_ex_confounded: {
+    en: 'Something else changed during the run: {what}. Read the verdict with care.',
+    ar: 'حاجة تانية اتغيرت أثناء التجربة: {what}. اقرأ الحكم بحذر.'
+  },
+  u3_ex_guards: {
+    en: 'Quality guardrails (before to during)',
+    ar: 'حراس الجودة (قبل إلى أثناء)'
+  },
+  u3_ex_held: { en: 'held', ar: 'ثابتة' },
+  u3_ex_worse: { en: 'worse', ar: 'أسوأ' },
+  u3_ex_g_escaped: { en: 'Escaped to users', ar: 'وصلت للمستخدم' },
+  u3_ex_g_other: { en: 'Other', ar: 'أخرى' },
+  u3_ex_by_script: {
+    en: 'Computed by script (flow-exp). There is no button to adopt: a person changes the flow by opening a task.',
+    ar: 'محسوب بسكريبت (flow-exp). مفيش زرار اعتماد: التغيير بيتم بفتح مهمة.'
+  },
+  u3_wd_title: { en: 'Weekly flow digest', ar: 'ملخص الأسبوع' },
+  u3_wd_none: {
+    en: 'No weekly digest yet. It appears after the weekly flow review runs.',
+    ar: 'مفيش ملخص أسبوعي لسه. بيظهر بعد ما المراجعة الأسبوعية تتشغل.'
+  },
+  u3_wd_by_script: {
+    en: 'Written by the weekly script; shown as written.',
+    ar: 'مكتوب بالسكريبت الأسبوعي؛ معروض زي ما هو.'
+  },
+  u3_wd_at: { en: 'built {t}', ar: 'اتبنى {t}' }
 };
