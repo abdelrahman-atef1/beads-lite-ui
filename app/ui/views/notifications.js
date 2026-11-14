@@ -15,6 +15,7 @@ import {
   enablePush,
   pushStatus
 } from '../../push-client.js';
+import { getLang } from '../../utils/i18n.js';
 import {
   T_EVENT,
   T_LIST,
@@ -30,7 +31,35 @@ import { tp } from '../panels/i18n.js';
 import { pIcon } from '../panels/icons.js';
 
 const MUTE_MS = 3600000;
-const KIND_ICON = { answer: '↩', release: '▲', digest: '≡', degraded: '!' };
+
+/**
+ * The legacy normalizer folds unknown kinds into 'decision'; an @owner mention
+ * (beads-lite-1bo5.6.64, no title, no comment text) keeps its own kind.
+ *
+ * @param {any} raw
+ */
+function norm(raw) {
+  const n = normalizeItem(raw);
+  if (n && raw && raw.kind === 'mention') {
+    return { ...n, kind: 'mention', desk: true };
+  }
+  return n;
+}
+
+/** @param {any} it */
+function text(it) {
+  if (it.kind !== 'mention') return itemText(it);
+  return getLang() === 'ar'
+    ? `اتذكرت في تعليق (${it.project})`
+    : `You were mentioned in a comment (${it.project})`;
+}
+const KIND_ICON = {
+  answer: '↩',
+  release: '▲',
+  digest: '≡',
+  degraded: '!',
+  mention: '@'
+};
 
 /**
  * @param {HTMLElement} el - container the bell button is drawn into
@@ -63,7 +92,7 @@ export function mountBell(el, opts) {
   /** @param {any} r - server snapshot */
   function apply(r) {
     items = (Array.isArray(r?.events) ? r.events : [])
-      .map(normalizeItem)
+      .map(norm)
       .filter(Boolean)
       .sort((/** @type {any} */ a, /** @type {any} */ b) => b.at - a.at);
     unreadN = Number.isFinite(r?.unread)
@@ -264,7 +293,7 @@ export function mountBell(el, opts) {
                       >${/** @type {any} */ (KIND_ICON)[it.kind] || '?'}</span
                     >
                     <span class="u3-pn__txt">
-                      <b dir="auto">${itemText(it)}</b>
+                      <b dir="auto">${text(it)}</b>
                       <small>
                         <bdi>${it.project}</bdi>${it.bead
                           ? html` · <bdi class="u3-mono">${it.bead}</bdi>`
@@ -374,7 +403,7 @@ export function mountBell(el, opts) {
 
   window.addEventListener('bdui-lang', paint);
   client.on(T_EVENT, (/** @type {any} */ p) => {
-    const it = normalizeItem(p?.event);
+    const it = norm(p?.event);
     if (!it) return;
     items = [it, ...items.filter((i) => i.key !== it.key)];
     unreadN = Number.isFinite(p.unread)
