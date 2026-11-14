@@ -28,6 +28,11 @@ import { t3 } from '../i18n.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
 import { renderTimeSlot } from '../task/time-slot.js';
 import { renderCard } from './card.js';
+import {
+  afterCommentPosted,
+  loadChips,
+  renderMentionChips
+} from './mention.js';
 
 const COMMENT_MAX = 20000;
 
@@ -106,6 +111,10 @@ export function mount(el, ctx) {
       comments_error = true;
     }
     draw();
+    // @mention chips (beads-lite-1bo5.6.59.13): drawn once they arrive
+    void loadChips(ctx, id).then(() => {
+      if (alive && my === seq) draw();
+    });
   }
 
   /** @param {string} next */
@@ -159,6 +168,7 @@ export function mount(el, ctx) {
       const res = await send('add-comment', { id, text: body });
       if (Array.isArray(res)) {
         comments = res;
+        await afterCommentPosted(ctx, id, body);
         text = '';
       }
     } catch {
@@ -243,6 +253,7 @@ export function mount(el, ctx) {
         >
       </header>
       <div class="u3-ts__cb">${body}</div>
+      ${renderMentionChips(id, c, c === comments?.[comments.length - 1])}
     </article>`;
   }
 

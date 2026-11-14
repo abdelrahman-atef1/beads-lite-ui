@@ -1,1 +1,137 @@
-/* Board v3 mention screen styles (stub; its task fills it). Scope under .u3; per-screen variables stay here. */
+/* Board v3 @mention picker and chips (beads-lite-1bo5.6.59.13). Scope under .u3. */
+.u3 .u3-ts__composer {
+  position: relative;
+}
+.u3 .u3-mn {
+  width: 0;
+  height: 0;
+}
+.u3 .u3-mn__pop {
+  position: absolute;
+  inset-inline: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  padding: var(--u3-sp-2);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+.u3 .u3-mn__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-1);
+  max-height: 40vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.u3 .u3-mn__row {
+  display: flex;
+  align-items: center;
+  gap: var(--u3-sp-3);
+  min-height: 48px;
+  padding: var(--u3-sp-2) var(--u3-sp-3);
+  border-radius: var(--u3-radius-s);
+  cursor: pointer;
+}
+.u3 .u3-mn__row.is-on {
+  background: var(--u3-blue-soft);
+}
+.u3 .u3-mn__av {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--u3-surface-2);
+  color: var(--u3-text);
+  font-size: var(--u3-fs-s);
+  font-weight: 700;
+}
+.u3 .u3-mn__av--swe {
+  background: var(--u3-blue);
+  color: var(--u3-blue-ink);
+}
+.u3 .u3-mn__av--qa {
+  background: var(--u3-teal-soft);
+  color: var(--u3-teal);
+}
+.u3 .u3-mn__av--sec,
+.u3 .u3-mn__av--owner {
+  background: var(--u3-amber-soft);
+  color: var(--u3-amber);
+}
+.u3 .u3-mn__nm {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.u3 .u3-mn__r {
+  align-self: flex-start;
+  color: var(--u3-text);
+  font-weight: 600;
+  /* a role name is a code: nowrap, never broken */
+  white-space: nowrap;
+}
+.u3 .u3-mn__d {
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u3 .u3-mn__ret {
+  color: var(--u3-blue);
+}
+.u3 .u3-mn__none {
+  padding: var(--u3-sp-3);
+  color: var(--u3-text-3);
+}
+.u3 .u3-mn__hint {
+  margin: 0;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  text-align: center;
+}
+.u3 .u3-mn__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-2);
+}
+.u3 .u3-mn__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--u3-sp-1);
+  max-width: 100%;
+  padding: 2px var(--u3-sp-2);
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.u3 .u3-mn__chip--amber {
+  background: var(--u3-amber-soft);
+  color: var(--u3-amber);
+}
+.u3 .u3-mn__chip--green {
+  background: var(--u3-green-soft);
+  color: var(--u3-green);
+}
+.u3 .u3-mn__chip--teal {
+  background: var(--u3-teal-soft);
+  color: var(--u3-teal);
+}
+.u3 .u3-mn__chip--red {
+  background: var(--u3-red-soft);
+  color: var(--u3-red);
+}
