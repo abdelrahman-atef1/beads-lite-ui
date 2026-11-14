@@ -3,7 +3,7 @@
  *
  * The server bulk API does not exist yet. Contract this adapter is written
  * against (one call per action, applied one by one, per-task result):
- *   bulk-apply { action: 'close'|'move'|'defer', ids: string[], params, take_over }
+ *   bulk-apply { action: 'close'|'move'|'defer'|'label'|'assign', ids: string[], params, take_over }
  *     -> { batch: string, results: [{ id, ok: boolean, reason?: string }] }
  *   bulk-undo  { batch } -> { restored: number }
  * Until it lands the adapter runs in FIXTURE mode: it decides per task from the
@@ -22,7 +22,8 @@ export const REASONS = [
   'blockers',
   'live',
   'same',
-  'missing'
+  'missing',
+  'failed'
 ];
 
 /**
@@ -37,7 +38,7 @@ function hasOpenChild(id, all) {
 /**
  * Why one task cannot take the action, or '' when it can.
  *
- * @param {'close'|'move'|'defer'} action
+ * @param {'close'|'move'|'defer'|'label'|'assign'} action
  * @param {any} it
  * @param {any[]} all
  * @param {{ status?: string }} params
@@ -46,7 +47,8 @@ function hasOpenChild(id, all) {
 export function refusal(action, it, all, params, take_over) {
   if (!it) return 'missing';
   if (it.status === 'owner_decision') return 'decision';
-  if (it.status === 'closed' && action !== 'move') return 'already_closed';
+  if (it.status === 'closed' && (action === 'close' || action === 'defer'))
+    return 'already_closed';
   if (action === 'move' && it.status === params.status) return 'same';
   if (action === 'close') {
     if (hasOpenChild(it.id, all)) return 'children';
@@ -55,7 +57,7 @@ export function refusal(action, it, all, params, take_over) {
     }
   }
   if (it.status === 'in_progress' && String(it.assignee || '').trim()) {
-    if (!take_over) return 'live';
+    if (!take_over && action !== 'label') return 'live';
   }
   return '';
 }
@@ -70,7 +72,7 @@ export function createBulkApi(opt = {}) {
   return {
     live: typeof opt.transport === 'function',
     /**
-     * @param {{ action: 'close'|'move'|'defer', ids: string[], params: any, take_over?: boolean }} req
+     * @param {{ action: 'close'|'move'|'defer'|'label'|'assign', ids: string[], params: any, take_over?: boolean }} req
      * @param {any[]} all - board snapshot (fixture mode decides from it)
      * @returns {Promise<{ batch: string, preview: boolean, ok: string[], refused: Array<{ id: string, reason: string }> }>}
      */

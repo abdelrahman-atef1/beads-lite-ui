@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -24,8 +24,29 @@ const ALLOWED = [
   /^app\/fonts\//,
   /^scripts\/legacy-untouched\.mjs$/,
   /^scripts\/payload-v3\.mjs$/,
-  /^server\/features\/outputs\.test\.js$/
+  /^server\/features\/outputs\.test\.js$/,
+  // Bulk select server feature (1bo5.6.63.1): these exact files only.
+  /^server\/features\/bulk(\.test)?\.js$/,
+  /^scripts\/bulk-e2e\.mjs$/
 ];
+// Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
+// the bulk feature. Nothing else may be added; the one removed line is the
+// trailing-comma rewrite of the previous array entry.
+const SEAM = {
+  'server/features/index.js': {
+    add: ["import * as bulk from './bulk.js';", 'bulk,'],
+    del: []
+  },
+  'server/features/types.js': {
+    add: [
+      "'releases-get',",
+      '// bulk select on the board (beads-lite-1bo5.6.63.1)',
+      "'bulk-apply',",
+      "'bulk-undo'"
+    ],
+    del: ["'releases-get'"]
+  }
+};
 const HOOK = [
   "import { bootV3 } from './ui/boot.js';",
   "import { resolveUi } from './ui/flag.js';",
@@ -59,6 +80,17 @@ for (const f of git(['ls-files', '--others', '--exclude-standard'])
 const bad = [];
 for (const f of names) {
   if (ALLOWED.some((re) => re.test(f))) continue;
+  if (SEAM[f]) {
+    for (const l of git(['diff', '-U0', base, '--', f]).split('\n')) {
+      if (l.startsWith('---') || l.startsWith('+++')) continue;
+      const t = l.slice(1).trim();
+      if (l.startsWith('-') && !SEAM[f].del.includes(t))
+        bad.push(`${f}: deletes a line: ${t}`);
+      else if (l.startsWith('+') && !SEAM[f].add.includes(t))
+        bad.push(`${f}: adds a line outside the allowed edit: ${t}`);
+    }
+    continue;
+  }
   if (f === 'app/main.js' || f === 'app/index.html') {
     const lines = git(['diff', '-U0', base, '--', f]).split('\n');
     for (const l of lines) {

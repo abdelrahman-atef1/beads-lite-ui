@@ -30,5 +30,8 @@ export const FEATURE_MESSAGE_TYPES = [
   'outputs-project',
   // releases screen (beads-lite-1bo5.6.36)
   'releases-list',
-  'releases-get'
+  'releases-get',
+  // bulk select on the board (beads-lite-1bo5.6.63.1)
+  'bulk-apply',
+  'bulk-undo'
 ];

@@ -45,6 +45,32 @@ export const strings = {
   u3_bk_close: { en: 'Close', ar: 'اقفل' },
   u3_bk_move: { en: 'Move', ar: 'غيّر الحالة' },
   u3_bk_defer: { en: 'Defer', ar: 'أجّل' },
+  u3_bk_label: { en: 'Label', ar: 'وسم' },
+  u3_bk_assign: { en: 'Assign', ar: 'عيّن' },
+  u3_bk_label_mode: { en: 'What to do', ar: 'عايز تعمل إيه' },
+  u3_bk_label_add: { en: 'Add a label', ar: 'ضيف وسم' },
+  u3_bk_label_rm: { en: 'Remove a label', ar: 'شيل وسم' },
+  u3_bk_label_name: { en: 'Label (one word)', ar: 'الوسم (كلمة واحدة)' },
+  u3_bk_assign_to: { en: 'Assign to', ar: 'عيّن لـ' },
+  u3_bk_unassign: { en: 'Nobody (clear)', ar: 'محدش (امسح)' },
+  u3_bk_c_label_add: {
+    en: 'Add label {label} to {n} tasks',
+    ar: 'هتضيف الوسم {label} على {n} مهمة'
+  },
+  u3_bk_c_label_rm: {
+    en: 'Remove label {label} from {n} tasks',
+    ar: 'هتشيل الوسم {label} من {n} مهمة'
+  },
+  u3_bk_c_assign: {
+    en: 'Assign {n} tasks to {role}',
+    ar: 'هتعيّن {n} مهمة لـ {role}'
+  },
+  u3_bk_c_unassign: {
+    en: 'Clear the assignee of {n} tasks',
+    ar: 'هتمسح المكلّف من {n} مهمة'
+  },
+  u3_bk_a_label: { en: 'Label {n} tasks', ar: 'وسم {n} مهمة' },
+  u3_bk_a_assign: { en: 'Assign {n} tasks', ar: 'عيّن {n} مهمة' },
   u3_bk_hidden: {
     en: '{n} selected are hidden by the filter',
     ar: '{n} محدّدة مخفية بالفلتر'
@@ -105,5 +131,6 @@ export const strings = {
     ar: 'فيه وكيل شغّال عليها (علّم خد الشغل الشغّال عشان تدخل)'
   },
   u3_bk_r_same: { en: 'Already in that status', ar: 'أصلاً في الحالة دي' },
-  u3_bk_r_missing: { en: 'Not found', ar: 'مش موجودة' }
+  u3_bk_r_missing: { en: 'Not found', ar: 'مش موجودة' },
+  u3_bk_r_failed: { en: 'Could not be changed', ar: 'ماقدرناش نغيّرها' }
 };

@@ -91,6 +91,10 @@ export function mount(el, ctx) {
   let q_timer = null;
   const bulk = createBulk({
     host: el,
+    // Real server API when the app has a socket; fixture (preview) in tests.
+    transport: ctx.client
+      ? (/** @type {string} */ t, /** @type {any} */ p) => ctx.client.send(t, p)
+      : undefined,
     redraw: () => draw(),
     all: () => snap('tab:all'),
     visible: () => visibleIds()
