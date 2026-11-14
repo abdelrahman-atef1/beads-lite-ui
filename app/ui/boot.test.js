@@ -50,7 +50,7 @@ describe('?ui=3 boot', () => {
   test('flag on: routes switch with the hash', async () => {
     const root = setup('#/', '?ui=3');
     await bootstrap(root).ready;
-    expect(document.querySelector('[data-view="desk"]')).not.toBeNull();
+    expect(document.querySelector('.dk3')).not.toBeNull();
     window.location.hash = '#/releases';
     window.dispatchEvent(new HashChangeEvent('hashchange'));
     expect(document.querySelector('[data-view="releases"]')).not.toBeNull();
