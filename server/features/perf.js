@@ -32,6 +32,9 @@ const COMPRESSIBLE = /\.(css|js|mjs|svg|webmanifest|json|html)$/;
 const CSS_LINK =
   /[ \t]*<link rel="stylesheet" href="\.\/((?:css\/)?[\w-]+\.css)" \/>\r?\n?/g;
 const CHUNK_NAME = /^[\w-]+\.js$/;
+// A static import of a split chunk in esbuild's minified output (from"./chunks/X.js",
+// import"./X.js"); a dynamic import("...") has a parenthesis and does not match.
+const STATIC_CHUNK = /(?:from|import)\s*"\.\/(?:chunks\/)?([\w-]+\.js)"/g;
 const YEAR = 'public, max-age=31536000, immutable';
 
 /**
@@ -46,6 +49,38 @@ export const WS_DEFLATE = {
   serverNoContextTakeover: false,
   clientNoContextTakeover: true,
   concurrencyLimit: 4
+};
+
+/**
+ * esbuild plugin (beads-lite-1bo5.6.59.19): the old board's view registry
+ * (app/views/registry.js) stays in the main file, as it did before splitting.
+ * Left alone, each of its ten import() calls becomes a chunk that shares code
+ * with the entry, and the entry then imports about twenty more chunk files
+ * statically: a phone on a slow link pays a round trip for each. Only the v3
+ * screens opened from app/ui/boot.js are split. Remove with the legacy views.
+ *
+ * @type {import('esbuild').Plugin}
+ */
+export const inlineLegacyViews = {
+  name: 'inline-legacy-views',
+  setup(build) {
+    build.onLoad({ filter: /[\\/]app[\\/]views[\\/]registry\.js$/ }, (args) => {
+      let head = '';
+      let n = 0;
+      const body = fs
+        .readFileSync(args.path, 'utf8')
+        .replace(/import\('(\.[^']+)'\)/g, (_all, spec) => {
+          n++;
+          head += `import * as __view${n} from '${spec}';\n`;
+          return `Promise.resolve(__view${n})`;
+        });
+      return {
+        contents: head + body,
+        loader: 'js',
+        resolveDir: path.dirname(args.path)
+      };
+    });
+  }
 };
 
 /**
@@ -130,6 +165,29 @@ export function createPerf(config) {
     if (!chunks.has(name)) chunks.set(name, await pack(raw));
   }
 
+  /**
+   * Names of every split chunk the entry loads statically (its imports, and theirs).
+   *
+   * @param {Packed} entry
+   * @returns {string[]}
+   */
+  function staticChunkNames(entry) {
+    /** @type {Set<string>} */
+    const seen = new Set();
+    /** @param {Buffer} raw */
+    const visit = (raw) => {
+      for (const m of raw.toString('utf8').matchAll(STATIC_CHUNK)) {
+        const n = m[1];
+        if (seen.has(n)) continue;
+        seen.add(n);
+        const c = chunks.get(n);
+        if (c) visit(c.raw);
+      }
+    };
+    visit(entry.raw);
+    return [...seen];
+  }
+
   /** @param {Array<[string, number]>} inputs */
   function inputsFresh(inputs) {
     for (const [f, m] of inputs) {
@@ -163,6 +221,7 @@ export function createPerf(config) {
       outdir: app_dir,
       entryNames: 'main.bundle',
       chunkNames: 'chunks/[hash]',
+      plugins: [inlineLegacyViews],
       format: 'esm',
       platform: 'browser',
       target: 'es2020',
@@ -304,6 +363,12 @@ export function createPerf(config) {
     try {
       const p = await getBundle();
       out = out.replace('/main.bundle.js', `/main.${p.hash}.js`);
+      // Preload what the entry imports statically, all at once: a phone fetches
+      // them in one round instead of one level of imports at a time.
+      const links = staticChunkNames(p)
+        .map((n) => `<link rel="modulepreload" href="/chunks/${n}" />`)
+        .join('\n    ');
+      if (links) out = out.replace('</head>', `\n    ${links}\n  </head>`);
     } catch {
       /* keep the plain URL: /main.bundle.js will report the error */
     }

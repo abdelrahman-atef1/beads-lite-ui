@@ -14,6 +14,7 @@ import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { inlineLegacyViews } from '../server/features/perf.js';
 
 const app = path.resolve(process.argv[2] || 'app');
 const out = await build({
@@ -29,7 +30,8 @@ const out = await build({
   metafile: true,
   outdir: path.join(app, '.payload-out'),
   entryNames: 'main',
-  chunkNames: 'chunks/[hash]'
+  chunkNames: 'chunks/[hash]',
+  plugins: [inlineLegacyViews]
 });
 const meta = out.metafile.outputs;
 /** @param {string} f */

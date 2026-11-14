@@ -12,6 +12,7 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inlineLegacyViews } from '../server/features/perf.js';
 import { debug } from '../server/logging.js';
 
 /**
@@ -42,6 +43,7 @@ async function run() {
     outdir: app_dir,
     entryNames: 'main.bundle',
     chunkNames: 'chunks/[hash]',
+    plugins: [inlineLegacyViews],
     sourcemap: true, // write external .map file next to the bundle
     minify: true,
     legalComments: 'none'

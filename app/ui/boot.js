@@ -3,9 +3,14 @@
  * built the store, ws client, data layer and subscription stores; v3 reuses
  * those through `base` and builds none of the legacy views.
  *
- * Payload (beads-lite-1bo5.6.59.19): the shell and the desk are in the first
- * load; every other screen is its own chunk, fetched the first time its route
- * opens. Each loader below is one literal import() so esbuild can split it.
+ * Payload (beads-lite-1bo5.6.59.19): the shell, the desk and the small screens
+ * are in the first load; the three heavy ones (task, tasks, time) are chunks,
+ * fetched the first time their route opens. Each lazy loader is one literal
+ * import() so esbuild can split it. Why only three: every split screen adds
+ * shared chunk files the first load imports, and a phone on Fast 3G paid for
+ * each (cto, 59.19: all seven, 3.5 s to the desk; these three, 2.5 s, same as
+ * one file). Past the gate it is a trade: more screens split, fewer bytes,
+ * more requests. Measure both before moving a screen.
  */
 import { applyLang } from '../utils/i18n.js';
 import { mountPanels } from './panels/mount.js';
@@ -13,16 +18,20 @@ import { parseRoute } from './routes.js';
 import { attachSearch } from './search.js';
 import { createShell } from './shell.js';
 import { mount as desk } from './views/desk.js';
+import { mount as kit } from './views/kit.js';
+import { mount as projects } from './views/projects.js';
+import { mount as releases } from './views/releases.js';
+import { mount as settings } from './views/settings.js';
 
 /** @type {Record<string, () => Promise<{ mount: Function }>>} */
 const LAZY = {
   task: () => import('./views/task.js'),
   tasks: () => import('./views/tasks.js'),
-  releases: () => import('./views/releases.js'),
-  projects: () => import('./views/projects.js'),
-  settings: () => import('./views/settings.js'),
+  releases: () => Promise.resolve({ mount: releases }),
+  projects: () => Promise.resolve({ mount: projects }),
+  settings: () => Promise.resolve({ mount: settings }),
   time: () => import('./views/time.js'),
-  'ui-kit': () => import('./views/kit.js')
+  'ui-kit': () => Promise.resolve({ mount: kit })
 };
 
 /**

@@ -168,6 +168,37 @@ describe('first paint on a slow link (1bo5.6.31)', () => {
     });
   });
 
+  test('the page preloads the chunks the entry imports statically, not the lazy screens (.59.19)', async () => {
+    const dir = makeAppDir();
+    fs.writeFileSync(
+      path.join(dir, 'main.js'),
+      "import { shared } from './shared.js';\nexport const open = () => import('./screen.js');\nconsole.log('shell ' + shared);\n"
+    );
+    fs.writeFileSync(
+      path.join(dir, 'shared.js'),
+      "export const shared = 'shared-body ' + '.'.repeat(60);\n"
+    );
+    fs.writeFileSync(
+      path.join(dir, 'screen.js'),
+      "import { shared } from './shared.js';\nexport const mount = () => 'the-screen-body ' + shared;\n"
+    );
+    await withServer(dir, async (base) => {
+      const html = /** @type {any} */ (await get(base + '/')).body.toString();
+      const links = [
+        ...html.matchAll(
+          /<link rel="modulepreload" href="\/chunks\/([\w-]+\.js)" \/>/g
+        )
+      ].map((m) => m[1]);
+      // esbuild puts the module both the entry and the screen use in a shared
+      // chunk; the screen's own chunk is not preloaded.
+      expect(links).toHaveLength(1);
+      const r = /** @type {any} */ (
+        await get(base + '/chunks/' + links[0], { 'accept-encoding': 'gzip' })
+      );
+      expect(zlib.gunzipSync(r.body).toString()).toContain('shared-body');
+    });
+  });
+
   test('built once, rebuilt only when a source file changes', async () => {
     const dir = makeAppDir();
     await withServer(dir, async (base, app) => {
