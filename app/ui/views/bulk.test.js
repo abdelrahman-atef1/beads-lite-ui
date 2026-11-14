@@ -316,3 +316,31 @@ describe('bulk data adapter (fixture)', () => {
     expect(await api.undo(r.batch)).toBe(1);
   });
 });
+
+describe('over-50 alert goes with the over-50 selection (.59 low)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  test('Keep first 50 clears the red alert', async () => {
+    const all = Array.from({ length: 55 }, (_, i) => mk('n-' + i));
+    const { h } = setup(all);
+    await tick(10);
+    tid('bulk-enter').click();
+    await tick(10);
+    for (const c of document.querySelectorAll('.u3t-card')) {
+      /** @type {HTMLElement} */ (c).click();
+    }
+    await tick(10);
+    tid('bulk-close').click(); // blocked: sets the notice
+    await tick(10);
+    expect(q('.u3bk-note--bad')).not.toBeNull();
+    tid('bulk-keep').click();
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('50');
+    expect(q('.u3bk-note--bad')).toBeNull();
+    h.unmount();
+  });
+});

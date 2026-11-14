@@ -25,6 +25,7 @@ const S = {
   woke: { en: 'woke', ar: 'صحي' },
   seen: { en: 'seen', ar: 'اتشاف' },
   limit: { en: 'limit', ar: 'الحد' },
+  failed: { en: 'failed, retry', ar: 'فشل، أعد المحاولة' },
   paused: { en: 'paused', ar: 'واقف' },
   owner: { en: 'The owner gets a bell', ar: 'المالك بيوصله إشعار' },
   more: {
@@ -40,8 +41,31 @@ const TONE = /** @type {Record<string, string>} */ ({
   woke: 'green',
   seen: 'teal',
   limit: 'red',
+  failed: 'red',
   paused: 'neutral'
 });
+
+/**
+ * The chip a result shows. A wake that could not be emitted (the server
+ * records chip "limit", verdict "emit-failed") is a failure the user can retry,
+ * not a limit (.59 low finding).
+ *
+ * @param {{ chip: string, verdict?: string }} r
+ */
+export function chipKind(r) {
+  return r.chip === 'limit' && r.verdict === 'emit-failed' ? 'failed' : r.chip;
+}
+
+/**
+ * Where the picker sits: above the box unless the room above cannot hold it
+ * and the room below holds more.
+ *
+ * @param {number} need @param {number} above @param {number} below
+ * @returns {'above' | 'below'}
+ */
+export function placement(need, above, below) {
+  return need > above && below > above ? 'below' : 'above';
+}
 
 /** The page-wide adapter; app code swaps it for tests. */
 let api = createMentionApi();
@@ -97,20 +121,20 @@ export function renderMentionChips(beadId, comment, newest = false) {
   );
   if (!mine.length) return nothing;
   return html`<div class="u3-mn__chips" data-mention-chips>
-    ${mine.map(
-      (/** @type {any} */ r) =>
-        html`<span
-          class="u3-mn__chip u3-mn__chip--${TONE[r.chip] || 'neutral'}"
-          data-chip=${r.chip}
-          title=${r.role === 'owner'
-            ? m('owner')
-            : r.chip === 'limit'
-              ? m('more')
-              : ''}
-          dir="ltr"
-          >@${r.role} <b dir="auto">${m(r.chip)}</b></span
-        >`
-    )}
+    ${mine.map((/** @type {any} */ r) => {
+      const kind = chipKind(r);
+      return html`<span
+        class="u3-mn__chip u3-mn__chip--${TONE[kind] || 'neutral'}"
+        data-chip=${kind}
+        title=${r.role === 'owner'
+          ? m('owner')
+          : kind === 'limit'
+            ? m('more')
+            : ''}
+        dir="ltr"
+        >@${r.role} <b dir="auto">${m(kind)}</b></span
+      >`;
+    })}
   </div>`;
 }
 
@@ -246,6 +270,32 @@ export function attachPicker(ta, host) {
       </div>`,
       host
     );
+    place(pos);
+  }
+
+  /** Keep the whole list inside the window: flip below the box, or shrink it. */
+  /** @param {string} pos */
+  function place(pos) {
+    const pop = host.querySelector('.u3-mn__pop');
+    const list = host.querySelector('.u3-mn__list');
+    if (!(pop instanceof HTMLElement) || !(list instanceof HTMLElement)) return;
+    list.style.maxHeight = '';
+    pop.setAttribute('style', pos);
+    const box = ta.getBoundingClientRect();
+    const need = pop.getBoundingClientRect().height;
+    const above = box.top;
+    const below = window.innerHeight - box.bottom;
+    const side = placement(need, above, below);
+    const room = (side === 'below' ? below : above) - 12;
+    if (side === 'below') {
+      pop.style.bottom = 'auto';
+      pop.style.top = `${ta.offsetTop + ta.offsetHeight + 6}px`;
+    }
+    if (need > room) {
+      const extra = need - list.getBoundingClientRect().height;
+      list.style.maxHeight = `${Math.max(room - extra, 96)}px`;
+    }
+    pop.dataset.side = side;
   }
 
   /** @param {KeyboardEvent} e */

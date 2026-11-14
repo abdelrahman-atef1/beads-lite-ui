@@ -10,7 +10,7 @@
 import { html, nothing, render } from 'lit-html';
 import { chip } from '../components/chip.js';
 import { roleChip } from '../components/role-chip.js';
-import { compareKey, roleReport } from '../data/time-math.js';
+import { compareKey, roleReport, runningCount } from '../data/time-math.js';
 import { PERIODS, loadRollup } from '../data/time.js';
 import { t3 } from '../i18n.js';
 import { dur, footer, nf, qualityChips, tr } from './time-section.js';
@@ -133,10 +133,12 @@ export function mount(el, ctx) {
       from: now - 2 * days * DAY,
       to: now - days * DAY
     });
-    const running = rows.filter((/** @type {any} */ r) => r.running).length;
-    return html`${running
-      ? html`<p class="u3-tm__more">
-          ${tr('u3_tm_running_n', { n: nf(running) })}
+    const live = runningCount(rows);
+    return html`${live.n
+      ? html`<p class="u3-tm__more" data-testid="tm-running">
+          ${tr(live.leased ? 'u3_tm_running_n' : 'u3_tm_inprog_n', {
+            n: nf(live.n)
+          })}
         </p>`
       : nothing}
     ${cur.length

@@ -289,7 +289,10 @@ describe('renderStepsComment', () => {
   test.each([
     ['secret-refused', /secret|سر/],
     ['round-cap', /No questions left|لا أسئلة/],
-    ['no-steps', /steps changed|الخطوات تغيرت/]
+    ['no-steps', /steps changed|الخطوات تغيرت/],
+    // unlabelled steps item: the card CLI answers already-handled (.59 low)
+    ['already-handled', /steps changed|الخطوات تغيرت/],
+    ['not-open', /steps changed|الخطوات تغيرت/]
   ])('refusal %s shows its reason, never a plain comment', async (code, re) => {
     const send = vi.fn(async () => {
       throw new Error(code);

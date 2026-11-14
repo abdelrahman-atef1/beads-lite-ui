@@ -1,12 +1,12 @@
 import { html, nothing, render } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
+import { cardDir, detectLang } from '../../utils/card-dir.js';
 import { errorText } from '../../utils/card-text.js';
 import { showToast } from '../../utils/toast.js';
 import { card as frame } from '../components/card.js';
 import { chip } from '../components/chip.js';
 import { roleChip } from '../components/role-chip.js';
 import { ageText, clientOf, tc } from './common.js';
-import { cardDir, detectLang } from '../../utils/card-dir.js';
 
 /**
  * Steps comment contract (beads-lite-1bo5.6.59.3, convention on .58): first
@@ -114,6 +114,9 @@ export function askErrorText(code, lang) {
       return tc('u3_steps_err_secret', lang);
     case 'round-cap':
       return tc('u3_steps_err_cap', lang);
+    // an unlabelled steps item has no decision card: the CLI says already-handled
+    case 'already-handled':
+    case 'not-open':
     case 'no-steps':
     case 'stale-steps':
       return tc('u3_steps_err_nosteps', lang);
@@ -198,7 +201,10 @@ function paintSteps(el, comment, parsed, ctx) {
       showToast(tc('u3_steps_done_note', lang), 'success', 2500);
       ctx.onChange?.();
     } catch (err) {
-      st.error = errorText(String(/** @type {any} */ (err)?.message || ''));
+      st.error = askErrorText(
+        String(/** @type {any} */ (err)?.message || ''),
+        lang
+      );
     }
     st.busy = false;
     again();
