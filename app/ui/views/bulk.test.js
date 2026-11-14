@@ -163,13 +163,118 @@ describe('bulk select (v3 tasks)', () => {
     const { h } = setup(all);
     await tick(10);
     tid('bulk-enter').click();
-    tid('bulk-all') && (await tick(10));
-    tid('bulk-all').click();
+    await tick(10);
+    for (const c of document.querySelectorAll('.u3t-card')) {
+      /** @type {HTMLElement} */ (c).click();
+    }
     await tick(10);
     expect(q('.u3bk-note--bad')).not.toBeNull();
     tid('bulk-close').click();
     await tick(10);
     expect(q('[data-testid="bulk-reason"]')).toBeNull(); // no sheet opened
+    h.unmount();
+  });
+});
+
+describe('select all takes exactly what is shown', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    // @ts-ignore test stub
+    delete window.matchMedia;
+  });
+
+  test('more than 50 shown: first 50, count and cap note, never trapped', async () => {
+    const all = [
+      ...Array.from({ length: 60 }, (_, i) => mk('r-' + i)),
+      ...Array.from({ length: 5 }, (_, i) =>
+        mk('p-' + i, { status: 'in_progress' })
+      )
+    ];
+    const { h } = setup(all);
+    await tick(10);
+    tid('bulk-enter').click();
+    await tick(10);
+    expect(q('[data-testid="bulk-cap"]')).not.toBeNull();
+    expect(tid('bulk-all').textContent).toContain('65');
+    tid('bulk-all').click();
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('50');
+    expect(q('.u3bk-note--bad')).toBeNull();
+    tid('bulk-close').click();
+    await tick(10);
+    expect(q('[data-testid="bulk-reason"]')).not.toBeNull(); // not blocked
+    h.unmount();
+  });
+
+  test('over 50 by hand: Keep first 50 gets out', async () => {
+    const all = Array.from({ length: 55 }, (_, i) => mk('k-' + i));
+    const { h } = setup(all);
+    await tick(10);
+    tid('bulk-enter').click();
+    await tick(10);
+    for (const c of document.querySelectorAll('.u3t-card')) {
+      /** @type {HTMLElement} */ (c).click();
+    }
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('55');
+    tid('bulk-keep').click();
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('50');
+    h.unmount();
+  });
+
+  test('a search narrows what select all takes', async () => {
+    const all = [
+      mk('s-1', { title: 'alpha' }),
+      mk('s-2', { title: 'alpha 2' }),
+      mk('s-3', { title: 'beta' })
+    ];
+    const { h } = setup(all);
+    await tick(10);
+    tid('bulk-enter').click();
+    const input = /** @type {HTMLInputElement} */ (q('.u3t-search'));
+    input.value = 'alpha';
+    input.dispatchEvent(new Event('input'));
+    await tick(400);
+    tid('bulk-all').click();
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('2');
+    h.unmount();
+  });
+
+  test('phone: one column, label names it, Other has a tab', async () => {
+    window.matchMedia = /** @type {any} */ (
+      (/** @type {string} */ m) => ({
+        matches: m.includes('max-width: 760px'),
+        addEventListener() {},
+        removeEventListener() {}
+      })
+    );
+    const all = [
+      ...Array.from({ length: 4 }, (_, i) => mk('a-' + i)),
+      mk('b-1', { status: 'in_progress' }),
+      mk('d-1', { status: 'deferred' })
+    ];
+    const { h } = setup(all);
+    await tick(10);
+    const other = /** @type {HTMLElement} */ (q('.u3t-stat__chip--other'));
+    expect(other).not.toBeNull();
+    tid('bulk-enter').click();
+    await tick(10);
+    // first column with cards is In progress (1 card)
+    expect(tid('bulk-all').textContent).toContain('(1)');
+    /** @type {HTMLElement} */ (q('.u3t-stat__chip--ready')).click();
+    await tick(10);
+    expect(tid('bulk-all').textContent).toContain('(4)');
+    tid('bulk-all').click();
+    await tick(10);
+    expect(tid('bulk-count').textContent).toContain('4');
+    other.click();
+    await tick(10);
+    expect(card('d-1')).not.toBeNull();
     h.unmount();
   });
 });

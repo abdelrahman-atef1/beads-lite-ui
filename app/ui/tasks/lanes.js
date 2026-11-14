@@ -93,7 +93,7 @@ function epicOf(it, by_id) {
  * @param {any[]} issues
  * @param {GroupBy} [by]
  * @param {{ all?: any[], ready_ids?: Set<string>, blocked_ids?: Set<string> }} [opts]
- *   all = every issue (to find epics); ready/blocked ids split lane columns.
+ * all = every issue (to find epics); ready/blocked ids split lane columns.
  * @returns {Lane[]}
  */
 export function groupIssues(issues, by = 'none', opts = {}) {

@@ -94,7 +94,8 @@ export function mount(el, ctx) {
       : undefined,
     redraw: () => draw(),
     all: () => snap('tab:all'),
-    visible: () => visibleIds()
+    visible: () => visibleIds(),
+    scope: () => scopeLabel()
   });
   const selected = bulk.selected;
 
@@ -147,14 +148,18 @@ export function mount(el, ctx) {
     return first ? first.id : '';
   }
 
-  /** Ids of the cards the current filter shows (select all, hidden count). */
-  function visibleIds() {
-    if (!model) return [];
-    return [
-      ...Object.values(model.columns).flat(),
-      ...model.other,
-      ...model.closed
-    ].map((i) => i.id);
+  /**
+   * Ids of the cards drawn right now (filter, search, collapsed lanes, the
+   * phone's single column and the closed list only when open). Filled by the
+   * render below, so it can never disagree with the screen.
+   * @type {string[]}
+   */
+  let shown = [];
+  const visibleIds = () => shown.slice();
+  /** Phone only: the column the single-column view shows, for the label. */
+  function scopeLabel() {
+    const fx = phone() && !closed_open ? effFocus() : '';
+    return fx ? t3('u3_tk_col_' + fx) : '';
   }
 
   const colLabel = (/** @type {{id:string}} */ c) => t3('u3_tk_col_' + c.id);
@@ -226,6 +231,7 @@ export function mount(el, ctx) {
   function column(col, items) {
     const take = Math.min(items.length, Math.max(0, budget));
     budget -= take;
+    for (const it of items.slice(0, take)) shown.push(it.id);
     return html`<section
       class="u3t-col u3t-col--${col.id}"
       id=${'u3t-' + col.id}
@@ -384,6 +390,7 @@ export function mount(el, ctx) {
       </button>`;
     }
     const slice = m.closed.slice(0, closed_shown);
+    for (const it of slice) shown.push(it.id);
     return html`<section class="u3t-col u3t-col--closed" id="u3t-closed">
       <h3 class="u3t-col__head">
         <span class="u3t-col__title">${t3('u3_tk_closed')}</span>
@@ -531,10 +538,25 @@ export function mount(el, ctx) {
             <span class="u3t-stat__l">${colLabel(c)}</span>
           </button>`;
         })}
+        ${phone() && model && model.other.length
+          ? html`<button
+              type="button"
+              class="u3t-stat__chip u3t-stat__chip--other"
+              aria-pressed=${effFocus() === 'other' ? 'true' : 'false'}
+              @click=${() => {
+                focus = 'other';
+                draw();
+              }}
+            >
+              <span class="u3t-stat__n">${model.other.length}</span>
+              <span class="u3t-stat__l">${colLabel(OTHER_COLUMN)}</span>
+            </button>`
+          : ''}
       </div>`;
   }
 
   function paint() {
+    shown = [];
     render(
       html`<section class="u3t" data-view="tasks" data-group=${group_by}>
         ${toolbar()}

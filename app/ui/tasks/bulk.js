@@ -54,6 +54,7 @@ const reasonText = (code) => {
  *   redraw: () => void,
  *   all: () => any[],
  *   visible: () => string[],
+ *   scope?: () => string,
  *   transport?: (type: string, payload: any) => Promise<any>
  * }} o
  */
@@ -534,7 +535,15 @@ export function createBulk(o) {
         ? html`<p class="u3bk-note u3-muted" role="status">${notice}</p>`
         : ''}`;
     }
-    const vis = new Set(o.visible());
+    const shownIds = [...new Set(o.visible())];
+    const vis = new Set(shownIds);
+    const many = shownIds.length > MAX_BULK;
+    const scope = o.scope ? o.scope() : '';
+    const allLabel = many
+      ? tt('u3_bk_all_first', { max: MAX_BULK, n: shownIds.length })
+      : scope
+        ? tt('u3_bk_all_in', { scope, n: shownIds.length })
+        : tt('u3_bk_all_n', { n: shownIds.length });
     let hidden = 0;
     for (const id of selected) if (!vis.has(id)) hidden++;
     const n = selected.size;
@@ -555,11 +564,14 @@ export function createBulk(o) {
             class="u3-btn u3-btn--ghost"
             data-testid="bulk-all"
             @click=${() => {
-              for (const id of vis) selected.add(id);
+              // Exactly the cards shown now; never more than one action takes.
+              for (const id of o.visible().slice(0, MAX_BULK)) {
+                selected.add(id);
+              }
               o.redraw();
             }}
           >
-            ${t3('u3_bk_all')}
+            ${allLabel}
           </button>
           <button
             type="button"
@@ -570,6 +582,11 @@ export function createBulk(o) {
             ${t3('u3_bk_cancel')}
           </button>
         </div>
+        ${many && !over
+          ? html`<p class="u3bk-note u3-muted" data-testid="bulk-cap">
+              ${tt('u3_bk_cap', { max: MAX_BULK, n: shownIds.length })}
+            </p>`
+          : ''}
         ${hidden
           ? html`<p class="u3bk-note u3-muted">
               ${tt('u3_bk_hidden', { n: hidden })}
@@ -578,6 +595,21 @@ export function createBulk(o) {
         ${over || notice
           ? html`<p class="u3bk-note u3bk-note--bad" role="alert">
               ${over ? tt('u3_bk_too_many', { max: MAX_BULK, n }) : notice}
+              ${over
+                ? html`<button
+                    type="button"
+                    class="u3-btn u3-btn--ghost"
+                    data-testid="bulk-keep"
+                    @click=${() => {
+                      const keep = [...selected].slice(0, MAX_BULK);
+                      selected.clear();
+                      for (const id of keep) selected.add(id);
+                      o.redraw();
+                    }}
+                  >
+                    ${tt('u3_bk_keep', { max: MAX_BULK })}
+                  </button>`
+                : ''}
             </p>`
           : ''}
         <div class="u3bk-bar__acts">
