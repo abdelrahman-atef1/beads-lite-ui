@@ -177,6 +177,8 @@ export function mountSearch(slot, base) {
   }
 
   function draw() {
+    // phone: let the bar know search is open so CSS can fold the other icons
+    slot.parentElement?.classList.toggle('u3-top--search', phone_open);
     render(
       html`<div class="u3-search${phone_open ? ' is-open' : ''}">
         <button
