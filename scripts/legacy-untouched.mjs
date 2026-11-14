@@ -2,7 +2,7 @@
 /**
  * Board v3 guard (beads-lite-1bo5.6.59): a v3 task may only touch app/ui/**,
  * app/css/u3-*.css, app/fonts/**, scripts/legacy-untouched.mjs and
- * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, the push log (server/features/push.js and push-log.test.js), server/bd-resolve.test.js and four exact hunks of server/bd.js (the bd lookup), the weekly flow push lines of app/sw.js, plus two narrow edits: app/main.js (only the lines of
+ * scripts/payload-v3.mjs, server/features/outputs.test.js (timeouts only), the create-issue lines of server/ws.js and its tests, the bulk feature files (server/features/bulk*.js, scripts/bulk-e2e.mjs) and its registration lines in server/features/index.js and types.js, the @mention files (server/features/mention*.js, board-posted.js, scripts/mention-*.mjs) with their seam lines in index.js, types.js, notifier.js and ws.js, the push log (server/features/push.js and push-log.test.js), server/bd-resolve.test.js, the chunk-split hunks of the build/perf/app/sw server files (59.19, exact hunks) and four exact hunks of server/bd.js (the bd lookup), the weekly flow push lines of app/sw.js, plus two narrow edits: app/main.js (only the lines of
  * the one v3 hook, no deletions) and app/index.html (only u3-*.css link
  * lines, no deletions). Anything else = legacy touched = exit 1.
  *
@@ -38,11 +38,9 @@ const ALLOWED = [
   /^server\/features\/push(-log\.test)?\.js$/,
   // Board finds bd itself (beads-lite-1bo5.6.59.21): its test, this exact file only.
   /^server\/bd-resolve\.test\.js$/,
-  // Per-screen chunks (beads-lite-1bo5.6.59.19): build, server and shell-list files, these exact files only.
-  /^(\.gitignore|eslint\.config\.js|package\.json)$/,
-  /^scripts\/build-frontend\.js$/,
-  /^server\/(app|sw)(\.test)?\.js$/,
-  /^server\/features\/perf(\.test)?\.js$/
+  // Per-screen chunks (beads-lite-1bo5.6.59.19): the tests of the two server files only; the files themselves are exact hunks in SEAM below.
+  /^server\/sw\.test\.js$/,
+  /^server\/features\/perf\.test\.js$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the
@@ -65,6 +63,116 @@ const SEAM = {
       "? '/#/issues?issue=' + encodeURIComponent(bead)",
       ": '/#/decisions'"
     ]
+  },
+  // Per-screen chunks (beads-lite-1bo5.6.59.19): the exact hunks that build, serve and precache the split chunks, nothing else of these legacy files.
+  '.gitignore': {
+    hunks: ['@@ -4,0 +5 @@'],
+    add: [
+      'app/chunks/'
+    ],
+    del: []
+  },
+  'eslint.config.js': {
+    hunks: ['@@ -15 +15,2 @@'],
+    add: [
+      '\'app/main.bundle.js.map\',',
+      '\'app/chunks/**\''
+    ],
+    del: ['\'app/main.bundle.js.map\'']
+  },
+  'package.json': {
+    hunks: ['@@ -34 +34 @@', '@@ -68,0 +69 @@'],
+    add: [
+      '"postpack": "rm -rf app/main.bundle.js app/main.bundle.js.map app/chunks"',
+      '"app/chunks",'
+    ],
+    del: ['"postpack": "rm app/main.bundle.js app/main.bundle.js.map"']
+  },
+  'scripts/build-frontend.js': {
+    hunks: ['@@ -5 +5,2 @@', '@@ -11 +12 @@', '@@ -26 +26,0 @@', '@@ -29,0 +30,3 @@', '@@ -38 +41,4 @@', '@@ -47 +53,4 @@'],
+    add: [
+      '* - Produces `app/main.bundle.js` plus `app/chunks/*.js` (one chunk per',
+      '*   screen opened by import(), beads-lite-1bo5.6.59.19) with external maps.',
+      'import { mkdirSync, rmSync } from \'node:fs\';',
+      '// The chunk folder is this script\'s own output: start it empty so a stale',
+      '// chunk from an older build is never shipped.',
+      'rmSync(path.join(app_dir, \'chunks\'), { recursive: true, force: true });',
+      'splitting: true,',
+      'outdir: app_dir,',
+      'entryNames: \'main.bundle\',',
+      'chunkNames: \'chunks/[hash]\',',
+      'log(',
+      '\'built %s\',',
+      'path.relative(repo_root, path.join(app_dir, \'main.bundle.js\'))',
+      ');'
+    ],
+    del: ['* - Produces `app/main.bundle.js` with an external source map.', 'import { mkdirSync } from \'node:fs\';', 'const outfile = path.join(app_dir, \'main.bundle.js\');', 'outfile,', 'log(\'built %s\', path.relative(repo_root, outfile));']
+  },
+  'server/app.js': {
+    hunks: ['@@ -141,0 +142 @@'],
+    add: [
+      'app.get(/^\\/chunks\\/[\\w-]+\\.js$/, perf.chunkHandler);'
+    ],
+    del: []
+  },
+  'server/sw.js': {
+    hunks: ['@@ -23,0 +24,8 @@'],
+    add: [
+      '// Split screens (import() chunks): precached with the shell so a screen',
+      '// opened offline, or on a flaky link, is already on the phone.',
+      'const chunks = path.join(app_dir, \'chunks\');',
+      'if (fs.existsSync(chunks)) {',
+      'for (const f of fs.readdirSync(chunks).sort()) {',
+      'if (/^[\\w-]+\\.js$/.test(f)) urls.push(\'/chunks/\' + f);',
+      '}'
+    ],
+    del: []
+  },
+  'server/features/perf.js': {
+    hunks: ['@@ -9,0 +10,5 @@', '@@ -28,0 +34 @@', '@@ -110,0 +117 @@', '@@ -117,0 +125,7 @@', '@@ -134,0 +149,6 @@', '@@ -141,0 +162,4 @@', '@@ -151 +175,2 @@', '@@ -152,0 +178,4 @@', '@@ -207,0 +237,17 @@', '@@ -336,0 +383 @@'],
+    add: [
+      '*   Screens behind import() are split into /chunks/<hash>.js (esbuild',
+      '*   splitting, beads-lite-1bo5.6.59.19): the page loads the shell and the',
+      '*   desk, a screen\'s chunk loads when it first opens. Chunk names are content',
+      '*   hashes, so they are immutable; old ones stay in memory so an open page',
+      '*   racing a rebuild still finds its chunk.',
+      'const CHUNK_NAME = /^[\\w-]+\\.js$/;',
+      'const chunks_dir = path.join(app_dir, \'chunks\');',
+      '/** @type {Map<string, Packed>} chunk file name -> packed (never evicted: bounded by rebuilds) */',
+      'const chunks = new Map();',
+      '/** @param {string} name - @param {Buffer} raw */',
+      'async function addChunk(name, raw) {',
+      'if (!chunks.has(name)) chunks.set(name, await pack(raw));',
+      '}',
+      'if (fs.existsSync(chunks_dir)) {',
+      'for (const f of fs.readdirSync(chunks_dir)) {',
+      'if (CHUNK_NAME.test(f))',
+      'await addChunk(f, fs.readFileSync(path.join(chunks_dir, f)));',
+      'splitting: true,',
+      'outdir: app_dir,',
+      'entryNames: \'main.bundle\',',
+      'chunkNames: \'chunks/[hash]\',',
+      'const outs = result.outputFiles || [];',
+      'const out = outs.find((o) => path.basename(o.path) === \'main.bundle.js\');',
+      'for (const o of outs) {',
+      'if (o !== out && path.dirname(o.path) === chunks_dir)',
+      'await addChunk(path.basename(o.path), Buffer.from(o.contents));',
+      '/** One split chunk: the name is its content hash, so it is immutable. */',
+      '/** @type {import(\'express\').RequestHandler} */',
+      'async function chunkHandler(req, res, next) {',
+      'try {',
+      'await getBundle(); // makes sure the chunks of the current build exist',
+      'const name = path.basename(req.path);',
+      'const p = CHUNK_NAME.test(name) ? chunks.get(name) : undefined;',
+      'if (!p) {',
+      'next();',
+      'return;',
+      'sendPacked(req, res, p, \'application/javascript; charset=utf-8\', YEAR);',
+      '} catch (err) {',
+      'next(err);',
+      'chunkHandler,'
+    ],
+    del: ['const out = result.outputFiles && result.outputFiles[0];']
   },
   // Board finds bd itself (beads-lite-1bo5.6.59.21): these four hunks of server/bd.js only.
   'server/bd.js': {
