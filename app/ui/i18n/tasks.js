@@ -28,5 +28,13 @@ export const strings = {
   u3_tk_col_merge: { en: 'Waiting for merge', ar: 'بانتظار الدمج' },
   u3_tk_col_ready: { en: 'Ready', ar: 'جاهزة' },
   u3_tk_col_blocked: { en: 'Blocked', ar: 'معطّلة' },
+  u3_tk_group: { en: 'Group by', ar: 'تجميع حسب' },
+  u3_tk_group_none: { en: 'None', ar: 'بدون' },
+  u3_tk_group_project: { en: 'Project', ar: 'المشروع' },
+  u3_tk_group_assignee: { en: 'Assignee', ar: 'المسؤول' },
+  u3_tk_group_epic: { en: 'Epic', ar: 'الإيبك' },
+  u3_tk_lane_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
+  u3_tk_lane_noepic: { en: 'No epic', ar: 'بدون إيبك' },
+  u3_tk_lane_others: { en: 'Others', ar: 'أخرى' },
   u3_tk_col_other: { en: 'Other', ar: 'أخرى' }
 };
