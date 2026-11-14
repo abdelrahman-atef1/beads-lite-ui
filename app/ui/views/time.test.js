@@ -213,3 +213,54 @@ describe('role Time screen', () => {
     document.body.innerHTML = '';
   });
 });
+
+describe('running now count (.59 low: not every open bead)', () => {
+  const row = (
+    /** @type {string} */ id,
+    /** @type {string} */ status,
+    /** @type {any} */ extra = {}
+  ) => ({
+    id,
+    role: 'swe',
+    status,
+    running: status !== 'closed',
+    closed: null,
+    active_ms: 0,
+    waiting_ms: 0,
+    intervals: [],
+    quality: { qaFail: 0, reopen: 0, ownerReject: 0, rework: 0 },
+    ...extra
+  });
+  const shown = async (/** @type {any[]} */ rows) => {
+    const el = document.createElement('div');
+    const h = mount(el, {
+      client: { send: async () => ({ present: true, built_at: null, rows }) }
+    });
+    await tick();
+    const p = el.querySelector('[data-testid=tm-running]');
+    h.unmount();
+    return p ? text(p) : '';
+  };
+  test('no lease data: counts in_progress only, labelled "in progress"', async () => {
+    const rows = [
+      ...Array.from({ length: 9 }, (_, i) => row('o' + i, 'open')),
+      row('t1', 'waiting_for_test'),
+      row('p1', 'in_progress'),
+      row('p2', 'in_progress')
+    ];
+    const s = await shown(rows);
+    expect(s).toContain('2 in progress');
+    expect(s).not.toContain('running now');
+  });
+  test('lease data: only in_progress beads with a live lease count', async () => {
+    const rows = [
+      row('p1', 'in_progress', { lease: true }),
+      row('p2', 'in_progress', { lease: false }),
+      row('o1', 'open', { lease: true })
+    ];
+    expect(await shown(rows)).toContain('1 running now');
+  });
+  test('nothing in progress: no line', async () => {
+    expect(await shown([row('o1', 'open')])).toBe('');
+  });
+});

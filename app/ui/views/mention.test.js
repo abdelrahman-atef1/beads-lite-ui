@@ -208,3 +208,70 @@ describe('picker in the composer', () => {
     off();
   });
 });
+
+describe('low findings (.59)', () => {
+  test('an emit that failed is a "failed, retry" chip, not "limit"', async () => {
+    window.localStorage.setItem('beads-ui.lang', 'en');
+    forceFixture(false);
+    useMentionApi({
+      send: async (type) =>
+        type === 'mention-chips'
+          ? {
+              chips: [
+                {
+                  comment: 'c1',
+                  role: 'qa',
+                  chip: 'limit',
+                  verdict: 'emit-failed'
+                },
+                { comment: 'c1', role: 'pm', chip: 'limit', verdict: 'capped' }
+              ]
+            }
+          : {}
+    });
+    const { loadChips } = await import('./mention.js');
+    await loadChips({}, 'b-f');
+    document.body.innerHTML = '<div id="v"></div>';
+    const host = document.getElementById('v');
+    render(renderMentionChips('b-f', { id: 'c1' }, false), host);
+    const failed = host.querySelector('[data-chip=failed]');
+    expect(failed.textContent).toContain('failed, retry');
+    expect(failed.textContent).toContain('@qa');
+    expect(host.querySelector('[data-chip=limit]').textContent).toContain(
+      '@pm'
+    );
+    forceFixture(true);
+  });
+  test('picker placement: flips below when the room above is too small', async () => {
+    const { placement } = await import('./mention.js');
+    expect(placement(300, 900, 200)).toBe('above');
+    expect(placement(300, 40, 700)).toBe('below');
+    expect(placement(300, 40, 20)).toBe('above');
+  });
+  test('picker near the top of the window sits below the box', async () => {
+    window.localStorage.setItem('beads-ui.lang', 'en');
+    forceFixture(true);
+    useMentionApi({});
+    document.body.innerHTML =
+      '<div class="u3-ts__composer"><textarea id="u3-ts-in"></textarea><div id="pop"></div></div>';
+    const ta = document.getElementById('u3-ts-in');
+    const pop = document.getElementById('pop');
+    ta.getBoundingClientRect = () => ({ top: 40, bottom: 100, height: 60 });
+    const proto = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return this.classList?.contains('u3-mn__pop')
+        ? { top: -35, bottom: 300, height: 335 }
+        : proto.call(this);
+    };
+    const off = attachPicker(ta, pop);
+    ta.value = '@';
+    ta.setSelectionRange(1, 1);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    HTMLElement.prototype.getBoundingClientRect = proto;
+    const el = pop.querySelector('.u3-mn__pop');
+    expect(el.dataset.side).toBe('below');
+    expect(el.style.bottom).toBe('auto');
+    off();
+  });
+});

@@ -194,3 +194,22 @@ export function compareKey(prev, cur) {
   if (worse) return 'worse_same';
   return 'same';
 }
+
+/**
+ * The "running now" count for the Time screen. Only beads in progress count
+ * (an open bead is not being worked). When the rows carry lease data (`lease`
+ * true while an agent holds a live lease) only leased ones count and the
+ * label stays "running now"; with no lease data the count is in-progress
+ * beads and the label says "in progress" (.59.12 low finding).
+ *
+ * @param {any[]} rows
+ * @returns {{ n: number, leased: boolean }}
+ */
+export function runningCount(rows) {
+  const prog = rows.filter((r) => r && r.status === 'in_progress');
+  const leased = rows.some((r) => r && typeof r.lease === 'boolean');
+  return {
+    n: leased ? prog.filter((r) => r.lease === true).length : prog.length,
+    leased
+  };
+}

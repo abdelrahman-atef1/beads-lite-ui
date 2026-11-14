@@ -73,6 +73,8 @@ export function createBulk(o) {
   /** @type {(() => void)|null} */
   let resultUi = null;
   let notice = '';
+  /** the notice is the over-50 one: it goes when the selection is back to 50 or fewer */
+  let noticeOver = false;
   /** @type {ReturnType<typeof setTimeout>|null} */
   let press_timer = null;
   let press_xy = [0, 0];
@@ -84,6 +86,7 @@ export function createBulk(o) {
     mode = false;
     selected.clear();
     notice = '';
+    noticeOver = false;
     sheet?.close();
     o.redraw();
   }
@@ -124,6 +127,7 @@ export function createBulk(o) {
     if (selected.has(id)) selected.delete(id);
     else selected.add(id);
     notice = '';
+    noticeOver = false;
     o.redraw();
   }
 
@@ -204,6 +208,7 @@ export function createBulk(o) {
       r = await api.apply({ action, ids, params, take_over }, o.all());
     } catch {
       notice = t3('u3_bk_failed');
+      noticeOver = false;
       sheet?.close();
       o.redraw();
       return;
@@ -279,6 +284,7 @@ export function createBulk(o) {
         stopUndo();
         await api.undo(u.batch);
         notice = tt('u3_bk_undone', { n: u.n });
+        noticeOver = false;
         sheet?.close();
         o.redraw();
       }}
@@ -293,6 +299,7 @@ export function createBulk(o) {
     if (n === 0) return;
     if (n > MAX_BULK) {
       notice = tt('u3_bk_too_many', { max: MAX_BULK, n });
+      noticeOver = true;
       o.redraw();
       return;
     }
@@ -548,6 +555,10 @@ export function createBulk(o) {
     for (const id of selected) if (!vis.has(id)) hidden++;
     const n = selected.size;
     const over = n > MAX_BULK;
+    if (noticeOver && !over) {
+      noticeOver = false;
+      notice = '';
+    }
     return html`${undo && !sheet ? toast() : ''}
       <div
         class="u3bk-bar"

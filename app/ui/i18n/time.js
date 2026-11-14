@@ -75,6 +75,10 @@ export const strings = {
     en: '{n} running now',
     ar: '{n} مهام شغّالة دلوقتي'
   },
+  u3_tm_inprog_n: {
+    en: '{n} in progress',
+    ar: '{n} مهمة قيد التنفيذ'
+  },
   u3_tm_no_closed: {
     en: 'No tasks closed in this period.',
     ar: 'مفيش مهام اتقفلت في الفترة دي.'
