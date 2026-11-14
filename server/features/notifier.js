@@ -551,6 +551,26 @@ export function createNotifier(opts = {}) {
     scan,
     snapshot,
     watching: () => [...watchers.keys()],
+    /**
+     * @mention of the owner in a comment (beads-lite-1bo5.6.64): one bell
+     * event, no title (no comment text), never a wake file.
+     * @param {string} project @param {string} bead
+     */
+    raiseMention(project, bead) {
+      const at = new Date(now()).toISOString();
+      emit({
+        id: `n-${sha(`mention|${project}|${bead}|${at}`).slice(0, 12)}`,
+        kind: 'mention',
+        project,
+        bead,
+        title: null,
+        desk: false,
+        count: 1,
+        at,
+        read: false
+      });
+      saveStore();
+    },
     list() {
       sync();
       return snapshot();
@@ -621,6 +641,14 @@ export function startNotifier(o) {
   });
   live.sync();
   return live;
+}
+
+/**
+ * Bell event for an @owner mention (beads-lite-1bo5.6.64).
+ * @param {string} project @param {string} bead
+ */
+export function raiseMention(project, bead) {
+  (live ||= createNotifier()).raiseMention(project, bead);
 }
 
 /** Re-read the project list (registry changed). */
