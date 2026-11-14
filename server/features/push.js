@@ -316,6 +316,10 @@ export function createPush(opts = {}) {
     }
   }
 
+  /** Error label for the log: letters/underscore only, else "other". */
+  const safeErr = (/** @type {any} */ v) =>
+    typeof v === 'string' && /^[A-Za-z_]{1,32}$/.test(v) ? v : 'other';
+
   function rollDay() {
     const d = dayOf(now());
     if (state.day !== d) {
@@ -365,7 +369,7 @@ export function createPush(opts = {}) {
           logAttempt(
             payload,
             s,
-            code ?? String(err?.code || err?.name || 'error').slice(0, 40),
+            code ?? safeErr(err?.code || err?.name),
             Date.now() - t0
           );
           if (code === 404 || code === 410) {

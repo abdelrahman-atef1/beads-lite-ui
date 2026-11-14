@@ -76,3 +76,12 @@ test('log over 1 MB rotates to .1', async () => {
   expect(existsSync(path.join(r.home, 'push-log.jsonl.1'))).toBe(true);
   expect(r.lines()).toHaveLength(1);
 });
+
+test('error code shaped like an endpoint is logged as "other"', async () => {
+  const bad = () => {
+    throw Object.assign(new Error('x'), { code: EP });
+  };
+  const r = rig([bad]);
+  await r.p.send(ev('alpha-1'));
+  expect(r.lines()[0].result).toBe('other');
+});
