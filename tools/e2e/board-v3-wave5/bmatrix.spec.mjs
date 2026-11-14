@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import { bd, show, create, OUT, base } from './lib.mjs';
+fs.mkdirSync(OUT + '/shots', { recursive: true });
+const COMBOS = [];
+for (const w of [390, 1440]) for (const lang of ['ar', 'en']) for (const theme of ['dark', 'light']) COMBOS.push({ w, lang, theme, name: `${w} ${lang} ${theme}` });
+for (const C of COMBOS) test(`B-matrix ${C.name}: select, bar reachable, close 2 via bar, undo`, async ({ browser }) => {
+  const ids = [create(`QAW4M bm ${C.name} 1`), create(`QAW4M bm ${C.name} 2`)];
+  const c = await browser.newContext({ viewport: { width: C.w, height: C.w < 500 ? 844 : 900 }, hasTouch: C.w < 500, locale: C.lang === 'ar' ? 'ar-EG' : 'en-US' });
+  await c.addInitScript(([l, t]) => { try { localStorage.setItem('beads-ui.lang', l); localStorage.setItem('beads-ui.theme', t); } catch {} }, [C.lang, C.theme]);
+  const page = await c.newPage(); const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('console', (m) => m.type() === 'error' && !m.location().url.includes('/att/') && errs.push(m.text()));
+  await page.goto(base('pc') + '/?ui=3#/issues'); await page.waitForSelector('.u3t-card');
+  if (C.w < 500) await page.locator('.u3t-stat__chip--ready').click();
+  await page.locator('input.u3t-search').fill(`QAW4M bm ${C.name}`); await page.waitForTimeout(600);
+  const card = (id) => page.locator(`.u3t-card[data-issue-id="${id}"]`);
+  await expect(card(ids[1])).toBeVisible({ timeout: 30000 });
+  await page.getByTestId('bulk-enter').click(); await card(ids[0]).click(); await card(ids[1]).click();
+  expect(await page.getByTestId('bulk-count').innerText()).toMatch(/2/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  const bar = await page.getByTestId('bulk-bar').boundingBox(); expect(bar.x).toBeGreaterThanOrEqual(-1); expect(bar.x + bar.width).toBeLessThanOrEqual(C.w + 1);
+  const vh = page.viewportSize().height; expect(bar.y + bar.height).toBeLessThanOrEqual(vh + 1);
+  for (const a of ['close', 'move', 'defer', 'label', 'assign']) { const b = await page.getByTestId('bulk-' + a).boundingBox(); expect(b.x).toBeGreaterThanOrEqual(-1); expect(b.x + b.width).toBeLessThanOrEqual(C.w + 1); expect(b.height).toBeGreaterThanOrEqual(30); }
+  await page.screenshot({ path: `${OUT}/shots/bm-${C.w}-${C.lang}-${C.theme}-bar.png` });
+  await page.getByTestId('bulk-close').click(); await page.getByTestId('bulk-reason').fill('qa matrix'); await page.screenshot({ path: `${OUT}/shots/bm-${C.w}-${C.lang}-${C.theme}-form.png` });
+  await page.getByTestId('bulk-apply').click(); await expect(page.getByTestId('bulk-result')).toBeVisible({ timeout: 20000 });
+  await page.screenshot({ path: `${OUT}/shots/bm-${C.w}-${C.lang}-${C.theme}-result.png` });
+  for (const id of ids) expect(show(id).status).toBe('closed');
+  await page.getByTestId('bulk-undo').click(); await page.waitForTimeout(2500);
+  for (const id of ids) expect(show(id).status).toBe('open');
+  for (const id of ids) bd(['close', id, '-r', 'qa cleanup']);
+  expect(errs).toEqual([]); await c.close();
+});
