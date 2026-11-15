@@ -41,11 +41,8 @@ const ALLOWED = [
   // Per-screen chunks (beads-lite-1bo5.6.59.19): the tests of the two server files only; the files themselves are exact hunks in SEAM below.
   /^server\/sw\.test\.js$/,
   /^server\/features\/perf\.test\.js$/,
-  // Approval-card attachments (beads-lite-1bo5.6.59.29.2; SHELL-REQ on 1bo5.6.59): the thumbnail strip, its feed/state projection, the push count; these exact files only.
+  // Approval-card attachments (beads-lite-1bo5.6.59.29.2; SHELL-REQ on 1bo5.6.59): the shared strip, its feed/state projection, the push count; these exact files only.
   /^app\/utils\/card-att(\.test)?\.js$/,
-  /^app\/views\/decisions\.att\.test\.js$/,
-  /^app\/i18n\/card\.js$/,
-  /^app\/views\/(card-panel|decisions)\.js$/,
   /^app\/sw\.js$/,
   /^server\/features\/(cards|decisions-feed|notifier|push)\.js$/,
   /^server\/features\/(decisions-feed|push)\.test\.js$/,
