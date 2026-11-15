@@ -248,7 +248,7 @@ export function openNewTask(host, ctx, opts = {}) {
                     value=${String(n)}
                     ?selected=${String(n) === f.priority}
                   >
-                    P${n} ${priorityName(n)}
+                    ${priorityName(n)}
                   </option>`
               )}
             </select>`

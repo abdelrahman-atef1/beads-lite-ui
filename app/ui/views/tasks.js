@@ -20,6 +20,7 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
+import { chipIcon } from '../tasks/chip-icons.js';
 import { roleChip } from '../components/index.js';
 import { t3 } from '../i18n.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
@@ -204,7 +205,7 @@ export function mount(el, ctx) {
         : ''}
       <span class="u3t-card__foot">
         <span class="u3-chip u3-chip--${pri <= 1 ? 'red' : 'neutral'}"
-          >P${pri}</span
+          >${priorityName(pri)}</span
         >
         ${colId === 'blocked' || blockers.length
           ? html`<span class="u3-chip u3-chip--red"
@@ -437,7 +438,7 @@ export function mount(el, ctx) {
      * @param {string} key
      * @param {string} v
      */
-    const quick = (key, v) =>
+    const quick = (key, v, ic = v) =>
       html`<button
         type="button"
         class="u3t-fchip"
@@ -445,7 +446,7 @@ export function mount(el, ctx) {
         @click=${() =>
           filter.set({ chip: f.chip === v ? 'all' : /** @type {any} */ (v) })}
       >
-        ${t3(key)}
+        ${chipIcon(ic)}${t3(key)}
       </button>`;
     /**
      * @param {'type'|'label'|'assignee'|'prio'} name
@@ -453,8 +454,26 @@ export function mount(el, ctx) {
      * @param {(v: string) => string} [show]
      */
     const menu = (name, values, show = (v) => v) =>
-      html`<label class="u3t-menu" data-on=${f[name] ? '1' : '0'}>
-        <span>${t3('u3_tk_' + name)}</span>
+      html`<label
+        class="u3t-menu"
+        data-on=${f[name] ? '1' : '0'}
+        @click=${(/** @type {MouseEvent} */ ev) => {
+          // the padded tap area outside the select opens it too
+          const sel = /** @type {HTMLSelectElement | null} */ (
+            /** @type {HTMLElement} */ (ev.currentTarget).querySelector('select')
+          );
+          if (sel && ev.target !== sel) {
+            ev.preventDefault();
+            sel.focus();
+            try {
+              sel.showPicker();
+            } catch {
+              // not supported or no user activation: focus is enough
+            }
+          }
+        }}
+      >
+        ${chipIcon(name)}<span>${t3('u3_tk_' + name)}</span>
         <select
           aria-label=${t3('u3_tk_' + name)}
           @change=${(/** @type {Event} */ ev) =>
@@ -497,7 +516,7 @@ export function mount(el, ctx) {
         />
         <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
           ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')}
-          ${quick('u3_tk_p01', 'p01')} ${quick('u3_tk_decision', 'decision')}
+          ${quick('u3_tk_p01', 'p01', 'urgent')} ${quick('u3_tk_decision', 'decision')}
           ${quick('u3_tk_blocked', 'blocked')} ${menu('type', fc.types)}
           ${menu('label', fc.labels)} ${menu('assignee', fc.assignees)}
           ${menu('prio', ['0', '1', '2', '3', '4'], (v) =>

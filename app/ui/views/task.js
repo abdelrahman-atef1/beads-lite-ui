@@ -404,7 +404,7 @@ export function mount(el, ctx) {
                 label: statusLabel(i.status),
                 tone: TONE[i.status] || 'neutral'
               })}
-              ${chip({ label: 'P' + Number(i.priority ?? 2) })}
+              ${chip({ label: priorityName(i.priority) })}
             </div>
             <span class="u3-ts__tools">
               ${button({
