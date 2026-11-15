@@ -20,19 +20,22 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
-import { chipIcon } from '../tasks/chip-icons.js';
 import { roleChip } from '../components/index.js';
 import { t3 } from '../i18n.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
+import { chipIcon, typeIconName } from '../tasks/chip-icons.js';
+import { filterMenu } from '../tasks/filter-menu.js';
 import {
   GROUPS,
   groupIssues,
   loadCollapsed,
   loadGroup,
+  projectOf,
   saveCollapsed,
   saveGroup
 } from '../tasks/lanes.js';
 import { CLOSED_PAGE, FIRST_PAINT_CARDS, buildBoard } from '../tasks/model.js';
+import { loadSaved, save } from '../tasks/saved-filters.js';
 import { openNewTask } from './new-task.js';
 
 const IDS = [
@@ -70,6 +73,37 @@ export function mount(el, ctx) {
   const selectors = ctx.listSelectors;
   const filter = createFilterState();
   const me = currentUser();
+  // Project filter (several allowed) and the open filter popover live here;
+  // the last chosen filters come back from this device's saved copy.
+  /** @type {string[]} */
+  let projects = [];
+  /** @type {import('../tasks/filter-menu.js').Open | null} */
+  let open_menu = null;
+  /** @type {'' | 'opt' | string} focus target after the next paint: 'opt' or a menu name */
+  let focus_to = '';
+  {
+    const sv = loadSaved();
+    const f0 = filter.get();
+    projects = sv.projects;
+    filter.set({
+      chip: f0.chip === 'all' ? /** @type {any} */ (sv.chip) : f0.chip,
+      type: f0.type || sv.type,
+      label: f0.label || sv.label,
+      assignee: f0.assignee || sv.assignee,
+      prio: f0.prio || sv.prio
+    });
+  }
+  function remember() {
+    const f = filter.get();
+    save({
+      chip: f.chip,
+      type: f.type,
+      label: f.label,
+      assignee: f.assignee,
+      prio: f.prio,
+      projects
+    });
+  }
   /** @type {Array<() => Promise<void>>} */
   const unsubs = [];
   let alive = true;
@@ -129,7 +163,7 @@ export function mount(el, ctx) {
         blocked: snap('tab:board:blocked'),
         closed: snap('tab:board:closed')
       },
-      filter.get(),
+      { ...filter.get(), projects },
       me
     );
     draw();
@@ -449,47 +483,73 @@ export function mount(el, ctx) {
         ${chipIcon(ic)}${t3(key)}
       </button>`;
     /**
-     * @param {'type'|'label'|'assignee'|'prio'} name
-     * @param {string[]} values
-     * @param {(v: string) => string} [show]
+     * @param {'type'|'label'|'assignee'|'prio'|'project'} name
+     * @param {import('../tasks/filter-menu.js').Opt[]} options
      */
-    const menu = (name, values, show = (v) => v) =>
-      html`<label
-        class="u3t-menu"
-        data-on=${f[name] ? '1' : '0'}
-        @click=${(/** @type {MouseEvent} */ ev) => {
-          // the padded tap area outside the select opens it too
-          const sel = /** @type {HTMLSelectElement | null} */ (
-            /** @type {HTMLElement} */ (ev.currentTarget).querySelector('select')
-          );
-          if (sel && ev.target !== sel) {
-            ev.preventDefault();
-            sel.focus();
-            try {
-              sel.showPicker();
-            } catch {
-              // not supported or no user activation: focus is enough
-            }
+    const menu = (name, options) =>
+      filterMenu({
+        name,
+        icon: name,
+        title: t3('u3_tk_' + name),
+        any: t3('u3_tk_any'),
+        options,
+        selected: name === 'project' ? projects : f[name] ? [f[name]] : [],
+        multi: name === 'project',
+        open: open_menu,
+        setOpen: (o) => {
+          open_menu = o;
+          focus_to = o ? 'opt' : name;
+          draw();
+        },
+        pick: (v) => {
+          if (name === 'project') {
+            projects = !v
+              ? []
+              : projects.includes(v)
+                ? projects.filter((x) => x !== v)
+                : [...projects, v];
+            remember();
+            refresh();
+            return;
           }
-        }}
-      >
-        ${chipIcon(name)}<span>${t3('u3_tk_' + name)}</span>
-        <select
-          aria-label=${t3('u3_tk_' + name)}
-          @change=${(/** @type {Event} */ ev) =>
-            filter.set({
-              [name]: /** @type {HTMLSelectElement} */ (ev.target).value
-            })}
-        >
-          <option value="" ?selected=${!f[name]}>${t3('u3_tk_any')}</option>
-          ${values.map(
-            (v) =>
-              html`<option value=${v} ?selected=${f[name] === v}>
-                ${show(v)}
-              </option>`
-          )}
-        </select>
-      </label>`;
+          open_menu = null;
+          focus_to = name;
+          filter.set({ [name]: f[name] === v ? '' : v });
+        }
+      });
+    const pris = ['0', '1', '2', '3', '4'];
+    const menus = html`${menu(
+      'type',
+      fc.types.map((v) => ({ value: v, label: v, icon: typeIconName(v) }))
+    )}
+    ${menu(
+      'label',
+      fc.labels.map((v) => ({ value: v, label: v, icon: 'label' }))
+    )}
+    ${menu('assignee', [
+      { value: '-', label: t3('u3_tk_unassigned'), icon: 'nobody' },
+      ...fc.assignees.map((v) => ({ value: v, label: v, icon: 'mine' }))
+    ])}
+    ${menu(
+      'prio',
+      pris.map((v) => ({
+        value: v,
+        label: priorityName(Number(v)),
+        icon: 'prio',
+        tone: 'u3t-ic--p' + v
+      }))
+    )}
+    ${menu(
+      'project',
+      [
+        ...new Set([
+          ...(model ? model.facetItems : []).map((i) => projectOf(i.id)),
+          ...projects
+        ])
+      ]
+        .sort()
+        .map((v) => ({ value: v, label: v, icon: 'project' }))
+    )}`;
     return html`<div class="u3t-bar">
         ${groupBar()}
         <button
@@ -516,17 +576,16 @@ export function mount(el, ctx) {
         />
         <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
           ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')}
-          ${quick('u3_tk_p01', 'p01', 'urgent')} ${quick('u3_tk_decision', 'decision')}
-          ${quick('u3_tk_blocked', 'blocked')} ${menu('type', fc.types)}
-          ${menu('label', fc.labels)} ${menu('assignee', fc.assignees)}
-          ${menu('prio', ['0', '1', '2', '3', '4'], (v) =>
-            priorityName(Number(v))
-          )}
-          ${isFiltering(f)
+          ${quick('u3_tk_p01', 'p01', 'urgent')}
+          ${quick('u3_tk_decision', 'decision')}
+          ${quick('u3_tk_blocked', 'blocked')} ${menus}
+          ${isFiltering(f) || projects.length
             ? html`<button
                 type="button"
                 class="u3t-fchip u3t-fchip--clear"
-                @click=${() =>
+                @click=${() => {
+                  projects = [];
+                  open_menu = null;
                   filter.set({
                     chip: 'all',
                     type: '',
@@ -534,7 +593,10 @@ export function mount(el, ctx) {
                     assignee: '',
                     prio: '',
                     search: ''
-                  })}
+                  });
+                  remember();
+                  refresh();
+                }}
               >
                 ${t3('u3_tk_clear')}
               </button>`
@@ -589,6 +651,31 @@ export function mount(el, ctx) {
       </section>`,
       el
     );
+    placePopover();
+  }
+
+  /** Keep the open popover inside the screen, then hand focus where it belongs. */
+  function placePopover() {
+    const pop = /** @type {HTMLElement | null} */ (
+      el.querySelector('.u3t-pop')
+    );
+    if (pop && open_menu) {
+      const w = pop.getBoundingClientRect().width;
+      const left = Math.max(
+        8,
+        Math.min(open_menu.left, window.innerWidth - w - 8)
+      );
+      pop.style.left = left + 'px';
+    }
+    if (!focus_to) return;
+    const t = focus_to;
+    focus_to = '';
+    const target =
+      t === 'opt'
+        ? el.querySelector('.u3t-opt[aria-selected="true"]:not([data-v=""])') ||
+          el.querySelector('.u3t-opt')
+        : el.querySelector(`.u3t-menu[data-name="${t}"]`);
+    /** @type {HTMLElement | null} */ (target)?.focus();
   }
 
   function draw() {
@@ -619,7 +706,26 @@ export function mount(el, ctx) {
     }
   }
 
-  const offF = filter.subscribe(() => refresh());
+  const offF = filter.subscribe(() => {
+    remember();
+    refresh();
+  });
+  // a tap outside or Escape closes the open filter popover
+  const onDoc = (/** @type {Event} */ ev) => {
+    if (!open_menu) return;
+    if (
+      ev.type === 'keydown'
+        ? /** @type {KeyboardEvent} */ (ev).key !== 'Escape'
+        : /** @type {HTMLElement} */ (ev.target).closest?.('.u3t-menu-w')
+    ) {
+      return;
+    }
+    if (ev.type === 'keydown') focus_to = open_menu.name;
+    open_menu = null;
+    draw();
+  };
+  document.addEventListener('click', onDoc);
+  document.addEventListener('keydown', onDoc);
   const offS = selectors.subscribe(() => refresh(), IDS);
   const onLang = () => draw();
   window.addEventListener('bdui-lang', onLang);
@@ -632,6 +738,8 @@ export function mount(el, ctx) {
       if (q_timer) clearTimeout(q_timer);
       bulk.destroy();
       offF();
+      document.removeEventListener('click', onDoc);
+      document.removeEventListener('keydown', onDoc);
       if (typeof offS === 'function') offS();
       window.removeEventListener('bdui-lang', onLang);
       for (const u of unsubs) void u().catch(() => {});
