@@ -9,10 +9,11 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
+import { attStrip, cleanAtt } from '../../utils/card-att.js';
+import { cardDir, cardLang, detectLang } from '../../utils/card-dir.js';
 import { errorText } from '../../utils/card-text.js';
 import { showToast } from '../../utils/toast.js';
 import { ageText, clientOf, stepsHref, taskHref, tc } from '../card/common.js';
-import { cardDir, cardLang, detectLang } from '../../utils/card-dir.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button } from '../components/button.js';
 import { card as frame } from '../components/card.js';
@@ -198,6 +199,11 @@ function cardBody(c, lang) {
     <p class="u3-cd__q" dir="auto">${c.q}</p>
     ${c.effect ? field('u3_card_effect', lang, c.effect) : nothing}
     ${c.show ? field('u3_card_show', lang, c.show) : nothing}
+    ${attStrip(c.att, {
+      label: tc('u3_card_att', lang),
+      open: tc('u3_card_att_open', lang),
+      link: tc('u3_card_att_link', lang)
+    })}
     ${c.blocks
       ? field('u3_card_blocks', lang, c.blocks, 'u3-cd__blk')
       : nothing}
@@ -217,6 +223,7 @@ function paint(el, p) {
           q: meta.card_q,
           effect: meta.card_effect,
           show: meta.card_show,
+          att: cleanAtt(meta.card_att),
           blocks: meta.card_blocks,
           opts: []
         }

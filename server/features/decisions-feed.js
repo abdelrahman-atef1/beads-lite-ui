@@ -29,6 +29,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cleanAtt } from '../../app/utils/card-att.js';
 import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { isDeskIssue } from '../phone.js';
@@ -75,10 +76,7 @@ export function findSteps(comments) {
     const lines = String(c?.text ?? '')
       .split('\n')
       .map((l) => l.trim());
-    if (
-      c?.author === 'owner-board' &&
-      lines[0].startsWith(STEPS_DONE_HEAD)
-    ) {
+    if (c?.author === 'owner-board' && lines[0].startsWith(STEPS_DONE_HEAD)) {
       found = null;
     } else if (
       lines[0].startsWith(STEPS_HEAD) &&
@@ -272,6 +270,13 @@ export function createDecisionsFeed(opts = {}) {
     for (const k of KEEP_META) {
       if (typeof m[k] === 'string') metadata[k] = m[k];
     }
+    // card_att: only re-checked /att/ items cross to the client (list or string)
+    const att = cleanAtt(m.card_att);
+    if (att.length) {
+      metadata.card_att = JSON.stringify(
+        att.map((x) => ({ a: x.src.slice(5), n: x.n, h: x.h }))
+      );
+    }
     const ts =
       typeof bead.updated_at === 'number'
         ? bead.updated_at
@@ -389,7 +394,11 @@ export function createDecisionsFeed(opts = {}) {
         labelled = await listSteps(p.path);
       } catch (e) {
         // steps are an extra: the decisions still list without them
-        log('steps %s failed: %s', key, String(/** @type {any} */ (e)?.message));
+        log(
+          'steps %s failed: %s',
+          key,
+          String(/** @type {any} */ (e)?.message)
+        );
       }
       /** @type {Map<string, any>} */
       const steps = new Map();
@@ -398,9 +407,7 @@ export function createDecisionsFeed(opts = {}) {
         if (st) steps.set(e.bead.id, { st, bead: e.bead });
       }
       /** @type {any[]} */
-      const items = beads
-        .map((b) => toItem(b, p))
-        .filter((x) => x !== null);
+      const items = beads.map((b) => toItem(b, p)).filter((x) => x !== null);
       for (const it of items) {
         const hit = steps.get(it.id);
         if (hit) {

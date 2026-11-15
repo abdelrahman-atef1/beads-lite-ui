@@ -117,7 +117,18 @@ function describePush(p) {
   const count = Number(p.count) || 0;
   const bead =
     typeof p.bead === 'string' && BEAD_ID.test(p.bead) ? p.bead : null;
-  const body = MSG[lang][kind]({ project, title, count });
+  const att = Math.min(6, Math.max(0, Math.trunc(Number(p.att)) || 0));
+  let body = MSG[lang][kind]({ project, title, count });
+  // images on the card: a count only, never names
+  if (att > 0 && kind === 'decision') {
+    body +=
+      lang === 'ar'
+        ? ' (' + att + (att === 1 ? ' صورة مرفقة' : ' صور مرفقة') + ')'
+        : ' (' +
+          att +
+          (att === 1 ? ' image attached' : ' images attached') +
+          ')';
+  }
   return {
     title: project || 'Board',
     options: {

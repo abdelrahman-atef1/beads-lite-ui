@@ -109,18 +109,31 @@ describe('decisions-feed steps', () => {
     created_at: '2026-11-13T10:00:00Z',
     text
   });
-  const good = stepsC('aabbccdd-0001', 'STEPS: Install the build\n## Steps\n1. Open it\n2. Tap install\n## Why\nx');
-  const lab = (/** @type {any} */ b, /** @type {any[]} */ comments) => ({ bead: { ...b, labels: ['owner-steps'] }, comments });
+  const good = stepsC(
+    'aabbccdd-0001',
+    'STEPS: Install the build\n## Steps\n1. Open it\n2. Tap install\n## Why\nx'
+  );
+  const lab = (/** @type {any} */ b, /** @type {any[]} */ comments) => ({
+    bead: { ...b, labels: ['owner-steps'] },
+    comments
+  });
 
   test('a marked bead shows as kind steps with its comment id and step count', async () => {
     const r = rig({
       listSteps: async (/** @type {string} */ cwd) =>
-        cwd === '/w/alpha' ? [lab(bead('alpha-7', {}, { status: 'in_progress' }), [good])] : []
+        cwd === '/w/alpha'
+          ? [lab(bead('alpha-7', {}, { status: 'in_progress' }), [good])]
+          : []
     });
     const snap = await r.feed.list();
     const s = snap.items.find((i) => i.id === 'alpha-7');
     expect(s?.kind).toBe('steps');
-    expect(s?.steps).toEqual({ comment: 'c-aabbccdd', title: 'Install the build', n: 2, at: '2026-11-13T10:00:00Z' });
+    expect(s?.steps).toEqual({
+      comment: 'c-aabbccdd',
+      title: 'Install the build',
+      n: 2,
+      at: '2026-11-13T10:00:00Z'
+    });
     expect(snap.items.find((i) => i.id === 'alpha-1')?.kind).toBe('decision');
   });
   test('a bead with a card AND steps stays one decision item carrying steps', async () => {
@@ -143,17 +156,32 @@ describe('decisions-feed steps', () => {
           ? [
               lab(bead('a-closed', {}, { status: 'closed' }), [good]),
               lab(bead('a-done', {}, { status: 'open' }), [good, done]),
-              lab(bead('a-nosec', {}, { status: 'open' }), [stepsC('aabbccdd-9', 'STEPS: no section')]),
-              lab(bead('a-leak', {}, { status: 'open' }), [stepsC('aabbccdd-8', 'STEPS: key sk-abcdefgh12345\n## Steps\n1. x')])
+              lab(bead('a-nosec', {}, { status: 'open' }), [
+                stepsC('aabbccdd-9', 'STEPS: no section')
+              ]),
+              lab(bead('a-leak', {}, { status: 'open' }), [
+                stepsC(
+                  'aabbccdd-8',
+                  'STEPS: key sk-abcdefgh12345\n## Steps\n1. x'
+                )
+              ])
             ]
           : []
     });
     const ids = (await r.feed.list()).items.map((i) => i.id);
-    for (const x of ['a-closed', 'a-done', 'a-nosec', 'a-leak']) expect(ids).not.toContain(x);
+    for (const x of ['a-closed', 'a-done', 'a-nosec', 'a-leak'])
+      expect(ids).not.toContain(x);
   });
   test('a failing steps lookup does not hide the decisions', async () => {
-    const r = rig({ listSteps: async () => { throw new Error('boom'); } });
-    expect((await r.feed.list()).items.map((i) => i.id)).toEqual(['beta-1', 'alpha-1']);
+    const r = rig({
+      listSteps: async () => {
+        throw new Error('boom');
+      }
+    });
+    expect((await r.feed.list()).items.map((i) => i.id)).toEqual([
+      'beta-1',
+      'alpha-1'
+    ]);
   });
 });
 
@@ -280,5 +308,28 @@ describe('decisions-feed', () => {
     const snap = await r.feed.list();
     expect(snap.items).toEqual([]);
     expect(snap.rules_ok).toBe(false);
+  });
+});
+
+describe('decisions-feed card_att', () => {
+  test('only re-checked /att/ items cross to the client, capped at 6', async () => {
+    const good = { a: 'company/2026-11/0123456789abcdef.png', n: 'x' };
+    const att = [
+      good,
+      { a: 'https://evil.example/x.png' },
+      ...Array(8).fill(good)
+    ];
+    const r = rig();
+    r.parked['/w/alpha'] = [
+      bead('alpha-1', card({ card_att: JSON.stringify(att) }))
+    ];
+    const snap = await r.feed.list();
+    const got = JSON.parse(
+      snap.items.find((i) => i.id === 'alpha-1').metadata.card_att
+    );
+    expect(got).toHaveLength(6);
+    expect(
+      got.every((/** @type {any} */ x) => x.a.startsWith('company/'))
+    ).toBe(true);
   });
 });

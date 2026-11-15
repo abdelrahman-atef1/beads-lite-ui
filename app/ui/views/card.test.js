@@ -312,3 +312,34 @@ describe('renderStepsComment', () => {
     expect(n.querySelector('.u3-st')).toBeNull();
   });
 });
+
+describe('card attachments (.59.29.2)', () => {
+  const OK = 'company/2026-11/0123456789abcdef.png';
+  test('thumbnails render under the thing, in ar', async () => {
+    const data = {
+      ...AR,
+      card: {
+        ...AR.card,
+        att: [
+          { src: '/att/' + OK, n: 'الشاشة', h: '' },
+          { src: '/att/' + OK, n: '', h: '' }
+        ]
+      }
+    };
+    const { el } = mount(data);
+    await tick();
+    const imgs = [...el.querySelectorAll('.att-strip img')];
+    expect(imgs.map((i) => i.getAttribute('src'))).toEqual([
+      '/att/' + OK,
+      '/att/' + OK
+    ]);
+    expect(el.querySelector('.att-strip__lbl').textContent).toBe(
+      'صور للمراجعة'
+    );
+  });
+  test('no att: no strip', async () => {
+    const { el } = mount(AR);
+    await tick();
+    expect(el.querySelector('.att-strip')).toBeNull();
+  });
+});
