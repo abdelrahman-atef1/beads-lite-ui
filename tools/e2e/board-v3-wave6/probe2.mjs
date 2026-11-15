@@ -1,0 +1,10 @@
+import { launch, base, E, bd } from './lib.mjs';
+const srv = 'new';
+const META = (t) => JSON.stringify({ ask_ar: 'اختبار', card_q: 'Which colour for the logo?', asked_at: new Date().toISOString(), title_ar: 'اختبار', card_back: 'swe', card_opts: '[{"l":"Red"},{"l":"Blue","rec":true}]', card_show: 'Red or blue.', card_class: 'tap', card_thing: 'true', card_blocks: 'nothing', card_effect: 'Changes the logo colour.', card_title: t });
+const r = bd(srv, ['create', 'QA fixture card probe', '-t', 'task', '-a', 'abdelrahman', '--metadata', META('probe'), '--silent']); console.log(r.stdout.trim(), r.stderr.slice(0,200));
+const id = r.stdout.trim().split(/\s+/).pop();
+console.log(bd(srv, ['update', id, '--status', 'owner_decision']).stderr.slice(0,200));
+const b = await launch(); const c = await b.newContext({ viewport: { width: 1440, height: 900 } }); const p = await c.newPage();
+await p.goto(base(srv) + '/#/'); await p.waitForTimeout(3000);
+console.log(await p.evaluate((id) => { const q=[...document.querySelectorAll('.qcard')].find(x=>x.innerText.includes(id)); return q? q.outerHTML.slice(0,1800): 'none:'+document.body.innerText.slice(0,300); }, id));
+await b.close();
