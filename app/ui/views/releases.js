@@ -341,16 +341,17 @@ export function mount(el, ctx) {
     const done = task.status === 'closed' && task.closed_at;
     return html`<li class="rl3-task">
       <a
-        class="u3-mono rl3-id"
+        class="rl3-tlink"
         href=${'#/issues?issue=' + encodeURIComponent(task.id)}
-        >${task.id}</a
       >
-      <span class="rl3-ttl" dir="auto">${task.title}</span>
-      <span class="u3-muted rl3-st"
-        >${done
-          ? '✓ ' + tr('rl_closed_on', { d: shortDay(task.closed_at) })
-          : tr('rl_open')}</span
-      >
+        <span class="u3-mono rl3-id">${task.id}</span>
+        <span class="rl3-ttl" dir="auto">${task.title}</span>
+        <span class="u3-muted rl3-st"
+          >${done
+            ? '✓ ' + tr('rl_closed_on', { d: shortDay(task.closed_at) })
+            : tr('rl_open')}</span
+        >
+      </a>
     </li>`;
   }
 

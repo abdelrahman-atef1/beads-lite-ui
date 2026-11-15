@@ -117,6 +117,10 @@ describe('v3 releases detail: task links, link, download', () => {
       a.getAttribute('href')
     );
     expect(hrefs).toEqual(['#/issues?issue=other-7', '#/issues?issue=p-2']);
+    // one link per row, and it holds the title, so tapping the title opens it
+    const row = el.querySelector('.rl3-task');
+    expect(row?.querySelectorAll('a').length).toBe(1);
+    expect(row?.querySelector('a .rl3-ttl')?.textContent).toBe('T');
     h.unmount();
   });
 

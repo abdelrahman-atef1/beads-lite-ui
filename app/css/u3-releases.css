@@ -267,11 +267,25 @@
   list-style: none;
 }
 .rl3-task {
+  border-top: 1px solid var(--u3-border);
+}
+/* the whole row is one link, at least 44px tall */
+.u3 .rl3-tlink {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 2px var(--u3-sp-3);
+  align-items: baseline;
+  min-height: 44px;
   padding: var(--u3-sp-3) 0;
-  border-top: 1px solid var(--u3-border);
+  color: inherit;
+  text-decoration: none;
+}
+.rl3-tlink:hover .rl3-ttl {
+  text-decoration: underline;
+}
+.rl3-tlink:focus-visible {
+  outline: 2px solid var(--u3-focus);
+  outline-offset: 2px;
 }
 .rl3-id {
   color: var(--u3-focus);
