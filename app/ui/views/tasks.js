@@ -79,6 +79,8 @@ export function mount(el, ctx) {
   let projects = [];
   /** @type {import('../tasks/filter-menu.js').Open | null} */
   let open_menu = null;
+  /** @type {'' | 'opt' | string} focus target after the next paint: 'opt' or a menu name */
+  let focus_to = '';
   {
     const sv = loadSaved();
     const f0 = filter.get();
@@ -496,6 +498,7 @@ export function mount(el, ctx) {
         open: open_menu,
         setOpen: (o) => {
           open_menu = o;
+          focus_to = o ? 'opt' : name;
           draw();
         },
         pick: (v) => {
@@ -510,6 +513,7 @@ export function mount(el, ctx) {
             return;
           }
           open_menu = null;
+          focus_to = name;
           filter.set({ [name]: f[name] === v ? '' : v });
         }
       });
@@ -647,6 +651,31 @@ export function mount(el, ctx) {
       </section>`,
       el
     );
+    placePopover();
+  }
+
+  /** Keep the open popover inside the screen, then hand focus where it belongs. */
+  function placePopover() {
+    const pop = /** @type {HTMLElement | null} */ (
+      el.querySelector('.u3t-pop')
+    );
+    if (pop && open_menu) {
+      const w = pop.getBoundingClientRect().width;
+      const left = Math.max(
+        8,
+        Math.min(open_menu.left, window.innerWidth - w - 8)
+      );
+      pop.style.left = left + 'px';
+    }
+    if (!focus_to) return;
+    const t = focus_to;
+    focus_to = '';
+    const target =
+      t === 'opt'
+        ? el.querySelector('.u3t-opt[aria-selected="true"]:not([data-v=""])') ||
+          el.querySelector('.u3t-opt')
+        : el.querySelector(`.u3t-menu[data-name="${t}"]`);
+    /** @type {HTMLElement | null} */ (target)?.focus();
   }
 
   function draw() {
@@ -691,6 +720,7 @@ export function mount(el, ctx) {
     ) {
       return;
     }
+    if (ev.type === 'keydown') focus_to = open_menu.name;
     open_menu = null;
     draw();
   };

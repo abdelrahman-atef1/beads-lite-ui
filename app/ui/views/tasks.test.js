@@ -189,4 +189,54 @@ describe('ui/views/tasks (v3)', () => {
     expect(a.querySelector('.u3t')?.getAttribute('data-group')).toBe('none');
     h.unmount();
   });
+
+  describe('filter popover', () => {
+    const chip = (/** @type {HTMLElement} */ a, /** @type {string} */ n) =>
+      /** @type {HTMLElement} */ (
+        a.querySelector(`.u3t-menu[data-name="${n}"]`)
+      );
+    const key = (/** @type {string} */ k) =>
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, bubbles: true })
+      );
+
+    test('arrow keys move between options and focus returns to the chip', async () => {
+      const { a, h } = setup(30);
+      await flush();
+      chip(a, 'type').click();
+      const opts = () => [...a.querySelectorAll('.u3t-opt')];
+      expect(document.activeElement).toBe(opts()[0]); // "Any" is the chosen one
+      key('ArrowDown');
+      expect(document.activeElement).toBe(opts()[1]);
+      key('End');
+      expect(document.activeElement).toBe(opts().at(-1));
+      key('ArrowDown'); // stops at the end
+      expect(document.activeElement).toBe(opts().at(-1));
+      key('Home');
+      expect(document.activeElement).toBe(opts()[0]);
+      /** @type {HTMLElement} */ (opts()[1]).click();
+      await flush();
+      expect(a.querySelector('.u3t-pop')).toBeNull();
+      expect(document.activeElement).toBe(chip(a, 'type'));
+      chip(a, 'type').click();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(a.querySelector('.u3t-pop')).toBeNull();
+      expect(document.activeElement).toBe(chip(a, 'type'));
+      h.unmount();
+    });
+
+    test('a popover opened near the edge is pulled back inside the screen', async () => {
+      const { a, h } = setup(30);
+      await flush();
+      const c = chip(a, 'project');
+      c.getBoundingClientRect = () =>
+        /** @type {any} */ ({ left: 5000, bottom: 40, width: 80 });
+      c.click();
+      const pop = /** @type {HTMLElement} */ (a.querySelector('.u3t-pop'));
+      expect(parseFloat(pop.style.left)).toBeLessThanOrEqual(
+        window.innerWidth - 8
+      );
+      h.unmount();
+    });
+  });
 });

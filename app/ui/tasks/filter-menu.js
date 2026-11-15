@@ -45,6 +45,30 @@ export function filterMenu(p) {
         : { name: p.name, left: Math.round(r.left), top: Math.round(r.bottom) }
     );
   };
+  /** @param {KeyboardEvent} ev */
+  const keynav = (ev) => {
+    const k = ev.key;
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(k)) return;
+    ev.preventDefault();
+    const list = /** @type {HTMLElement[]} */ ([
+      .../** @type {HTMLElement} */ (ev.currentTarget).querySelectorAll(
+        '.u3t-opt'
+      )
+    ]);
+    const at = list.indexOf(
+      /** @type {HTMLElement} */ (document.activeElement)
+    );
+    const next =
+      k === 'Home'
+        ? 0
+        : k === 'End'
+          ? list.length - 1
+          : Math.max(
+              0,
+              Math.min(list.length - 1, at + (k === 'ArrowDown' ? 1 : -1))
+            );
+    list[next]?.focus();
+  };
   /** @param {Opt} o */
   const row = (o) => {
     const sel = o.value === '' ? !on : p.selected.includes(o.value);
@@ -79,6 +103,7 @@ export function filterMenu(p) {
           class="u3t-pop"
           role="listbox"
           aria-label=${p.title}
+          @keydown=${keynav}
           style="--x:${p.open?.left}px;--y:${p.open?.top}px"
         >
           ${row({ value: '', label: p.any, icon: 'any' })} ${p.options.map(row)}

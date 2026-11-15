@@ -91,7 +91,7 @@
 .u3 .u3t-pop {
   position: fixed;
   z-index: 60;
-  left: clamp(8px, var(--x), calc(100vw - 232px));
+  left: var(--x); /* clamped to the screen in tasks.js after paint */
   top: calc(var(--y) + 8px);
   display: flex;
   flex-direction: column;
@@ -571,4 +571,12 @@
 }
 .u3 .u3bk-tick ~ .u3t-card__id {
   padding-inline-start: 30px;
+}
+
+/* wide screens: the filters wrap instead of scrolling, so Clear is never cut */
+@media (min-width: 700px) {
+  .u3 .u3t-filters {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
 }
