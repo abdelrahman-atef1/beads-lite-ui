@@ -243,6 +243,22 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.rl3-where {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin-block: var(--u3-sp-3);
+}
+/* `.u3 a` out-ranks the button ink: restate it for the link-buttons */
+.u3 .rl3-where a.u3-btn--primary {
+  color: var(--u3-blue-ink);
+  text-decoration: none;
+}
+.rl3-url {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  overflow-wrap: anywhere;
+}
 .rl3-tasks {
   display: flex;
   flex-direction: column;

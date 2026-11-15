@@ -54,6 +54,11 @@ export const dayTime = (at) =>
     hour: '2-digit',
     minute: '2-digit'
   });
+/** @param {number} n */
+const sizeLabel = (n) =>
+  n >= 1048576
+    ? (n / 1048576).toFixed(1) + ' MB'
+    : Math.max(1, Math.round(n / 1024)) + ' KB';
 /** @param {number} at */
 const shortDay = (at) => fmt(at, { day: 'numeric', month: 'numeric' });
 
@@ -78,19 +83,10 @@ export function mount(el, ctx) {
   /** @type {Map<string, string>} */
   const known = new Map();
   let selected = '';
-  /** @type {{ state: string, tasks: any[], more: number, git_failed: boolean } | null} */
+  /** @type {{ state: string, tasks: any[], more: number, git_failed: boolean, file: { state: string, name?: string, size?: number } } | null} */
   let detail = null;
   let seq = 0;
   let dead = false;
-
-  const isCurrent = (/** @type {string} */ key) => {
-    const p = ctx.store?.getState?.().workspace?.current?.path || '';
-    const cur = String(p)
-      .replace(/[\\/]+$/, '')
-      .split(/[\\/]/)
-      .pop();
-    return Boolean(cur) && String(cur).toLowerCase() === key;
-  };
 
   const draw = () => {
     if (!dead) render(template(), el);
@@ -127,7 +123,13 @@ export function mount(el, ctx) {
   /** @param {any} r */
   async function openDetail(r) {
     selected = r.id;
-    detail = { state: 'loading', tasks: [], more: 0, git_failed: false };
+    detail = {
+      state: 'loading',
+      tasks: [],
+      more: 0,
+      git_failed: false,
+      file: { state: 'none' }
+    };
     draw();
     try {
       const res = await client.send(T_GET, { project: r.project, id: r.id });
@@ -136,11 +138,21 @@ export function mount(el, ctx) {
         state: 'ready',
         tasks: Array.isArray(res?.tasks) ? res.tasks : [],
         more: Number(res?.more) || 0,
-        git_failed: res?.git_failed === true
+        git_failed: res?.git_failed === true,
+        file:
+          res?.file && typeof res.file === 'object'
+            ? res.file
+            : { state: 'none' }
       };
     } catch {
       if (selected !== r.id) return;
-      detail = { state: 'error', tasks: [], more: 0, git_failed: false };
+      detail = {
+        state: 'error',
+        tasks: [],
+        more: 0,
+        git_failed: false,
+        file: { state: 'none' }
+      };
     }
     draw();
   }
@@ -324,20 +336,15 @@ export function mount(el, ctx) {
     return list();
   }
 
-  /**
-   * @param {any} task
-   * @param {any} r
-   */
-  function taskRow(task, r) {
+  /** @param {any} task */
+  function taskRow(task) {
     const done = task.status === 'closed' && task.closed_at;
     return html`<li class="rl3-task">
-      ${isCurrent(r.project)
-        ? html`<a
-            class="u3-mono rl3-id"
-            href=${'#/issues?issue=' + encodeURIComponent(task.id)}
-            >${task.id}</a
-          >`
-        : html`<span class="u3-mono rl3-id">${task.id}</span>`}
+      <a
+        class="u3-mono rl3-id"
+        href=${'#/issues?issue=' + encodeURIComponent(task.id)}
+        >${task.id}</a
+      >
       <span class="rl3-ttl" dir="auto">${task.title}</span>
       <span class="u3-muted rl3-st"
         >${done
@@ -345,6 +352,53 @@ export function mount(el, ctx) {
           : tr('rl_open')}</span
       >
     </li>`;
+  }
+
+  /**
+   * Where the release lives: a link that opens (phone too), or the repo path
+   * and, for a build with a file on this PC, a direct download.
+   *
+   * @param {any} r
+   * @param {string} href
+   */
+  function where(r, href) {
+    const f = detail?.file || { state: 'none' };
+    if (href) {
+      return html`<div class="rl3-where">
+        <a
+          class="u3-btn u3-btn--primary u3-btn--block rl3-open"
+          href=${href}
+          target="_blank"
+          rel="noopener noreferrer"
+          >${tr('rl_open_link')}</a
+        >
+        <span class="u3-mono rl3-url" dir="ltr"
+          >${href.replace(/^https?:\/\//, '')}</span
+        >
+      </div>`;
+    }
+    if (!r.path) return nothing;
+    const dl =
+      f.state === 'ok'
+        ? '/api/release-file?p=' +
+          encodeURIComponent(r.project) +
+          '&id=' +
+          encodeURIComponent(r.id)
+        : '';
+    return html`<div class="rl3-where">
+      ${dl
+        ? html`<a
+            class="u3-btn u3-btn--primary u3-btn--block rl3-download"
+            href=${dl}
+            download=${f.name || ''}
+            >${tr('rl_download')} ·
+            <bdi dir="ltr">${sizeLabel(Number(f.size) || 0)}</bdi></a
+          >`
+        : f.state === 'missing'
+          ? html`<p class="rl3-note" role="status">${tr('rl_file_missing')}</p>`
+          : nothing}
+      <span class="u3-mono rl3-url" dir="ltr">${r.path}</span>
+    </div>`;
   }
 
   function detailPanel() {
@@ -380,24 +434,10 @@ export function mount(el, ctx) {
           ? html`<dt>${tr('rl_commit')}</dt>
               <dd><span class="u3-mono">${r.commit.slice(0, 10)}</span></dd>`
           : nothing}
-        ${href
-          ? html`<dt>${tr('rl_link')}</dt>
-              <dd>
-                <a
-                  class="u3-mono"
-                  href=${href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >${href.replace(/^https?:\/\//, '')}</a
-                >
-              </dd>`
-          : r.path
-            ? html`<dt>${tr('rl_link')}</dt>
-                <dd><span class="u3-mono">${r.path}</span></dd>`
-            : nothing}
         <dt>${tr('rl_by_on')}</dt>
         <dd>${r.by} · <span class="u3-mono">${r.bead}</span></dd>
       </dl>
+      ${where(r, href || '')}
       ${detail.state === 'error'
         ? html`<p class="rl3-note" role="alert">${tr('rl_detail_error')}</p>`
         : detail.state === 'loading'
@@ -405,7 +445,7 @@ export function mount(el, ctx) {
           : html`<h4>${tr('rl_tasks_done', { n: detail.tasks.length })}</h4>
               ${detail.tasks.length
                 ? html`<ul class="rl3-tasks">
-                    ${detail.tasks.map((x) => taskRow(x, r))}
+                    ${detail.tasks.map((x) => taskRow(x))}
                   </ul>`
                 : html`<p class="u3-muted">${tr('rl_no_tasks')}</p>`}
               ${detail.more

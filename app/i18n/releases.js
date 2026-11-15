@@ -61,6 +61,12 @@ export const strings =
     rl_date: { en: 'Published', ar: 'تاريخ النشر' },
     rl_commit: { en: 'Commit', ar: 'الإصدار (commit)' },
     rl_link: { en: 'Link', ar: 'الرابط' },
+    rl_open_link: { en: 'Open the release', ar: 'افتح الإصدار' },
+    rl_download: { en: 'Download', ar: 'تحميل' },
+    rl_file_missing: {
+      en: 'The file is not on this PC, so there is nothing to download.',
+      ar: 'الملف غير موجود على هذا الجهاز، فلا يوجد ما يُحمَّل.'
+    },
     rl_by_on: { en: 'Recorded by', ar: 'سجّله' },
     rl_tasks_done: {
       en: 'Tasks done in it ({n})',

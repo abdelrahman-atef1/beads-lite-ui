@@ -19,6 +19,8 @@ const git = (/** @type {string[]} */ a) =>
   });
 
 const ALLOWED = [
+  /^server\/features\/releases(\.download)?(\.test)?\.js$/,
+  /^app\/i18n\/releases\.js$/,
   /^app\/ui\//,
   /^app\/css\/u3-[\w-]+\.css$/,
   /^app\/fonts\//,
