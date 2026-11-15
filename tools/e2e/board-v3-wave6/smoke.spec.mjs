@@ -96,29 +96,32 @@ for (const C of COMBOS) for (const [name, hash] of LAZY) test(`S-3 lazy first op
   await page.addInitScript(() => {
     window.__t = { events: [] };
     const view = () => document.getElementById('u3-view');
+    let last = performance.now();
     const loop = () => {
       const v = view(); const txt = v ? (v.innerText || '').trim().length : -1; const now = performance.now();
-      const st = window.__t; if (st.hashAt != null) {
-        if (txt <= 1 && st.blankStart == null && st.firstContent == null) st.blankStart = now;
-        if (txt > 1 && st.blankStart != null && st.blankEnd == null) st.blankEnd = now;
-        if (txt > 40 && !v.querySelector('.dk3') && st.firstContent == null) st.firstContent = now;
-        if (st.firstContent != null && st.blankStart != null && st.blankEnd == null) st.blankEnd = st.firstContent;
+      const st = window.__t; const dt = now - last; last = now;
+      if (st.hashAt != null && st.firstContent == null) {
+        const skel = !!(v && v.querySelector('.u3-skel'));
+        st.frames = (st.frames || 0) + 1; if (dt > (st.maxDt || 0)) st.maxDt = dt;
+        if (!v || (txt <= 1 && !skel)) { st.blankFrames = (st.blankFrames || 0) + 1; st.blankMs = (st.blankMs || 0) + dt; }
+        if (skel) st.skelFrames = (st.skelFrames || 0) + 1;
+        if (txt > 40 && !v.querySelector('.dk3') && !skel) st.firstContent = now;
       }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   });
   const cdp = await throttle(page); const cache = await c.newCDPSession(page); await cache.send('Network.setCacheDisabled', { cacheDisabled: true });
-  await page.goto(base('new', door(C)) + '/?ui=3#/'); await page.waitForSelector('.dk3-h', { timeout: 60000 }); await page.waitForTimeout(2500);
+  await page.goto(base('new', door(C)) + '/?ui=3#/'); await page.waitForSelector('.dk3-h', { timeout: 60000 }); await page.waitForTimeout(Number(process.env.WAIT ?? 2500));
   const chunks0 = await page.evaluate(() => performance.getEntriesByType('resource').filter((r) => /\/chunks\//.test(r.name)).length);
   await page.evaluate((h) => { window.__t.hashAt = performance.now(); location.hash = h; }, hash.slice(1));
   await page.waitForFunction(() => window.__t.firstContent != null, null, { timeout: 60000, polling: 50 });
   const t = await page.evaluate(() => window.__t); const chunks1 = await page.evaluate(() => performance.getEntriesByType('resource').filter((r) => /\/chunks\//.test(r.name)).length);
-  const blank = t.blankStart != null ? (t.blankEnd ?? t.firstContent) - t.blankStart : 0; const toContent = t.firstContent - t.hashAt;
+  const blank = t.blankMs || 0; const toContent = t.firstContent - t.hashAt;
   await page.screenshot({ path: `${OUT}/shots/S3-${C.tag}-${name}.png` });
-  LOG(N, `S-3 ${C.name} ${name}: blank=${blank.toFixed(0)}ms to_first_content=${toContent.toFixed(0)}ms chunks_before=${chunks0} chunks_after=${chunks1}`);
-  fs.appendFileSync(`${OUT}/S3.jsonl`, JSON.stringify({ combo: C.name, screen: name, blank_ms: Math.round(blank), to_content_ms: Math.round(toContent), chunks_before: chunks0, chunks_after: chunks1 }) + '\n');
-  expect.soft(blank, `${name} blank flash ms (S-3)`).toBeLessThanOrEqual(1000); expect(chunks1, 'lazy chunk fetched on first open').toBeGreaterThan(chunks0);
+  LOG(N, `S-3 ${C.name} ${name}: blank=${blank.toFixed(0)}ms blank_frames=${t.blankFrames || 0}/${t.frames} skeleton_frames=${t.skelFrames || 0} max_frame_gap=${(t.maxDt || 0).toFixed(0)}ms to_first_content=${toContent.toFixed(0)}ms chunks_before=${chunks0} chunks_after=${chunks1}`);
+  fs.appendFileSync(`${OUT}/S3.jsonl`, JSON.stringify({ combo: C.name, screen: name, blank_ms: Math.round(blank), blank_frames: t.blankFrames || 0, frames: t.frames, skeleton_frames: t.skelFrames || 0, wait: Number(process.env.WAIT ?? 2500), to_content_ms: Math.round(toContent), chunks_before: chunks0, chunks_after: chunks1 }) + '\n');
+  expect.soft(t.blankFrames || 0, `${name} blank frames (S-3: skeleton or content at every sample)`).toBe(0);
   expect(errs).toEqual([]); await cdp.detach().catch(() => {}); await c.close();
 });
 

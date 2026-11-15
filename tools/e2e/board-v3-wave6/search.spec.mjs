@@ -17,7 +17,7 @@ for (const lang of ['en', 'ar']) for (const w of SIZES) {
     const c = await browser.newContext({ viewport: { width: w, height: 844 }, hasTouch: true, locale: lang === 'ar' ? 'ar-EG' : 'en-US' });
     await c.addInitScript(([l]) => { try { localStorage.setItem('beads-ui.lang', l); localStorage.setItem('beads-ui.theme', 'dark'); } catch { /* none */ } }, [lang]);
     const page = await c.newPage(); const errs = []; const known = [];
-    page.on('pageerror', (e) => { if (/insertBefore/.test(e.message)) { known.push(e.message); } else errs.push('pageerror: ' + e.message); });
+    page.on('pageerror', (e) => { errs.push('pageerror: ' + e.message); });
     page.on('console', (m) => m.type() === 'error' && !/\/att\//.test(m.location().url) && errs.push('console: ' + m.text().slice(0, 150)));
     const out = [];
     for (const hash of ROUTES) {
@@ -51,5 +51,22 @@ for (const lang of ['en', 'ar']) for (const w of SIZES) {
     expect(after).toBe(before);
     fs.writeFileSync(`${OUT}/search-${w}-${lang}.json`, JSON.stringify(out, null, 1));
     LOG(N, `F-B ${w} ${lang}: known insertBefore pageerrors (same on 7f4806d)=${known.length}`); bd('new', ['close', id, '-r', 'qa cleanup']); expect(errs).toEqual([]); await c.close();
+  });
+}
+
+// F-B (asserted): leave another screen for the desk, open search, tap a result: no pageerror at all. Phone door, 390, en + ar, 6 starting screens.
+const FB = { projects: '#/projects', time: '#/time', releases: '#/releases', tasks: '#/issues', settings: '#/settings', 'bulk-cancel': '#/issues' };
+for (const lang of ['en', 'ar']) for (const [name, hash] of Object.entries(FB)) {
+  test(`F-B no pageerror: ${name} -> desk -> search hit [390 ${lang}]`, async ({ browser }) => {
+    const c = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, locale: lang === 'ar' ? 'ar-EG' : 'en-US' });
+    await c.addInitScript(([l]) => { try { localStorage.setItem('beads-ui.lang', l); } catch { /* none */ } }, [lang]);
+    const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message.slice(0, 90)));
+    await p.goto(base('new', 'phone') + '/?ui=3' + hash); await p.waitForSelector('.u3-top'); await p.waitForTimeout(2000);
+    if (name === 'bulk-cancel') { await p.waitForSelector('.u3t-card'); await p.getByTestId('bulk-enter').click(); await p.locator('.u3t-card').first().click(); await p.getByTestId('bulk-cancel').click(); await p.waitForTimeout(300); }
+    await p.evaluate(() => { location.hash = '#/'; }); await p.waitForTimeout(1200);
+    await p.locator('.u3-search__btn').click(); await p.locator('.u3-search__field input').fill('board'); await p.waitForTimeout(800);
+    const nHits = await p.locator('.u3-search__hit').count(); await p.locator('.u3-search__hit').first().click(); await p.waitForTimeout(2000);
+    LOG(N, `F-B ${name} ${lang}: hits=${nHits} url=${p.url().replace(/^.*#/, '#')} pageerrors=${errs.length} ${JSON.stringify(errs)}`);
+    expect(nHits).toBeGreaterThan(0); expect(errs).toEqual([]); await c.close();
   });
 }
