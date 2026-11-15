@@ -20,6 +20,7 @@
  * way. A project that cannot be read is skipped with its name; a git failure
  * drops only the commit part. Nothing here writes to a bead or a repo.
  */
+import fs from 'node:fs';
 import path from 'node:path';
 import { debug } from '../logging.js';
 import { isDeskIssue } from '../phone.js';
@@ -36,6 +37,120 @@ import {
 } from './outputs.js';
 
 const log = debug('releases');
+
+// ---- build download (beads-lite-1bo5.6.36.7) -------------------------------
+// Only a file named by a valid OUTPUT build record, inside an allow-listed
+// release folder of a registered project. The client sends project + release
+// id, never a path.
+export const DL_MAX_BYTES = 400 * 1024 * 1024;
+const DL_MAX_CONCURRENT = 2;
+const DL_DIRS = ['.work/out', 'releases'];
+const DL_MIME = {
+  apk: 'application/vnd.android.package-archive',
+  aab: 'application/octet-stream',
+  zip: 'application/zip',
+  exe: 'application/vnd.microsoft.portable-executable',
+  msi: 'application/x-msi',
+  ipa: 'application/octet-stream',
+  dmg: 'application/x-apple-diskimage'
+};
+const DL_EXT = /\.([a-z0-9]{2,4})$/i;
+const BAD_SEG = /^(\.git|\.beads|\.ssh|node_modules|\.env.*)$/i;
+
+/** @param {string} p */
+function realpath(p) {
+  try {
+    return fs.realpathSync.native(p);
+  } catch {
+    return '';
+  }
+}
+/**
+ * @param {string} p
+ * @param {string} root
+ */
+function under(p, root) {
+  const a = process.platform === 'win32' ? p.toLowerCase() : p;
+  const b = process.platform === 'win32' ? root.toLowerCase() : root;
+  return a.startsWith(b + path.sep);
+}
+
+/**
+ * Release folders of a project: defaults plus relative lines of
+ * `.beads/release-dirs` (inside the project only). Real paths, existing only.
+ *
+ * @param {string} root
+ */
+export function releaseDirs(root) {
+  const rels = [...DL_DIRS];
+  try {
+    const t = fs.readFileSync(
+      path.join(root, '.beads', 'release-dirs'),
+      'utf8'
+    );
+    for (const line of t.split(/\r?\n/).slice(0, 20)) {
+      const l = line.trim();
+      if (l && !l.startsWith('#')) rels.push(l);
+    }
+  } catch {
+    // no file: defaults only
+  }
+  const rr = realpath(root);
+  if (!rr) return [];
+  /** @type {string[]} */
+  const out = [];
+  for (const r of rels) {
+    if (path.isAbsolute(r) || /^[A-Za-z]:/.test(r) || r.includes('\0'))
+      continue;
+    const d = realpath(path.resolve(root, r));
+    if (d && under(d, rr) && !out.includes(d)) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * The file of a build record, or why there is none. Never throws.
+ *
+ * @param {string} root - registered project folder
+ * @param {{ kind: string, path: string | null }} rel
+ * @returns {{ state: 'ok', file: string, name: string, size: number, mime: string }
+ *   | { state: 'none' | 'missing' }}
+ */
+export function resolveBuildFile(root, rel) {
+  const ref = rel.path;
+  if (rel.kind !== 'build' || !ref) return { state: 'none' };
+  const m = DL_EXT.exec(ref);
+  const ext = m ? m[1].toLowerCase() : '';
+  if (!Object.hasOwn(DL_MIME, ext)) return { state: 'none' };
+  if (
+    /^([\\/]|[A-Za-z]:)/.test(ref) ||
+    ref.includes(':') ||
+    ref.includes('\\') ||
+    ref.includes('\0') ||
+    ref.split('/').some((s) => s === '..' || s === '')
+  ) {
+    return { state: 'none' };
+  }
+  const rp = realpath(path.resolve(root, ref));
+  if (!rp) return { state: 'missing' };
+  if (rp.startsWith('\\\\')) return { state: 'none' };
+  if (!releaseDirs(root).some((d) => under(rp, d))) return { state: 'none' };
+  if (rp.split(path.sep).some((x) => BAD_SEG.test(x))) return { state: 'none' };
+  try {
+    const st = fs.statSync(rp);
+    if (!st.isFile()) return { state: 'missing' };
+    if (st.size > DL_MAX_BYTES || st.size < 1) return { state: 'none' };
+    return {
+      state: 'ok',
+      file: rp,
+      name: path.basename(rp),
+      size: st.size,
+      mime: DL_MIME[/** @type {'apk'} */ (ext)]
+    };
+  } catch {
+    return { state: 'missing' };
+  }
+}
 
 export const PAGE = 30;
 const MAX_PAGES = 7;
@@ -408,7 +523,40 @@ export function createReleases(opts = {}) {
       if (!data) throw refuse('unreadable');
       const rel = data.releases.find((r) => r.id === id);
       if (!rel || (isPhone(ctx.ws) && rel.desk)) throw refuse('not_found');
-      return tasksOf(proj, data, rel, isPhone(ctx.ws));
+      const res = await tasksOf(proj, data, rel, isPhone(ctx.ws));
+      const f = resolveBuildFile(proj.path, rel);
+      return {
+        ...res,
+        file:
+          f.state === 'ok'
+            ? { state: 'ok', name: f.name.slice(0, 120), size: f.size }
+            : { state: f.state }
+      };
+    },
+    /**
+     * Download: the file of one build release, or null (every refusal alike).
+     *
+     * @param {any} payload
+     * @param {{ ws?: any }} ctx
+     */
+    async file(payload, ctx) {
+      const key = payload?.project;
+      const id = payload?.id;
+      if (
+        typeof key !== 'string' ||
+        !PROJECT_RE.test(key) ||
+        typeof id !== 'string' ||
+        id.length > 128
+      ) {
+        return null;
+      }
+      const proj = registered().get(key);
+      if (!proj) return null;
+      const data = await read(proj);
+      const rel = data?.releases.find((r) => r.id === id);
+      if (!rel || (isPhone(ctx.ws) && rel.desk)) return null;
+      const f = resolveBuildFile(proj.path, rel);
+      return f.state === 'ok' ? f : null;
     },
     /**
      * For the notifier: releases of one project folder, re-read now. null when
@@ -440,6 +588,74 @@ export function getReleases() {
 
 /** @param {{ registerHandler: Function, registerRoute: Function }} seam */
 export function register(seam) {
+  let busy = 0;
+  seam.registerRoute(
+    (
+      /** @type {import('express').Express} */ app,
+      /** @type {any} */ config
+    ) => {
+      app.get('/api/release-file', async (req, res) => {
+        /**
+         * @param {number} code
+         * @param {string} msg
+         */
+        const stop = (code, msg) => {
+          res.status(code).type('text/plain').send(msg);
+        };
+        const site = req.headers['sec-fetch-site'];
+        if (site && site !== 'same-origin' && site !== 'none') {
+          return stop(404, 'not_found');
+        }
+        const q = (/** @type {string} */ k) =>
+          typeof req.query[k] === 'string' ? String(req.query[k]) : '';
+        let f = null;
+        try {
+          f = await getReleases().file(
+            { project: q('p'), id: q('id') },
+            {
+              ws: {
+                door:
+                  config?.phone_port > 0 &&
+                  req.socket.localPort === config.phone_port
+                    ? 'phone'
+                    : 'pc'
+              }
+            }
+          );
+        } catch (e) {
+          log('release-file failed: %o', e);
+        }
+        if (!f) return stop(404, 'not_found');
+        if (busy >= DL_MAX_CONCURRENT) return stop(503, 'busy');
+        busy += 1;
+        let freed = false;
+        const free = () => {
+          if (!freed) {
+            freed = true;
+            busy -= 1;
+          }
+        };
+        res.on('close', free);
+        res.setHeader('Content-Type', f.mime);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; frame-ancestors 'none'"
+        );
+        res.setHeader('Cache-Control', 'private, no-store');
+        const ascii = f.name.replace(/[^A-Za-z0-9._-]/g, '_');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(f.name)}`
+        );
+        res.sendFile(f.file, { dotfiles: 'allow' }, (err) => {
+          free();
+          if (err && !res.headersSent) stop(404, 'not_found');
+        });
+      });
+    }
+  );
   seam.registerHandler(
     'releases-list',
     (/** @type {any} */ req, /** @type {any} */ ctx) =>
