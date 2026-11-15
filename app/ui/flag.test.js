@@ -13,20 +13,19 @@ function mem(init = {}) {
 }
 
 describe('ui flag', () => {
-  test('default is legacy', () => {
-    expect(resolveUi('', mem())).toBe(2);
+  test('default is v3 with no flag and an empty store', () => {
+    expect(resolveUi('', mem())).toBe(3);
   });
-  test('?ui=3 stores bl.ui and turns v3 on, later visits keep it', () => {
-    const s = mem();
-    expect(resolveUi('?ui=3', s)).toBe(3);
-    expect(s.m.get('bl.ui')).toBe('3');
-    expect(resolveUi('', s)).toBe(3);
-  });
-  test('?ui=2 clears it', () => {
+  test('an old stored bl.ui=3 and ?ui=3 links still give v3', () => {
     const s = mem({ 'bl.ui': '3' });
-    expect(resolveUi('?ui=2', s)).toBe(2);
+    expect(resolveUi('', s)).toBe(3);
+    expect(resolveUi('?ui=3', s)).toBe(3);
     expect(s.m.has('bl.ui')).toBe(false);
-    expect(resolveUi('', s)).toBe(2);
+  });
+  test('?ui=2 gives legacy for that visit only', () => {
+    const s = mem();
+    expect(resolveUi('?ui=2', s)).toBe(2);
+    expect(resolveUi('', s)).toBe(3);
   });
   test('broken storage never throws', () => {
     const bad = {
@@ -40,7 +39,7 @@ describe('ui flag', () => {
         throw new Error('x');
       }
     };
-    expect(resolveUi('', bad)).toBe(2);
-    expect(resolveUi('?ui=3', bad)).toBe(3);
+    expect(resolveUi('', bad)).toBe(3);
+    expect(resolveUi('?ui=2', bad)).toBe(2);
   });
 });
