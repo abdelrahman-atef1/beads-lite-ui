@@ -5,7 +5,7 @@ export const strings = {
   u3_tk_filters: { en: 'Filters', ar: 'الفلاتر' },
   u3_tk_all: { en: 'All', ar: 'الكل' },
   u3_tk_mine: { en: 'Mine', ar: 'مهامي' },
-  u3_tk_p01: { en: 'P0-P1', ar: 'P0-P1' },
+  u3_tk_p01: { en: 'Urgent', ar: 'عاجل' },
   u3_tk_decision: { en: 'Decisions', ar: 'قرارات' },
   u3_tk_blocked: { en: 'Blocked', ar: 'معطّلة' },
   u3_tk_type: { en: 'Type', ar: 'النوع' },

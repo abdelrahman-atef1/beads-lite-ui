@@ -71,6 +71,10 @@
   padding: var(--u3-sp-2) var(--u3-sp-3);
   border-radius: var(--u3-radius-s);
 }
+/* air between the card text (incl. the amber 'frozen until' box) and what follows */
+.u3 .u3-cd__body + * {
+  margin-block-start: var(--u3-sp-4);
+}
 .u3 .u3-cd__wake {
   display: flex;
 }

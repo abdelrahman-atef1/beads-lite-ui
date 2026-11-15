@@ -11,6 +11,7 @@ import { html, render } from 'lit-html';
 import { openSheet } from '../components/sheet.js';
 import { MAX_BULK, UNDO_MS, createBulkApi } from '../data/bulk.js';
 import { t3 } from '../i18n.js';
+import { chipIcon } from './chip-icons.js';
 
 export const LONG_PRESS_MS = 450;
 export const ROLE_CHOICES = [
@@ -650,7 +651,7 @@ export function createBulk(o) {
       aria-pressed=${mode ? 'true' : 'false'}
       @click=${() => (mode ? exit() : enter())}
     >
-      ${t3('u3_bk_select')}
+      ${chipIcon('select')}${t3('u3_bk_select')}
     </button>`;
   }
 

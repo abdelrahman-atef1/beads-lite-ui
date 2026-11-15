@@ -34,20 +34,34 @@
 }
 .u3 .u3t-fchip,
 .u3 .u3t-menu {
+  position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--u3-sp-2);
-  min-height: 44px;
-  padding: 0 var(--u3-sp-4);
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--u3-sp-3);
   border: 1px solid var(--u3-border);
   border-radius: 999px;
   background: var(--u3-surface);
   color: var(--u3-text-2);
   font: inherit;
-  font-size: var(--u3-fs-s);
+  font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
+}
+/* chips are 32px tall to look; the tap area stays 44px (invisible extension) */
+.u3 .u3t-fchip::after,
+.u3 .u3t-menu::after,
+.u3 .u3bk-enter::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block: -6px;
+}
+.u3 .u3t-ic {
+  flex: none;
+  opacity: 0.85;
 }
 .u3 .u3t-fchip[aria-pressed='true'],
 .u3 .u3t-menu[data-on='1'] {
@@ -468,14 +482,16 @@
   flex: none;
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 var(--u3-sp-4);
+  gap: 6px;
+  position: relative;
+  min-height: 32px;
+  padding: 0 var(--u3-sp-3);
   border: 1px solid var(--u3-border);
   border-radius: 999px;
   background: var(--u3-surface);
   color: var(--u3-text-2);
   font: inherit;
-  font-size: var(--u3-fs-s);
+  font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
 }

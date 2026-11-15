@@ -299,7 +299,7 @@ export function createTaskEdit(o) {
             ${[0, 1, 2, 3, 4].map(
               (p) =>
                 html`<option value=${String(p)} ?selected=${p === prio}>
-                  P${p} ${priorityName(p)}
+                  ${priorityName(p)}
                 </option>`
             )}
           </select>
