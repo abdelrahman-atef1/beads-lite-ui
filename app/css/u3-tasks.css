@@ -352,6 +352,13 @@
   align-items: center;
   min-width: 0;
 }
+.u3 .u3bk-bar__top {
+  flex-wrap: wrap; /* long English "Select all in <column> (n)" wraps, never overflows at 390 */
+}
+.u3 .u3bk-bar__top .u3-btn {
+  max-width: 100%;
+  white-space: normal;
+}
 .u3 .u3bk-bar__top .u3-btn:last-child {
   margin-inline-start: auto;
 }

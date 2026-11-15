@@ -90,6 +90,23 @@ describe('?ui=3 boot', () => {
     expect(document.querySelector('[data-view="releases"]')).toBeNull();
     document.getElementById('u3')?.remove();
   });
+
+  test('each screen gets a fresh host, and a skeleton shows while a lazy chunk loads (.59.19/.59.22)', async () => {
+    const root = setup('#/', '?ui=3');
+    await bootstrap(root).ready;
+    const first = document.querySelector('#u3-view > .u3-screen');
+    expect(first).not.toBeNull();
+    window.location.hash = '#/time';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    // same tick: never an empty view
+    expect(document.querySelector('#u3-view .u3-skel')).not.toBeNull();
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-view="time"]')).not.toBeNull()
+    );
+    expect(document.querySelector('.u3-skel')).toBeNull();
+    expect(document.querySelector('#u3-view > .u3-screen')).not.toBe(first);
+    document.getElementById('u3')?.remove();
+  });
 });
 
 describe('flag off = legacy DOM', () => {

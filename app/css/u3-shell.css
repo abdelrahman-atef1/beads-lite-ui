@@ -146,3 +146,21 @@ html[data-ui='3'][data-theme='light'] body {
     --u3-side-w: 200px;
   }
 }
+
+/* Placeholder while a lazy screen's chunk loads (boot.js) */
+.u3-skel {
+  display: grid;
+  gap: var(--u3-sp-4);
+}
+.u3-skel i {
+  height: 56px;
+  border-radius: 12px;
+  background: var(--u3-surface-2);
+}
+.u3-skel i:first-child {
+  height: 28px;
+  width: 40%;
+}
+.u3-screen {
+  display: contents;
+}

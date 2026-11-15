@@ -34,6 +34,26 @@ const LAZY = {
   'ui-kit': () => Promise.resolve({ mount: kit })
 };
 
+/** @returns {HTMLElement} three grey bars, styled in u3-shell.css */
+function skeleton() {
+  const d = document.createElement('div');
+  d.className = 'u3-skel';
+  d.setAttribute('aria-busy', 'true');
+  d.innerHTML = '<i></i><i></i><i></i>';
+  return d;
+}
+
+/** After the first screen: fetch the lazy chunks while idle, unless data is scarce. */
+function prefetchLazy() {
+  const c = /** @type {any} */ (navigator).connection;
+  if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))) return;
+  const go = () => {
+    for (const k of ['task', 'tasks', 'time']) LAZY[k]().catch(() => {});
+  };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(go);
+  else setTimeout(go, 2000);
+}
+
 /**
  * @param {HTMLElement} _legacy_root - the legacy #app element (its shell is removed)
  * @param {{ store: any, client: any, send: Function, router: any, data: any, subscriptions: any, sub_issue_stores: any, listSelectors: any }} base
@@ -68,7 +88,7 @@ export function bootV3(_legacy_root, base) {
   function route() {
     const r = parseRoute(window.location.hash);
     shell.setRoute(r);
-    const el = /** @type {HTMLElement} */ (root.querySelector('#u3-view'));
+    const host = /** @type {HTMLElement} */ (root.querySelector('#u3-view'));
     const ctx = { ...base, route: r, shell };
     if (cur.name === r.name && cur.h && cur.h.update) {
       cur.h.update(r);
@@ -79,6 +99,12 @@ export function bootV3(_legacy_root, base) {
     const mine = ++seq;
     /** @param {Function} mount */
     const open = (mount) => {
+      // A fresh host per screen: a view that wipes its host (textContent = '')
+      // leaves lit's old part pointing at removed markers, and the next lit
+      // render into the same element threw 'insertBefore' of null (.59.22 F-B).
+      const el = document.createElement('div');
+      el.className = 'u3-screen';
+      host.replaceChildren(el); // also drops the skeleton
       cur = { name: r.name, h: mount(el, ctx) || null };
       try {
         window.sessionStorage.removeItem('bl.chunk-retry');
@@ -92,6 +118,8 @@ export function bootV3(_legacy_root, base) {
       open(desk);
       return Promise.resolve();
     }
+    // Never a blank screen while the chunk travels: a skeleton goes in now.
+    host.replaceChildren(skeleton());
     return load().then(
       (m) => {
         if (mine === seq) open(m.mount);
@@ -112,5 +140,5 @@ export function bootV3(_legacy_root, base) {
     );
   }
   window.addEventListener('hashchange', () => void route());
-  return route();
+  return route().then(prefetchLazy);
 }
