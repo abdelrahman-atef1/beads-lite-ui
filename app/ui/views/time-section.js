@@ -11,10 +11,10 @@ import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
 import { statusLabel } from '../../utils/status.js';
 import { chip } from '../components/chip.js';
-import { roleChip } from '../components/role-chip.js';
 import { BUCKETS, fmtDur, summarize } from '../data/time-math.js';
 import { loadRollup } from '../data/time.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 
 const MAX_INTERVALS = 12;
 /** @type {Record<string, string>} */
@@ -159,7 +159,7 @@ export function timeBody(row, o) {
       ${roles.map(
         ([r, ms]) =>
           html`<li>
-            ${roleChip({ role: r })}
+            ${personChip({ role: r })}
             <span class="u3-tm__meter"
               ><i
                 style="inline-size:${Math.max(
@@ -184,7 +184,7 @@ export function timeBody(row, o) {
                   ? 'neutral'
                   : STAGE_TONE[i.bucket] || 'neutral'
             })}
-            ${roleChip({ role: i.role })}
+            ${personChip({ role: i.role })}
             <b class="u3-tm__num">${dur(i.ms)}</b>
             ${i.running
               ? chip({ label: t3('u3_tm_running'), tone: 'blue' })

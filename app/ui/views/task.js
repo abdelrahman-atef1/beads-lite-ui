@@ -23,8 +23,9 @@ import { priorityName } from '../../utils/priority.js';
 import { statusLabel } from '../../utils/status.js';
 import { renderAskHead } from '../ask/head-slot.js';
 import { renderStepsComment } from '../card/steps.js';
-import { button, chip, roleChip } from '../components/index.js';
+import { button, chip } from '../components/index.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
 import { renderTimeSlot } from '../task/time-slot.js';
 import { renderCard } from './card.js';
@@ -262,7 +263,7 @@ export function mount(el, ctx) {
     }
     return html`<article class="u3-ts__c" data-anchor=${a}>
       <header class="u3-ts__ch">
-        ${roleChip({ role: author })}
+        ${personChip({ role: author })}
         <span class="u3-muted u3-ts__cd">${fmtDate(c.created_at)}</span>
         <a
           class="u3-ts__cl"
@@ -448,7 +449,7 @@ export function mount(el, ctx) {
                   ${row(
                     t3('u3_ts_assignee'),
                     i.assignee
-                      ? roleChip({ role: String(i.assignee) })
+                      ? personChip({ role: String(i.assignee) })
                       : t3('u3_ts_none')
                   )}
                   ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}

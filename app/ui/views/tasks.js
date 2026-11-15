@@ -20,10 +20,11 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
-import { chipIcon } from '../tasks/chip-icons.js';
-import { roleChip } from '../components/index.js';
+import { personLabel } from '../data/people.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
+import { chipIcon } from '../tasks/chip-icons.js';
 import {
   GROUPS,
   groupIssues,
@@ -220,7 +221,7 @@ export function mount(el, ctx) {
         <span class="u3t-time" data-slot="time"
           >${ageLabel(it.updated_at)}</span
         >
-        ${who ? roleChip({ role: who }) : ''}
+        ${who ? personChip({ role: who, short: true }) : ''}
       </span>
     </a>`;
   }
@@ -268,6 +269,7 @@ export function mount(el, ctx) {
   }
 
   function laneName(/** @type {any} */ g) {
+    if (g.label && group_by === 'assignee') return personLabel(g.label).full;
     return g.label || t3('u3_tk_lane_' + (g.kind || 'none'));
   }
 
@@ -460,7 +462,9 @@ export function mount(el, ctx) {
         @click=${(/** @type {MouseEvent} */ ev) => {
           // the padded tap area outside the select opens it too
           const sel = /** @type {HTMLSelectElement | null} */ (
-            /** @type {HTMLElement} */ (ev.currentTarget).querySelector('select')
+            /** @type {HTMLElement} */ (ev.currentTarget).querySelector(
+              'select'
+            )
           );
           if (sel && ev.target !== sel) {
             ev.preventDefault();
@@ -516,9 +520,11 @@ export function mount(el, ctx) {
         />
         <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
           ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')}
-          ${quick('u3_tk_p01', 'p01', 'urgent')} ${quick('u3_tk_decision', 'decision')}
+          ${quick('u3_tk_p01', 'p01', 'urgent')}
+          ${quick('u3_tk_decision', 'decision')}
           ${quick('u3_tk_blocked', 'blocked')} ${menu('type', fc.types)}
-          ${menu('label', fc.labels)} ${menu('assignee', fc.assignees)}
+          ${menu('label', fc.labels)}
+          ${menu('assignee', fc.assignees, (v) => personLabel(v).full)}
           ${menu('prio', ['0', '1', '2', '3', '4'], (v) =>
             priorityName(Number(v))
           )}

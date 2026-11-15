@@ -11,6 +11,7 @@ import { typeLabel } from '../../utils/issue-type.js';
 import { priorityName } from '../../utils/priority.js';
 import { button } from '../components/index.js';
 import { openSheet } from '../components/sheet.js';
+import { personLabel } from '../data/people.js';
 import { t3 } from '../i18n.js';
 
 export const NEW_TYPES = ['task', 'bug', 'feature', 'epic', 'chore'];
@@ -269,7 +270,13 @@ export function openNewTask(host, ctx, opts = {}) {
             /><datalist id="u3-nt-people">
               ${[...people]
                 .sort()
-                .map((r) => html`<option value=${r}></option>`)}
+                .map(
+                  (r) =>
+                    html`<option
+                      value=${r}
+                      label=${personLabel(r).full}
+                    ></option>`
+                )}
             </datalist>`
         )}
         ${field(

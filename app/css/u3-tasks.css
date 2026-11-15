@@ -504,3 +504,22 @@
 .u3 .u3bk-tick ~ .u3t-card__id {
   padding-inline-start: 30px;
 }
+
+/* person chip: "name - title" (beads-lite-1bo5.6.59.28). Full form may wrap;
+   the short form shows the name and opens the title on tap. */
+.u3 .u3-role--full {
+  white-space: normal;
+  align-items: baseline;
+}
+.u3 .u3-role--short {
+  cursor: pointer;
+}
+.u3 .u3-role--short .u3-role__title {
+  display: none;
+}
+.u3 .u3-role--short[data-open] {
+  white-space: normal;
+}
+.u3 .u3-role--short[data-open] .u3-role__title {
+  display: inline;
+}
