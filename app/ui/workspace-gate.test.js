@@ -3,6 +3,7 @@ import {
   applyMoved,
   hooks,
   movedNote,
+  resetGate,
   resolveMoved,
   switchForIssue
 } from './workspace-gate.js';
@@ -28,6 +29,7 @@ const client = (replies) => ({
 /** @type {import('vitest').Mock} */
 let reload;
 beforeEach(() => {
+  resetGate();
   window.localStorage.clear();
   window.sessionStorage.clear();
   reload = vi.fn();
@@ -59,6 +61,9 @@ describe('task link of another project (59.23)', () => {
   test('a second try for the same id never reloads again (no loop)', async () => {
     const c = client({ 'list-workspaces': LIST, 'set-workspace': SWITCHED });
     await switchForIssue({ client: c }, 'rayeh-1');
+    // same page, second pass while reloading: held, no second reload
+    expect(await switchForIssue({ client: c }, 'rayeh-1')).toBe(true);
+    resetGate(); // the reloaded page starts clean; the session flag stops a loop
     expect(await switchForIssue({ client: c }, 'rayeh-1')).toBe(false);
     expect(reload).toHaveBeenCalledTimes(1);
   });
@@ -106,7 +111,19 @@ describe('moved ids (59.24)', () => {
     expect(window.location.search).toBe('?ui=3');
     expect(movedNote('p-1.2')).toBe('company-1.2');
     expect(movedNote('p-1.2')).toBe('company-1.2'); // survives a reload
+    // Extra route passes (no task, or the old id) must not eat the note (.59.24 F1)
+    expect(movedNote(null)).toBe(null);
+    expect(movedNote('company-1.2')).toBe(null);
+    expect(movedNote('p-1.2')).toBe('company-1.2');
     expect(movedNote('other-1')).toBe(null);
-    expect(movedNote('p-1.2')).toBe(null); // cleared by the other screen
+    expect(movedNote('p-1.2')).toBe(null); // cleared by the other task
+  });
+
+  test('movedNote expires after a minute', () => {
+    applyMoved('company-1.2', 'p-1.2');
+    const now = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(now + 61000);
+    expect(movedNote('p-1.2')).toBe(null);
+    spy.mockRestore();
   });
 });

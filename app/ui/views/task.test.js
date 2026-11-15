@@ -83,6 +83,34 @@ describe('task page', () => {
     expect(el.querySelector('[data-anchor="description"]')).toBeTruthy();
   });
 
+  test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
+    document.body.innerHTML = '<div id="v"></div>';
+    window.localStorage.setItem('beads-ui.lang', 'en');
+    window.location.hash = '#/issues?issue=p-9';
+    const send = vi.fn(async () => COMMENTS);
+    const ctx = {
+      route: { name: 'task', id: 'p-9', at: null },
+      send,
+      client: { send },
+      sub_issue_stores: {
+        register() {},
+        subscribeFor: () => () => {},
+        isLoaded: () => false,
+        snapshotFor: () => []
+      },
+      subscriptions: {
+        subscribeList: async () => {
+          throw new Error('not found');
+        }
+      }
+    };
+    const el = document.getElementById('v');
+    mount(el, ctx);
+    await tick();
+    expect(el.textContent).toContain('Task not found');
+    expect(el.textContent).not.toContain('Loading');
+  });
+
   test('ask head keeps one host and its open panel from loading to loaded', async () => {
     document.body.innerHTML = '<div id="v"></div>';
     window.localStorage.setItem('beads-ui.lang', 'en');

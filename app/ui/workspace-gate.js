@@ -18,12 +18,22 @@ const TRIED_KEY = 'bl.ws-switch';
 /** Page reload, swappable in tests (jsdom cannot reload). */
 export const hooks = { reload: () => window.location.reload() };
 
+/** @type {string | null} */
+let reloading_for = null;
+
+/** A new page starts clean; tests that call twice in one page reset it. */
+export function resetGate() {
+  reloading_for = null;
+}
+
 /**
  * @param {{ client: any }} base
  * @param {string} id
  * @returns {Promise<boolean>} true when the page is reloading into the right project
  */
 export async function switchForIssue(base, id) {
+  // A second route pass while the page is already reloading must not mount.
+  if (reloading_for === id) return true;
   try {
     const res = await base.client.send('list-workspaces', {});
     const list = res && Array.isArray(res.workspaces) ? res.workspaces : [];
@@ -42,6 +52,7 @@ export async function switchForIssue(base, id) {
     // id (the flag) so a server that never moves cannot loop.
     if (window.sessionStorage.getItem(TRIED_KEY) === id) return false;
     window.sessionStorage.setItem(TRIED_KEY, id);
+    reloading_for = id;
     hooks.reload();
     return true;
   } catch {
@@ -87,7 +98,10 @@ export function applyMoved(from, to) {
     window.location.pathname + window.location.search + h.split(from).join(to)
   );
   try {
-    window.sessionStorage.setItem(MOVED_KEY, JSON.stringify({ from, to }));
+    window.sessionStorage.setItem(
+      MOVED_KEY,
+      JSON.stringify({ from, to, at: Date.now() })
+    );
   } catch {
     // ignore storage errors
   }
@@ -100,8 +114,14 @@ export function applyMoved(from, to) {
 export function movedNote(id) {
   try {
     const n = JSON.parse(window.sessionStorage.getItem(MOVED_KEY) || 'null');
-    if (n && id && n.to === id) return n.from;
-    window.sessionStorage.removeItem(MOVED_KEY);
+    if (!n) return null;
+    // Kept across extra route passes and the workspace reload; dropped when
+    // stale, or when a task that is neither the new nor the old id opens.
+    const fresh = typeof n.at === 'number' && Date.now() - n.at < 60000;
+    if (fresh && id && n.to === id) return n.from;
+    if (!fresh || (id && n.from !== id)) {
+      window.sessionStorage.removeItem(MOVED_KEY);
+    }
   } catch {
     // ignore
   }

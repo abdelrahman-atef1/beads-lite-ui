@@ -482,6 +482,11 @@ const SEAM = {
   }
 };
 const HOOK = [
+  '// v3 returns before the tab state below exists (TDZ throw, 59.25).',
+  'if (!legacy_mounted) return;',
+  'let legacy_mounted = false;',
+  '// v3 resolves moved ids and switches project itself (59.24).',
+  'legacy_mounted = true;',
   "import { bootV3 } from './ui/boot.js';",
   "import { resolveUi } from './ui/flag.js';",
   '// Board v3 (?ui=3, stored as bl.ui): same store, client and data layer, no',

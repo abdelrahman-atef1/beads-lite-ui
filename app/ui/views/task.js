@@ -80,6 +80,7 @@ export function mount(el, ctx) {
   /** @type {any} */
   let issue = null;
   let loaded = false;
+  let sub_failed = false;
   /** @type {any[] | null} */
   let comments = null;
   let comments_error = false;
@@ -134,6 +135,7 @@ export function mount(el, ctx) {
     edit.reset();
     id = next;
     issue = null;
+    sub_failed = false;
     comments = null;
     text = '';
     anchor_done = '';
@@ -157,7 +159,13 @@ export function mount(el, ctx) {
         if (alive && id === next) unsub_sub = u;
         else void u().catch(() => {});
       })
-      .catch(() => {});
+      .catch(() => {
+        // Unknown id: the server refuses the subscription; say so, not loading.
+        if (alive && id === next) {
+          sub_failed = true;
+          draw();
+        }
+      });
     readIssue();
     void loadComments();
     draw();
@@ -354,7 +362,9 @@ export function mount(el, ctx) {
         page(
           html`<p class="u3-muted u3-mono" dir="ltr">${id}</p>
             <p class="u3-muted">
-              ${loaded ? t3('u3_ts_missing') : t3('u3_ts_loading')}
+              ${loaded || sub_failed
+                ? t3('u3_ts_missing')
+                : t3('u3_ts_loading')}
             </p>`
         ),
         el

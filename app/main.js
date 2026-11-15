@@ -187,6 +187,8 @@ export function bootstrap(root_element) {
      * Called when switching workspaces.
      */
     async function clearAndResubscribe() {
+      // v3 returns before the tab state below exists (TDZ throw, 59.25).
+      if (!legacy_mounted) return;
       log('clearing all subscriptions for workspace switch');
       // Unsubscribe from server-side subscriptions first
       if (unsub_issues_tab) {
@@ -304,6 +306,7 @@ export function bootstrap(root_element) {
     // Detail load/subscribe waits until the issue's project is the current
     // workspace; otherwise the first subscribe hits the wrong store and pops
     // "not found" (company-1bo5.6.33).
+    let legacy_mounted = false;
     let workspaces_ready = false;
     /** @type {string | null} */
     let held_detail_id = null;
@@ -356,6 +359,8 @@ export function bootstrap(root_element) {
      */
     async function ensureIssueWorkspace(id) {
       if (!id) return;
+      // v3 resolves moved ids and switches project itself (59.24).
+      if (!legacy_mounted) return;
       // An old id of a moved bead still matches its old prefix, so look it up
       // in the alias table first; a hit replaces the address-bar entry (Back
       // must not land on the dead old id) and opens the new id. Every open
@@ -634,6 +639,7 @@ export function bootstrap(root_element) {
       });
       return { ready };
     }
+    legacy_mounted = true;
 
     // Global New Issue dialog (UI-106) mounted at root so it is always visible
     const new_issue_dialog = createNewIssueDialog(
