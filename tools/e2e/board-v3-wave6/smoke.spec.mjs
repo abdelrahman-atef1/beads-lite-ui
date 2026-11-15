@@ -112,7 +112,7 @@ for (const C of COMBOS) for (const [name, hash] of LAZY) test(`S-3 lazy first op
     requestAnimationFrame(loop);
   });
   const cdp = await throttle(page); const cache = await c.newCDPSession(page); await cache.send('Network.setCacheDisabled', { cacheDisabled: true });
-  await page.goto(base('new', door(C)) + '/?ui=3#/'); await page.waitForSelector('.dk3-h', { timeout: 60000 }); await page.waitForTimeout(Number(process.env.WAIT ?? 2500));
+  await page.goto(base(process.env.SRV || 'new', door(C)) + '/?ui=3#/'); await page.waitForSelector('.dk3-h', { timeout: 60000 }); await page.waitForTimeout(Number(process.env.WAIT ?? 2500));
   const chunks0 = await page.evaluate(() => performance.getEntriesByType('resource').filter((r) => /\/chunks\//.test(r.name)).length);
   await page.evaluate((h) => { window.__t.hashAt = performance.now(); location.hash = h; }, hash.slice(1));
   await page.waitForFunction(() => window.__t.firstContent != null, null, { timeout: 60000, polling: 50 });
