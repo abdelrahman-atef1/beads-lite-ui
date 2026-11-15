@@ -15,7 +15,7 @@ const bead = (o) => ({
   status: 'closed',
   role: 'swe',
   closed: NOW - D,
-  active_ms: 1000,
+  active_ms: 60_000,
   waiting_ms: 3000,
   buckets: {
     active: 1000,
@@ -29,6 +29,38 @@ const bead = (o) => ({
   intervals: [],
   heavy: null,
   ...o
+});
+
+describe('Q1 weekly finished count ignores bulk closes', () => {
+  test('zero-active weeks are not counted and do not move the median', () => {
+    /** @type {Record<string, any>} */
+    const beads = {};
+    const many = (
+      /** @type {number} */ k,
+      /** @type {number} */ c,
+      /** @type {any} */ o
+    ) => {
+      for (let i = 0; i < c; i++) {
+        const b = bead({ closed: NOW - k * 7 * D - D, ...o });
+        beads[b.id] = b;
+      }
+    };
+    many(0, 4, { active_ms: 60_000 });
+    many(0, 400, { active_ms: 0 }); // bulk this week
+    many(1, 200, { active_ms: 120_000 });
+    many(2, 500, { active_ms: 0 }); // bulk-only week counts 0
+    many(3, 210, { active_ms: 90_000 });
+    many(4, 5, { active_ms: 59_999 }); // just under: not counted
+    many(5, 1, { active_ms: null }); // unknown: not counted
+    const a = aggregate({ beads, built_at: 'x' }, null, 7, NOW);
+    expect(a.weeks[7]).toBe(4);
+    expect(a.weeks[6]).toBe(200);
+    expect(a.weeks[5]).toBe(0);
+    expect(a.weeks[4]).toBe(210);
+    expect(a.weeks[3]).toBe(0);
+    expect(a.weekTotal).toBe(414);
+    expect(a.weekAvg).toBe(200); // median of the weeks with a counted close: [200, 210]
+  });
 });
 
 describe('stats aggregate', () => {

@@ -39,6 +39,10 @@ const S = {
   all: ['اعرض الكل', 'Show all'],
   none_stuck: ['مفيش حاجة واقفة', 'Nothing is stuck'],
   q1: ['هل الشغل بيخلص؟', 'Is work getting finished?'],
+  q1tip: [
+    'الإغلاقات اللي شغلها أقل من دقيقة مش محسوبة',
+    'Closes with under 1 min of work are not counted'
+  ],
   q1s: [
     'مهام خلصت كل أسبوع · آخر 8 أسابيع',
     'Tasks finished per week · last 8 weeks'
@@ -266,7 +270,7 @@ function weeksBlock(d) {
     'weeks',
     tr('q1'),
     tr('q1s') + ' · n=' + nf.format(d.weekTotal),
-    html`<div class="u3-sh__big">
+    html`<div class="u3-sh__big" title=${tr('q1tip')}>
         <span class="u3-sh__num" dir="ltr">${nf.format(cur)}</span>
         <span class="u3-sh__muted"
           >${tr('this_week')}${d.weekAvg !== null
