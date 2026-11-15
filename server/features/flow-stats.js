@@ -21,6 +21,8 @@ import { isDeskIssue } from '../phone.js';
 const log = debug('flow-stats');
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
+/** A close counts as finished work only with at least this much active time. */
+const REAL_WORK_MS = 60_000;
 export const MIN_N = 8;
 const BUCKETS = ['active', 'test', 'owner', 'merge', 'blocked', 'queue'];
 const STUCK = [
@@ -162,10 +164,13 @@ export function aggregate(doc, tok, days, now) {
   const weeks = Array(8).fill(0);
   for (const b of work) {
     if (closed(b) === null) continue;
+    // bulk closes (under 1 min of real work, or none recorded) are not finished work
+    if (!(num(b.active_ms) >= REAL_WORK_MS)) continue;
     const k = Math.floor((now - b.closed) / WEEK);
     if (k >= 0 && k < 8) weeks[7 - k]++;
   }
-  const avg = median(weeks.slice(0, 7)); // the median of the 7 weeks before this one
+  // median of the 7 complete weeks before this one, only weeks with at least 1 counted close
+  const avg = median(weeks.slice(0, 7).filter((x) => x > 0));
 
   // Q2 where the time goes: closed in the window with known intervals
   /** @type {Record<string, number>} */
