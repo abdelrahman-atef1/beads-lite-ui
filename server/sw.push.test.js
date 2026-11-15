@@ -116,6 +116,29 @@ describe('sw push', () => {
     expect(s.shown[0].o.data.url).toBe('/#/issues?issue=fatura-1.2');
   });
 
+  test('decision with images: the body says how many', async () => {
+    const s = boot();
+    await s.push({
+      kind: 'decision',
+      project: 'fatura',
+      bead: 'fatura-1.2',
+      title: 'Tax rounding',
+      count: 1,
+      att: 2
+    });
+    expect(s.shown[0].o.body).toBe(
+      'Decision needed: Tax rounding (2 images attached)'
+    );
+    await s.push({
+      kind: 'decision',
+      project: 'f',
+      bead: 'f-1',
+      title: 'T',
+      att: 1
+    });
+    expect(s.shown[1].o.body).toBe('Decision needed: T (1 image attached)');
+  });
+
   test('desk (title null): pointer only', async () => {
     const s = boot();
     await s.push({

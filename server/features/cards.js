@@ -19,16 +19,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { matchWorkspace } from '../../app/issue-workspace.js';
+import { cleanAtt } from '../../app/utils/card-att.js';
 import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { withPrefixes } from '../workspace-prefix.js';
 import {
+  STEPS_LABEL,
   cardsDirs,
   findSteps,
   projectKey,
-  scanBlocked,
-  STEPS_LABEL
+  scanBlocked
 } from './decisions-feed.js';
 import { emitWake, viaFromHost } from './report.js';
 
@@ -406,7 +407,8 @@ export function createCards(opts = {}) {
         effect: c.effect,
         show: c.show,
         blocks: c.blocks,
-        opts: c.opts
+        opts: c.opts,
+        att: cleanAtt(meta.card_att)
       };
     }
     let st = 'none';
@@ -540,8 +542,10 @@ export function createCards(opts = {}) {
         const st = findSteps(comments);
         if (!st) throw refuse('no-steps');
         if (st.comment !== ref) throw refuse('stale-steps');
-        if (m.rules.scanText(`${st.title}
-${String(bead.title || '')}`).length) {
+        if (
+          m.rules.scanText(`${st.title}
+${String(bead.title || '')}`).length
+        ) {
           throw refuse('secret-refused');
         }
         /** @type {Record<string, unknown>} */

@@ -10,6 +10,7 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { commentAnchor } from '../utils/anchor.js';
+import { attStrip } from '../utils/card-att.js';
 import { cardDir, cardLang, detectLang } from '../utils/card-dir.js';
 import { errorText, wakeLabel } from '../utils/card-text.js';
 import {
@@ -262,6 +263,15 @@ function field(labelKey, lang, value, extra = '') {
   </div>`;
 }
 
+/** @param {any} att @param {string} lang */
+function attWords(att, lang) {
+  return attStrip(att, {
+    label: tIn('cd_att', lang),
+    open: tIn('cd_att_open', lang),
+    link: tIn('cd_att_link', lang)
+  });
+}
+
 /** @param {any} c */
 function cardBody(c) {
   const lang = cardLang(c.lang);
@@ -274,6 +284,7 @@ function cardBody(c) {
     <p class="cd__q" dir="auto">${c.q}</p>
     ${c.effect ? field('cd_effect', lang, c.effect) : nothing}
     ${c.show ? field('cd_show', lang, c.show) : nothing}
+    ${attWords(c.att, lang)}
     ${c.blocks ? field('cd_blocks', lang, c.blocks, 'cd__blk') : nothing}
   </div>`;
 }
@@ -549,6 +560,7 @@ function staticCard(d, answer, pickedN, listOpts = true) {
     <p class="cd__q" dir="auto">${d.q}</p>
     ${d.effect ? field('cd_effect', lang, d.effect) : nothing}
     ${d.show ? field('cd_show', lang, d.show) : nothing}
+    ${attWords(d.att, lang)}
     ${d.blocks ? field('cd_blocks', lang, d.blocks, 'cd__blk') : nothing}
     ${listOpts
       ? html`<ol class="dc__opts">

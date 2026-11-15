@@ -13,7 +13,8 @@
  * endpoint, is ever logged, sent over the socket (only the PUBLIC key) or put
  * in a payload.
  *
- * Payload (JSON, no free text): { kind, project, bead, title, count, at }.
+ * Payload (JSON, no free text): { kind, project, bead, title, count, att, at }.
+ * att = number of images on the card (0-6), a count only.
  * title is card_title for a non-desk card, null for a desk bead (pointer only).
  * Never card_q, options, comments or the owner's words. The service worker
  * (app/sw.js) builds the visible text.
@@ -528,6 +529,7 @@ export function createPush(opts = {}) {
       if (!PROJECT_RE.test(project)) return 'bad-project';
       const desk =
         ev.desk === true || typeof ev.title !== 'string' || !ev.title;
+      /** @type {any} */
       const payload = {
         kind: ev.kind,
         project,
@@ -539,6 +541,12 @@ export function createPush(opts = {}) {
         count: Number(ev.count) || 1,
         at: String(ev.at || new Date(now()).toISOString())
       };
+      // count only: images on the card, never names or captions
+      const att =
+        ev.kind === 'decision' && !desk
+          ? Math.min(6, Math.max(0, Math.trunc(Number(ev.att)) || 0))
+          : 0;
+      if (att) payload.att = att;
       rollDay();
       const f = folded.get(project);
       const last = state.last[project];

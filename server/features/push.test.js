@@ -246,6 +246,18 @@ describe('payload', () => {
     expect(r.opts[0].TTL).toBeGreaterThan(0);
   });
 
+  test('card images: count only, capped at 6, never on a desk bead', async () => {
+    const r = rig();
+    r.p.subscribe(sub());
+    await r.p.send(ev({ att: 2, n: 'secret-caption.png' }));
+    expect(r.sent[0].body.att).toBe(2);
+    expect(r.sent[0].raw).not.toMatch(/secret-caption/);
+    await r.p.send(ev({ project: 'beta', att: 99 }));
+    expect(r.sent[1].body.att).toBe(6);
+    await r.p.send(ev({ project: 'gamma', desk: true, title: null, att: 3 }));
+    expect(r.sent[2].body.att).toBeUndefined();
+  });
+
   test('desk bead: pointer only, no title', async () => {
     const r = rig();
     r.p.subscribe(sub());

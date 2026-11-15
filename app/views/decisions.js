@@ -20,6 +20,7 @@ import {
   isDesk,
   meta
 } from '../utils/board-model.js';
+import { attStrip, cleanAtt } from '../utils/card-att.js';
 import { cardDir, cardLang } from '../utils/card-dir.js';
 import { errorText } from '../utils/card-text.js';
 import { t, tIn } from '../utils/i18n.js';
@@ -164,6 +165,7 @@ export function createDecisionsView(
     const effect = meta(it, 'card_effect');
     const show = meta(it, 'card_show');
     const blocks = meta(it, 'card_blocks');
+    const att = cleanAtt(meta(it, 'card_att'));
     const lang_attr = meta(it, 'card_lang') || 'ar';
     return html`
       <article
@@ -194,6 +196,13 @@ export function createDecisionsView(
               <b class="qcard__lbl">${tIn('today', lang_attr)}</b>
               <span dir="auto">${show}</span>
             </div>`
+          : ''}
+        ${!desk
+          ? attStrip(att, {
+              label: tIn('cd_att', lang_attr),
+              open: tIn('cd_att_open', lang_attr),
+              link: tIn('cd_att_link', lang_attr)
+            })
           : ''}
         ${!desk && blocks
           ? html`<div class="qcard__blk">

@@ -40,7 +40,16 @@ const ALLOWED = [
   /^server\/bd-resolve\.test\.js$/,
   // Per-screen chunks (beads-lite-1bo5.6.59.19): the tests of the two server files only; the files themselves are exact hunks in SEAM below.
   /^server\/sw\.test\.js$/,
-  /^server\/features\/perf\.test\.js$/
+  /^server\/features\/perf\.test\.js$/,
+  // Approval-card attachments (beads-lite-1bo5.6.59.29.2; SHELL-REQ on 1bo5.6.59): the thumbnail strip, its feed/state projection, the push count; these exact files only.
+  /^app\/utils\/card-att(\.test)?\.js$/,
+  /^app\/views\/decisions\.att\.test\.js$/,
+  /^app\/i18n\/card\.js$/,
+  /^app\/views\/(card-panel|decisions)\.js$/,
+  /^app\/sw\.js$/,
+  /^server\/features\/(cards|decisions-feed|notifier|push)\.js$/,
+  /^server\/features\/(decisions-feed|push)\.test\.js$/,
+  /^server\/sw\.push\.test\.js$/
 ];
 // Narrow edits to the feature seam (1bo5.6.63.1): the exact lines that register
 // the bulk feature. Nothing else may be added; the one removed line is the

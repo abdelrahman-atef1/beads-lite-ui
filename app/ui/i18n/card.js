@@ -3,6 +3,9 @@
 export const strings = {
   u3_card_decision: { en: 'One decision needed', ar: 'قرار واحد مطلوب' },
   u3_card_effect: { en: 'What changes', ar: 'إيه اللي هيتغير عليك' },
+  u3_card_att: { en: 'Images to review', ar: 'صور للمراجعة' },
+  u3_card_att_open: { en: 'Open full size', ar: 'افتح بالحجم الكامل' },
+  u3_card_att_link: { en: 'Open link', ar: 'افتح الرابط' },
   u3_card_show: { en: 'The thing', ar: 'الشيء نفسه' },
   u3_card_blocks: { en: 'Frozen until you answer', ar: 'واقف لحد ما ترد' },
   u3_card_rec: { en: 'recommended', ar: 'مقترح' },

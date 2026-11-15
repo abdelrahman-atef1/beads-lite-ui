@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { cleanAtt } from '../../app/utils/card-att.js';
 import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { allowPhoneFeatureType, isDeskIssue } from '../phone.js';
@@ -423,7 +424,7 @@ export function createNotifier(opts = {}) {
       const first = !scanned.has(key);
       scanned.add(key);
       const at = new Date(now()).toISOString();
-      /** @type {Array<{ k: string, kind: string, bead: string, title: string | null, desk: boolean }>} */
+      /** @type {Array<{ k: string, kind: string, bead: string, title: string | null, desk: boolean, att: number }>} */
       const fresh = [];
       for (const bead of beads) {
         if (
@@ -460,7 +461,8 @@ export function createNotifier(opts = {}) {
             kind,
             bead: bead.id,
             title: desk ? null : safeTitle(card),
-            desk
+            desk,
+            att: cleanAtt(m.card_att).length
           });
         }
       }
@@ -487,6 +489,7 @@ export function createNotifier(opts = {}) {
             bead: x.bead,
             title: x.title,
             desk: x.desk,
+            att: x.att,
             count: 1,
             at,
             read: false
