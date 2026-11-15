@@ -6,11 +6,16 @@ import { renderComposerExtras } from './task/composer-ext.js';
 import { renderTimeSlot } from './task/time-slot.js';
 import { renderBulkBar } from './tasks/bulk.js';
 import { groupIssues } from './tasks/lanes.js';
+import { hooks as gate } from './workspace-gate.js';
 
+/** Per-test reply for a message type (59.23); null for the rest. */
+const replies = vi.hoisted(() => /** @type {Record<string, any>} */ ({}));
+const sent = vi.hoisted(() => /** @type {string[]} */ ([]));
 vi.mock('../ws.js', () => ({
   createWsClient: () => ({
-    async send() {
-      return null;
+    async send(/** @type {string} */ type) {
+      sent.push(type);
+      return replies[type] ?? null;
     },
     on() {
       return () => {};
@@ -37,6 +42,32 @@ function setup(hash, search = '') {
 }
 
 describe('?ui=3 boot', () => {
+  test('deep link to a bead of another project switches the workspace and reloads, never sits on loading (59.23)', async () => {
+    replies['list-workspaces'] = {
+      workspaces: [
+        { path: 'E:/p/beads-lite', prefix: 'beads-lite' },
+        { path: 'E:/p/rayeh', prefix: 'rayeh' }
+      ],
+      current: { root_dir: 'E:/p/beads-lite', db_path: 'x' }
+    };
+    replies['set-workspace'] = {
+      workspace: { root_dir: 'E:/p/rayeh' },
+      changed: true
+    };
+    sent.length = 0;
+    window.sessionStorage.clear();
+    const reload = (gate.reload = vi.fn());
+    const root = setup('#/issues?issue=rayeh-3.1', '?ui=3');
+    void bootstrap(root).ready;
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(sent).toContain('set-workspace');
+    // the task screen never mounted against the wrong project
+    expect(document.querySelector('[data-view="task"]')).toBeNull();
+    delete replies['list-workspaces'];
+    delete replies['set-workspace'];
+    document.getElementById('u3')?.remove();
+  });
+
   test('flag on: v3 shell replaces the legacy shell, Arabic RTL, same hash opens the task', async () => {
     const root = setup('#/issues?issue=x-1&at=c-last', '?ui=3');
     await bootstrap(root).ready;

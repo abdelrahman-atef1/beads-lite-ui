@@ -22,6 +22,7 @@ import { mount as kit } from './views/kit.js';
 import { mount as projects } from './views/projects.js';
 import { mount as releases } from './views/releases.js';
 import { mount as settings } from './views/settings.js';
+import { switchForIssue } from './workspace-gate.js';
 
 /** @type {Record<string, () => Promise<{ mount: Function }>>} */
 const LAZY = {
@@ -79,7 +80,7 @@ export function bootV3(_legacy_root, base) {
   const shell = createShell(root, base);
   mountPanels(root, base);
   attachSearch(base); // SHELL-REQ .59.14: top search on every screen
-  /** @type {{ name: string, h: any }} */
+  /** @type {{ name: string, h: any, id?: string | null }} */
   let cur = { name: '', h: null };
   /** Bumped on every route change: a slow chunk never mounts over a newer screen. */
   let seq = 0;
@@ -91,6 +92,14 @@ export function bootV3(_legacy_root, base) {
     const host = /** @type {HTMLElement} */ (root.querySelector('#u3-view'));
     const ctx = { ...base, route: r, shell };
     if (cur.name === r.name && cur.h && cur.h.update) {
+      if (r.name === 'task' && r.id && r.id !== cur.id) {
+        // In-app link to a bead of another project (59.23): switch first.
+        const mine = ++seq;
+        cur.id = r.id;
+        return switchForIssue(base, r.id).then((reloading) => {
+          if (!reloading && mine === seq) cur.h?.update?.(r);
+        });
+      }
       cur.h.update(r);
       return Promise.resolve();
     }
@@ -105,7 +114,7 @@ export function bootV3(_legacy_root, base) {
       const el = document.createElement('div');
       el.className = 'u3-screen';
       host.replaceChildren(el); // also drops the skeleton
-      cur = { name: r.name, h: mount(el, ctx) || null };
+      cur = { name: r.name, h: mount(el, ctx) || null, id: r.id };
       try {
         window.sessionStorage.removeItem('bl.chunk-retry');
       } catch {
@@ -113,7 +122,16 @@ export function bootV3(_legacy_root, base) {
       }
       window.scrollTo(0, 0);
     };
-    const load = LAZY[r.name];
+    // A task link of another project switches to it first (59.23); the chunk
+    // travels meanwhile. On a switch the page reloads, so the mount never runs.
+    const rid = r.id;
+    const load =
+      r.name === 'task' && rid
+        ? () =>
+            Promise.all([switchForIssue(base, rid), LAZY.task()]).then(
+              ([reloading, m]) => (reloading ? new Promise(() => {}) : m)
+            )
+        : LAZY[r.name];
     if (!load) {
       open(desk);
       return Promise.resolve();
