@@ -101,7 +101,7 @@ for (const C of COMBOS) for (const [name, hash] of LAZY) test(`S-3 lazy first op
       const st = window.__t; if (st.hashAt != null) {
         if (txt <= 1 && st.blankStart == null && st.firstContent == null) st.blankStart = now;
         if (txt > 1 && st.blankStart != null && st.blankEnd == null) st.blankEnd = now;
-        if (txt > 40 && st.firstContent == null) st.firstContent = now;
+        if (txt > 40 && !v.querySelector('.dk3') && st.firstContent == null) st.firstContent = now;
         if (st.firstContent != null && st.blankStart != null && st.blankEnd == null) st.blankEnd = st.firstContent;
       }
       requestAnimationFrame(loop);
@@ -127,7 +127,7 @@ for (const C of COMBOS.filter((x) => x.w === 390 && x.theme === 'dark')) for (co
   const c = await mkctx(browser, C); const page = await c.newPage(); const errs = []; watch(page, errs);
   await page.addInitScript(() => {
     window.__t = {}; const loop = () => { const v = document.getElementById('u3-view'); const txt = v ? (v.innerText || '').trim().length : -1; const now = performance.now(); const st = window.__t;
-      if (st.hashAt != null) { if (txt <= 1 && st.blankStart == null && st.firstContent == null) st.blankStart = now; if (txt > 40 && st.firstContent == null) { st.firstContent = now; } } requestAnimationFrame(loop); };
+      if (st.hashAt != null) { if (txt <= 1 && st.blankStart == null && st.firstContent == null) st.blankStart = now; if (txt > 40 && !v.querySelector('.dk3') && st.firstContent == null) { st.firstContent = now; } } requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   });
   await page.goto(base('new', door(C)) + '/?ui=3#/'); await page.waitForSelector('.dk3-h', { timeout: 60000 });
