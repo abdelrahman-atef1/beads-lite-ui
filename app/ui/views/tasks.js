@@ -20,7 +20,7 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
-import { personLabel } from '../data/people.js';
+import { personLabel, uiDir } from '../data/people.js';
 import { t3 } from '../i18n.js';
 import { personChip } from '../people/person-chip.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
@@ -312,7 +312,11 @@ export function mount(el, ctx) {
             }}
           >
             <span class="u3t-lane__chev" aria-hidden="true"></span>
-            <span class="u3t-lane__name" dir="auto">${laneName(g)}</span>
+            <span
+              class="u3t-lane__name"
+              dir=${group_by === 'assignee' ? uiDir() : 'auto'}
+              >${laneName(g)}</span
+            >
             <span class="u3-chip">${g.issues.length}</span>
           </button>
           <span class="u3t-lane__counts">

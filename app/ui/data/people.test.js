@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { PEOPLE, personLabel } from './people.js';
 
+const strip = (/** @type {string} */ s) => s.replace(/[⁨⁩]/g, '');
+
 describe('people', () => {
   beforeEach(() => localStorage.clear());
   test('Arabic names match the glossary', () => {
@@ -33,13 +35,13 @@ describe('people', () => {
   });
   test('Arabic UI gives name - Arabic title, English UI the English title', () => {
     localStorage.setItem('beads-ui.lang', 'ar');
-    expect(personLabel('cos').full).toBe('مارد وشوشني - مدير المكتب');
+    expect(strip(personLabel('cos').full)).toBe('مارد وشوشني - مدير المكتب');
     localStorage.setItem('beads-ui.lang', 'en');
-    expect(personLabel('cos').full).toBe('مارد وشوشني - Chief of Staff');
+    expect(strip(personLabel('cos').full)).toBe('مارد وشوشني - Chief of Staff');
   });
   test('unknown shows raw; legal does not repeat itself in Arabic', () => {
     expect(personLabel('Zed')).toMatchObject({ full: 'Zed', known: false });
     localStorage.setItem('beads-ui.lang', 'ar');
-    expect(personLabel('legal').full).toBe('المستشار القانوني');
+    expect(strip(personLabel('legal').full)).toBe('المستشار القانوني');
   });
 });

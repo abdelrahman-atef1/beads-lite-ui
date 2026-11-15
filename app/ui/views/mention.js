@@ -11,7 +11,7 @@ import { html, nothing, render } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import { getLang } from '../../utils/i18n.js';
 import { createMentionApi, pickerItems, tokenAt } from '../data/mention.js';
-import { personLabel } from '../data/people.js';
+import { personLabel, uiDir } from '../data/people.js';
 import { registerComposerExtension } from '../task/composer-ext.js';
 
 /** @type {Record<string, { en: string, ar: string }>} */
@@ -252,7 +252,7 @@ export function attachPicker(ta, host) {
                     >
                     <span class="u3-mn__nm">
                       <span class="u3-mn__r" dir="ltr">@${r.role}</span>
-                      <span class="u3-mn__d" dir="auto"
+                      <span class="u3-mn__d" dir=${uiDir()}
                         >${personLabel(r.role).known
                           ? personLabel(r.role).full
                           : getLang() === 'ar'

@@ -41,6 +41,14 @@ export const PEOPLE = {
   analytics: { name: 'مزلقان', ar: 'تحليل البيانات', en: 'Analytics' }
 };
 
+const FSI = '⁨';
+const PDI = '⁩';
+
+/** Direction of the UI language; names and titles are isolated inside it. */
+export function uiDir() {
+  return getLang() === 'ar' ? 'rtl' : 'ltr';
+}
+
 /**
  * @param {string} role
  * @returns {{ name: string, title: string, full: string, known: boolean }}
@@ -58,7 +66,10 @@ export function personLabel(role) {
   return {
     name: p.name,
     title,
-    full: title === p.name ? p.name : `${p.name} - ${title}`,
+    full:
+      title === p.name
+        ? p.name
+        : `${FSI}${p.name}${PDI} - ${FSI}${title}${PDI}`,
     known: true
   };
 }

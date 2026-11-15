@@ -1,5 +1,5 @@
 import { html } from 'lit-html';
-import { personLabel } from '../data/people.js';
+import { personLabel, uiDir } from '../data/people.js';
 
 const KNOWN = [
   'cto',
@@ -33,8 +33,10 @@ export function personChip(o) {
     >`;
   }
   if (!o.short || !p.title || p.title === p.name) {
-    return html`<span class="u3-role u3-role--${known} u3-role--full" dir="auto"
-      >${dot}<bdi>${p.full}</bdi></span
+    return html`<span
+      class="u3-role u3-role--${known} u3-role--full"
+      dir=${uiDir()}
+      >${dot}${p.full}</span
     >`;
   }
   /** @param {Event} e */
@@ -46,7 +48,7 @@ export function personChip(o) {
   };
   return html`<span
     class="u3-role u3-role--${known} u3-role--short"
-    dir="auto"
+    dir=${uiDir()}
     tabindex="0"
     role="button"
     title=${p.full}
@@ -55,8 +57,7 @@ export function personChip(o) {
     @keydown=${(/** @type {KeyboardEvent} */ e) => {
       if (e.key === 'Enter' || e.key === ' ') toggle(e);
     }}
-    >${dot}<bdi
-      >${p.name}<span class="u3-role__title"> - ${p.title}</span></bdi
-    ></span
+    >${dot}<bdi>${p.name}</bdi
+    ><span class="u3-role__title"> - <bdi>${p.title}</bdi></span></span
   >`;
 }
