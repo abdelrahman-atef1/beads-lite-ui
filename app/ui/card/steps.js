@@ -5,7 +5,7 @@ import { errorText } from '../../utils/card-text.js';
 import { showToast } from '../../utils/toast.js';
 import { card as frame } from '../components/card.js';
 import { chip } from '../components/chip.js';
-import { roleChip } from '../components/role-chip.js';
+import { personChip } from '../people/person-chip.js';
 import { ageText, clientOf, tc } from './common.js';
 
 /**
@@ -244,7 +244,7 @@ function paintSteps(el, comment, parsed, ctx) {
       head: html`<div class="u3-cd__head">
         ${chip({ label: tc('u3_steps_badge', lang), tone: 'teal' })}
         ${comment?.author
-          ? roleChip({ role: String(comment.author) })
+          ? personChip({ role: String(comment.author) })
           : nothing}
         <span class="u3-cd__age">${ageText(ts, lang, ctx.now)}</span>
       </div>`,

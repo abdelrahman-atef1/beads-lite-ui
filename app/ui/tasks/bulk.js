@@ -10,6 +10,7 @@
 import { html, render } from 'lit-html';
 import { openSheet } from '../components/sheet.js';
 import { MAX_BULK, UNDO_MS, createBulkApi } from '../data/bulk.js';
+import { personLabel } from '../data/people.js';
 import { t3 } from '../i18n.js';
 import { chipIcon } from './chip-icons.js';
 
@@ -459,7 +460,7 @@ export function createBulk(o) {
                   ${ROLE_CHOICES.map(
                     (r) =>
                       html`<option value=${r} ?selected=${st.role === r}>
-                        ${r}
+                        ${personLabel(r).full}
                       </option>`
                   )}
                   <option value="" ?selected=${st.role === ''}>

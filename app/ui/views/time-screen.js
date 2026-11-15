@@ -9,11 +9,11 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { chip } from '../components/chip.js';
-import { roleChip } from '../components/role-chip.js';
 import { loadDigest } from '../data/flow-digest.js';
 import { compareKey, roleReport, runningCount } from '../data/time-math.js';
 import { PERIODS, loadRollup } from '../data/time.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { digestCard } from './time-digest.js';
 import { expSection } from './time-exp.js';
 import { dur, footer, nf, qualityChips, tr } from './time-section.js';
@@ -33,7 +33,7 @@ export function roleCard(r, prev, days) {
     key === 'faster_worse' || key === 'slower_worse' || key === 'worse_same';
   return html`<article class="u3-tmr" data-role=${r.role}>
     <header class="u3-tmr__head">
-      ${roleChip({ role: r.role })}
+      ${personChip({ role: r.role })}
       <span class="u3-tmr__n">${tr('u3_tm_closed', { n: nf(r.closed) })}</span>
     </header>
     <dl class="u3-tmr__nums">

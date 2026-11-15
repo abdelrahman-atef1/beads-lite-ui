@@ -13,11 +13,11 @@
 import { html, nothing, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import { getLang } from '../../utils/i18n.js';
-import { allIssues } from '../data/all.js';
 import { chip } from '../components/chip.js';
 import { listRow } from '../components/list-row.js';
-import { roleChip } from '../components/role-chip.js';
+import { allIssues } from '../data/all.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { renderCard } from './card.js';
 
 export const MOVES_MAX = 12;
@@ -186,7 +186,7 @@ export function mount(el, ctx) {
                   dot: dotOf(it),
                   href: `#/issues?issue=${encodeURIComponent(it.id)}`,
                   meta: html`${it.assignee
-                    ? roleChip({ role: it.assignee })
+                    ? personChip({ role: it.assignee, short: true })
                     : nothing}${chip({
                     label: projectOf(it.id),
                     tone: 'neutral'

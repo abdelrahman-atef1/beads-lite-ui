@@ -10,6 +10,7 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
+import { personLabel } from '../data/people.js';
 import { PERIODS, loadStats } from '../data/stats.js';
 import { fmtDur } from '../data/time-math.js';
 
@@ -131,26 +132,14 @@ function tr(key, vars = {}) {
   return s;
 }
 
-/** Team names and titles (agents/*.md). A role without a name shows its title only. */
-const ROLES = /** @type {Record<string, [string, string]>} */ ({
-  swe: ['أندل', 'Software Engineer'],
-  pm: ['سالي', 'Product Lead'],
-  cto: ['شلبي', 'CTO (Chief Technology Officer)'],
-  qa: ['عفني', 'QA Engineer'],
-  sre: ['روز', 'Infrastructure & Unit-Cost Engineer'],
-  ux: ['بو', 'Product Designer (UX)'],
-  cos: ['', 'Chief of Staff'],
-  sec: ['', 'Security Engineer'],
-  legal: ['', 'Legal Counsel'],
-  analytics: ['', 'Analytics'],
-  sup: ['', 'Support & Community'],
-  main: ['', 'Main session']
-});
-
+/** Name and job title from the shared people table (app/ui/data/people.js); "main" is the only extra. */
 /** @param {string | null} r */
 function roleName(r) {
-  const e = r ? ROLES[r] : null;
-  return { name: e?.[0] || r || tr('unknown_role'), title: e?.[1] || '' };
+  if (r === 'main') return { name: 'main', title: 'Main session' };
+  const p = r ? personLabel(r) : null;
+  return p?.known
+    ? { name: p.name, title: p.title }
+    : { name: r || tr('unknown_role'), title: '' };
 }
 
 const nf = new Intl.NumberFormat('en-GB');

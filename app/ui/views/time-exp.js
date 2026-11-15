@@ -8,9 +8,9 @@
  */
 import { html, nothing } from 'lit-html';
 import { chip } from '../components/chip.js';
-import { roleChip } from '../components/role-chip.js';
 import { verdictKey } from '../data/flow-digest.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { dur, nf, tr } from './time-section.js';
 
 /** @type {Record<string, string>} */
@@ -128,7 +128,9 @@ export function expDetail(e) {
       ${verdictPill(e)}
     </header>
     <p class="u3-ex__meta">
-      ${x.scope && x.scope.role ? roleChip({ role: x.scope.role }) : nothing}
+      ${x.scope && x.scope.role
+        ? personChip({ role: x.scope.role, short: true })
+        : nothing}
       ${x.scope && x.scope.kind
         ? html`<span class="u3-ex__kind" dir="ltr">${x.scope.kind}</span>`
         : nothing}

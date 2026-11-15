@@ -67,7 +67,7 @@ describe('stats home', () => {
     ])
       expect(el.querySelector(`[data-block="${k}"]`), k).not.toBeNull();
     expect(el.querySelector('[data-block="stuck"]')?.textContent).toContain(
-      'CTO (Chief Technology Officer) - '
+      'Chief Technology Officer - '
     );
     expect(el.querySelector('[data-block="quality"]')?.textContent).toMatch(
       /عدد قليل|too few/

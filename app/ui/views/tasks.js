@@ -20,8 +20,9 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
-import { roleChip } from '../components/index.js';
+import { personLabel, uiDir } from '../data/people.js';
 import { t3 } from '../i18n.js';
+import { personChip } from '../people/person-chip.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
 import { chipIcon, typeIconName } from '../tasks/chip-icons.js';
 import { filterMenu } from '../tasks/filter-menu.js';
@@ -254,7 +255,7 @@ export function mount(el, ctx) {
         <span class="u3t-time" data-slot="time"
           >${ageLabel(it.updated_at)}</span
         >
-        ${who ? roleChip({ role: who }) : ''}
+        ${who ? personChip({ role: who, short: true }) : ''}
       </span>
     </a>`;
   }
@@ -302,6 +303,7 @@ export function mount(el, ctx) {
   }
 
   function laneName(/** @type {any} */ g) {
+    if (g.label && group_by === 'assignee') return personLabel(g.label).full;
     return g.label || t3('u3_tk_lane_' + (g.kind || 'none'));
   }
 
@@ -344,7 +346,11 @@ export function mount(el, ctx) {
             }}
           >
             <span class="u3t-lane__chev" aria-hidden="true"></span>
-            <span class="u3t-lane__name" dir="auto">${laneName(g)}</span>
+            <span
+              class="u3t-lane__name"
+              dir=${group_by === 'assignee' ? uiDir() : 'auto'}
+              >${laneName(g)}</span
+            >
             <span class="u3-chip">${g.issues.length}</span>
           </button>
           <span class="u3t-lane__counts">
@@ -528,7 +534,11 @@ export function mount(el, ctx) {
     )}
     ${menu('assignee', [
       { value: '-', label: t3('u3_tk_unassigned'), icon: 'nobody' },
-      ...fc.assignees.map((v) => ({ value: v, label: v, icon: 'mine' }))
+      ...fc.assignees.map((v) => ({
+        value: v,
+        label: personLabel(v).full,
+        icon: 'mine'
+      }))
     ])}
     ${menu(
       'prio',
