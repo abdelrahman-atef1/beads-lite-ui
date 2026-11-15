@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { hooks, switchForIssue } from './workspace-gate.js';
+import {
+  applyMoved,
+  hooks,
+  movedNote,
+  resolveMoved,
+  switchForIssue
+} from './workspace-gate.js';
 
 const LIST = {
   workspaces: [
@@ -77,5 +83,30 @@ describe('task link of another project (59.23)', () => {
       expect(await switchForIssue({ client: client(r) }, id)).toBe(false);
     }
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe('moved ids (59.24)', () => {
+  test('resolveMoved: new id, or null for not-moved / same id / failure', async () => {
+    const ok = client({
+      'resolve-moved-id': { moved: { id: 'p-1', repo: 'p' } }
+    });
+    expect(await resolveMoved({ client: ok }, 'company-1')).toBe('p-1');
+    expect(await resolveMoved({ client: ok }, 'p-1')).toBe(null);
+    const none = client({ 'resolve-moved-id': { moved: null } });
+    expect(await resolveMoved({ client: none }, 'a-1')).toBe(null);
+    const bad = client({ 'resolve-moved-id': new Error('x') });
+    expect(await resolveMoved({ client: bad }, 'a-1')).toBe(null);
+  });
+
+  test('applyMoved swaps the id in the hash; movedNote only for the new id', () => {
+    window.history.replaceState({}, '', '/?ui=3#/issues?issue=company-1.2');
+    applyMoved('company-1.2', 'p-1.2');
+    expect(window.location.hash).toBe('#/issues?issue=p-1.2');
+    expect(window.location.search).toBe('?ui=3');
+    expect(movedNote('p-1.2')).toBe('company-1.2');
+    expect(movedNote('p-1.2')).toBe('company-1.2'); // survives a reload
+    expect(movedNote('other-1')).toBe(null);
+    expect(movedNote('p-1.2')).toBe(null); // cleared by the other screen
   });
 });

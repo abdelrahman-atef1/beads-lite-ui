@@ -68,6 +68,22 @@ describe('?ui=3 boot', () => {
     document.getElementById('u3')?.remove();
   });
 
+  test('old id of a moved bead opens the new bead, address bar replaced, says it moved (59.24)', async () => {
+    replies['resolve-moved-id'] = { moved: { id: 'x-9.1', repo: 'x' } };
+    window.sessionStorage.clear();
+    const root = setup('#/issues?issue=company-9.1', '?ui=3');
+    await bootstrap(root).ready;
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-view="task"]')).not.toBeNull()
+    );
+    expect(window.location.hash).toBe('#/issues?issue=x-9.1');
+    const note = document.querySelector('[data-moved]');
+    expect(note?.getAttribute('data-moved')).toBe('company-9.1');
+    expect(note?.textContent).toContain('company-9.1');
+    delete replies['resolve-moved-id'];
+    document.getElementById('u3')?.remove();
+  });
+
   test('flag on: v3 shell replaces the legacy shell, Arabic RTL, same hash opens the task', async () => {
     const root = setup('#/issues?issue=x-1&at=c-last', '?ui=3');
     await bootstrap(root).ready;

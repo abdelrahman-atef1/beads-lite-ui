@@ -13,6 +13,7 @@
  * more requests. Measure both before moving a screen.
  */
 import { applyLang } from '../utils/i18n.js';
+import { t3 } from './i18n.js';
 import { mountPanels } from './panels/mount.js';
 import { parseRoute } from './routes.js';
 import { attachSearch } from './search.js';
@@ -22,7 +23,12 @@ import { mount as kit } from './views/kit.js';
 import { mount as projects } from './views/projects.js';
 import { mount as releases } from './views/releases.js';
 import { mount as settings } from './views/settings.js';
-import { switchForIssue } from './workspace-gate.js';
+import {
+  applyMoved,
+  movedNote,
+  resolveMoved,
+  switchForIssue
+} from './workspace-gate.js';
 
 /** @type {Record<string, () => Promise<{ mount: Function }>>} */
 const LAZY = {
@@ -36,6 +42,24 @@ const LAZY = {
 };
 
 /** @returns {HTMLElement} three grey bars, styled in u3-shell.css */
+/**
+ * Show a line above the task screen saying the bead moved, after an old-id redirect.
+ *
+ * @param {HTMLElement} el
+ * @param {string | null} id
+ */
+function showMoved(el, id) {
+  el.parentElement?.querySelector('[data-moved]')?.remove();
+  const from = movedNote(id);
+  if (!from) return;
+  const p = document.createElement('p');
+  p.className = 'u3-muted';
+  p.setAttribute('role', 'status');
+  p.setAttribute('data-moved', from);
+  p.textContent = t3('u3_moved') + ' ' + from;
+  el.before(p);
+}
+
 function skeleton() {
   const d = document.createElement('div');
   d.className = 'u3-skel';
@@ -87,7 +111,25 @@ export function bootV3(_legacy_root, base) {
 
   /** @returns {Promise<void>} */
   function route() {
-    const r = parseRoute(window.location.hash);
+    const r0 = parseRoute(window.location.hash);
+    if (r0.name === 'task' && r0.id) {
+      // An old id of a moved bead: swap in the new id first (59.24).
+      const old = r0.id;
+      return resolveMoved(base, old).then((to) => {
+        if (to && parseRoute(window.location.hash).id === old) {
+          applyMoved(old, to);
+        }
+        return routeTo(parseRoute(window.location.hash));
+      });
+    }
+    return routeTo(r0);
+  }
+
+  /**
+   * @param {any} r
+   * @returns {Promise<void>}
+   */
+  function routeTo(r) {
     shell.setRoute(r);
     const host = /** @type {HTMLElement} */ (root.querySelector('#u3-view'));
     const ctx = { ...base, route: r, shell };
@@ -97,7 +139,11 @@ export function bootV3(_legacy_root, base) {
         const mine = ++seq;
         cur.id = r.id;
         return switchForIssue(base, r.id).then((reloading) => {
-          if (!reloading && mine === seq) cur.h?.update?.(r);
+          if (!reloading && mine === seq) {
+            cur.h?.update?.(r);
+            const scr = host.querySelector('.u3-screen');
+            if (scr) showMoved(/** @type {HTMLElement} */ (scr), r.id);
+          }
         });
       }
       cur.h.update(r);
@@ -121,6 +167,7 @@ export function bootV3(_legacy_root, base) {
         // ignore storage errors
       }
       window.scrollTo(0, 0);
+      showMoved(el, r.name === 'task' ? r.id : null);
     };
     // A task link of another project switches to it first (59.23); the chunk
     // travels meanwhile. On a switch the page reloads, so the mount never runs.

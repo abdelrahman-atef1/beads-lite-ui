@@ -106,5 +106,9 @@ export const strings = {
     en: 'The assignee was not set.',
     ar: 'المسؤول مااتحطش.'
   },
+  u3_moved: {
+    en: 'This bead moved. Old id:',
+    ar: 'المهمة دي اتنقلت. رقمها القديم:'
+  },
   u3_nt_label_not_set: { en: 'Label not added:', ar: 'التصنيف مااتضافش:' }
 };
