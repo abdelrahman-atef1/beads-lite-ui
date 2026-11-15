@@ -1,0 +1,217 @@
+/* Stats home (#/), beads-lite-1bo5.6.68.4. Scoped under .u3; logical properties so RTL and LTR both work. */
+.u3 .u3-sh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+  min-width: 0;
+}
+.u3 .u3-sh__periods {
+  display: flex;
+  gap: var(--u3-sp-2);
+  flex-wrap: wrap;
+}
+.u3 .u3-sh__sum {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--u3-sp-2);
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-inline-start: 4px solid var(--u3-amber);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+}
+.u3 .u3-sh__sum p {
+  margin: 0;
+  font-size: var(--u3-fs-l);
+  line-height: 1.6;
+}
+.u3 .u3-sh__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-4);
+}
+.u3 .u3-sh__col {
+  display: contents;
+}
+.u3 .u3-sh__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+  padding: var(--u3-sp-4);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  background: var(--u3-surface);
+  min-width: 0;
+}
+/* phone order: what is stuck, is work finishing, time, quality, tokens, machine */
+.u3 [data-block='stuck'] {
+  order: 1;
+}
+.u3 [data-block='weeks'] {
+  order: 2;
+}
+.u3 [data-block='split'] {
+  order: 3;
+}
+.u3 [data-block='quality'] {
+  order: 4;
+}
+.u3 [data-block='tokens-role'] {
+  order: 5;
+}
+.u3 [data-block='tokens-project'] {
+  order: 6;
+}
+.u3 [data-block='machine'] {
+  order: 7;
+}
+@media (min-width: 1000px) {
+  .u3 .u3-sh__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .u3 .u3-sh__col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--u3-sp-4);
+    min-width: 0;
+  }
+}
+.u3 .u3-sh__h {
+  margin: 0;
+  font-size: var(--u3-fs-l);
+}
+.u3 .u3-sh__sub,
+.u3 .u3-sh__muted {
+  margin: 0;
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  overflow-wrap: anywhere;
+}
+.u3 .u3-sh__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-sh__rows {
+  display: flex;
+  flex-direction: column;
+}
+.u3 .u3-sh__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u3-sp-3);
+  padding-block: var(--u3-sp-3);
+  border-block-end: 1px solid var(--u3-border);
+  color: inherit;
+  text-decoration: none;
+  min-block-size: 44px;
+}
+.u3 .u3-sh__row:last-child {
+  border-block-end: 0;
+}
+.u3 .u3-sh__rowmain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.u3 .u3-sh__rowmain strong {
+  overflow-wrap: anywhere;
+}
+.u3 .u3-sh__all {
+  align-self: flex-start;
+}
+.u3 .u3-sh__big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--u3-sp-3);
+}
+.u3 .u3-sh__num {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.u3 .u3-sh__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--u3-sp-2);
+  block-size: 96px;
+}
+.u3 .u3-sh__bars i {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: var(--u3-blue-soft);
+  min-width: 0;
+}
+.u3 .u3-sh__bars i.is-now {
+  background: var(--u3-blue);
+}
+.u3 .u3-sh__stack {
+  display: flex;
+  block-size: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--u3-surface-2);
+}
+.u3 .u3-sh__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2) var(--u3-sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-2);
+}
+.u3 .u3-sh__legend i {
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  margin-inline-end: 6px;
+}
+.u3 .u3-sh__meter {
+  flex: 0 0 72px;
+  block-size: 6px;
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  overflow: hidden;
+  display: block;
+}
+.u3 .u3-sh__meter i {
+  display: block;
+  block-size: 100%;
+  background: var(--u3-red);
+}
+.u3 .u3-sh__meter--blue i {
+  background: var(--u3-blue);
+}
+.u3 .u3-sh__duo {
+  display: flex;
+  gap: var(--u3-sp-5);
+  flex-wrap: wrap;
+}
+.u3 .u3-sh__duo > div {
+  display: flex;
+  flex-direction: column;
+}
+.u3 .u3-sh__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  padding: var(--u3-sp-4);
+  border: 1px dashed var(--u3-border);
+  border-radius: var(--u3-radius-m);
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+}
+.u3 .u3-sh__empty strong {
+  color: var(--u3-text);
+  font-size: var(--u3-fs-m);
+}

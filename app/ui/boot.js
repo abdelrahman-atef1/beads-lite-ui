@@ -34,6 +34,7 @@ import {
 const LAZY = {
   task: () => import('./views/task.js'),
   tasks: () => import('./views/tasks.js'),
+  stats: () => import('./views/stats.js'), // home (68.4)
   releases: () => Promise.resolve({ mount: releases }),
   projects: () => Promise.resolve({ mount: projects }),
   settings: () => Promise.resolve({ mount: settings }),

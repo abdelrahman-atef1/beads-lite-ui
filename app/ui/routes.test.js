@@ -3,9 +3,9 @@ import { parseRoute } from './routes.js';
 
 describe('v3 routes keep the legacy hash grammar', () => {
   test.each([
-    ['', 'desk'],
-    ['#', 'desk'],
-    ['#/', 'desk'],
+    ['', 'stats'],
+    ['#', 'stats'],
+    ['#/', 'stats'],
     ['#/decisions', 'desk'],
     ['#/board', 'tasks'],
     ['#/issues', 'tasks'],

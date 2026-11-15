@@ -27,6 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { debug } from '../logging.js';
 import { isDeskIssue } from '../phone.js';
+import { register as registerStats } from './flow-stats.js';
 import { getPush } from './push.js';
 
 const log = debug('flow');
@@ -400,5 +401,6 @@ export function register(seam) {
     { phone: true }
   );
   seam.registerHandler('flow-digest', () => flowDigest(), { phone: true });
+  registerStats(seam); // stats home (beads-lite-1bo5.6.68.4)
   watchDigest();
 }

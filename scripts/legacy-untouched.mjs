@@ -33,7 +33,7 @@ const ALLOWED = [
   /^server\/features\/board-posted\.js$/,
   /^scripts\/mention-(scan|e2e)\.mjs$/,
   // Time screens (beads-lite-1bo5.6.59.12): the read-only flow-rollup handler and its test, these exact files only.
-  /^server\/features\/flow(\.test)?\.js$/,
+  /^server\/features\/flow(-stats)?(\.test)?\.js$/,
   // Push log (beads-lite-1bo5.6.16.1): these exact files only.
   /^server\/features\/push(-log\.test)?\.js$/,
   // Board finds bd itself (beads-lite-1bo5.6.59.21): its test, this exact file only.
@@ -482,9 +482,18 @@ const SEAM = {
       "'flow-rollup',",
       // Experiment view and weekly digest (beads-lite-1bo5.6.66.7)
       '// Experiment view and weekly digest (beads-lite-1bo5.6.66.7)',
-      "'flow-digest'"
+      "'flow-digest',",
+      // Stats home (beads-lite-1bo5.6.68.4)
+      '// Stats home (beads-lite-1bo5.6.68.4)',
+      "'flow-stats'"
     ],
-    del: ["'releases-get'", "'bulk-undo'", "'mention-chips'", "'flow-rollup'"]
+    del: [
+      "'releases-get'",
+      "'bulk-undo'",
+      "'mention-chips'",
+      "'flow-rollup'",
+      "'flow-digest'"
+    ]
   }
 };
 const HOOK = [

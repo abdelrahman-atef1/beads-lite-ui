@@ -41,5 +41,7 @@ export const FEATURE_MESSAGE_TYPES = [
   // Time screens (beads-lite-1bo5.6.59.12)
   'flow-rollup',
   // Experiment view and weekly digest (beads-lite-1bo5.6.66.7)
-  'flow-digest'
+  'flow-digest',
+  // Stats home (beads-lite-1bo5.6.68.4)
+  'flow-stats'
 ];

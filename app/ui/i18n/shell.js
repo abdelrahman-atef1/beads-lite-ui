@@ -1,5 +1,6 @@
 /** @type {Record<string, { en: string, ar: string }>} */
 export const strings = {
+  u3_stats: { en: 'Stats', ar: 'الإحصائيات' },
   u3_desk: { en: 'Desk', ar: 'المكتب' },
   u3_tasks: { en: 'Tasks', ar: 'المهام' },
   u3_releases: { en: 'Releases', ar: 'الإصدارات' },

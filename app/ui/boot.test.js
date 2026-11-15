@@ -91,7 +91,7 @@ describe('?ui=3 boot', () => {
     expect(document.getElementById('shell')).toBeNull();
     const u3 = /** @type {HTMLElement} */ (document.getElementById('u3'));
     expect(u3.getAttribute('dir')).toBe('rtl');
-    expect(u3.querySelectorAll('.u3-side .u3-nav').length).toBe(5);
+    expect(u3.querySelectorAll('.u3-side .u3-nav').length).toBe(6);
     expect(u3.querySelectorAll('.u3-tabs .u3-tab').length).toBe(4);
     const v = u3.querySelector('[data-view="task"]');
     expect(v?.getAttribute('data-at')).toBe('c-last');
@@ -100,7 +100,7 @@ describe('?ui=3 boot', () => {
   });
 
   test('flag on: routes switch with the hash', async () => {
-    const root = setup('#/', '?ui=3');
+    const root = setup('#/decisions', '?ui=3');
     await bootstrap(root).ready;
     expect(document.querySelector('.dk3')).not.toBeNull();
     window.location.hash = '#/releases';
