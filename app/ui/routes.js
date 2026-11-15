@@ -1,7 +1,8 @@
 /**
  * v3 routes. Same hash grammar as legacy (owner bead links depend on it):
  *   #/issues?issue=<id>&at=<target>  -> task page (any view name + issue=)
- *   #/decisions, #/ or empty         -> desk
+ *   #/, empty                        -> stats (home, 68.4)
+ *   #/decisions                      -> desk
  *   #/board, #/issues, #/epics       -> tasks (mode = board|issues|epics)
  *   #/releases, #/time, #/projects, #/settings, #/ui-kit
  * `at` = c-last | c-<n> | c-<hex> | description | design | notes |
@@ -11,7 +12,8 @@
 /** @typedef {{ name: string, id: string|null, at: string|null, mode: string, params: URLSearchParams }} Route */
 
 export const NAV = [
-  { name: 'desk', hash: '#/' },
+  { name: 'stats', hash: '#/' },
+  { name: 'desk', hash: '#/decisions' },
   { name: 'tasks', hash: '#/issues' },
   { name: 'releases', hash: '#/releases' },
   { name: 'projects', hash: '#/projects' },
@@ -35,7 +37,7 @@ export function parseRoute(hash) {
   const seg = (path.split('/')[1] || '').toLowerCase();
   /** @type {Route} */
   const r = {
-    name: 'desk',
+    name: 'stats',
     id: id || null,
     at: at || null,
     mode: 'issues',
@@ -47,6 +49,8 @@ export function parseRoute(hash) {
   }
   switch (seg) {
     case '':
+      r.name = 'stats';
+      break;
     case 'decisions':
       r.name = 'desk';
       break;
@@ -56,6 +60,7 @@ export function parseRoute(hash) {
       r.name = 'tasks';
       r.mode = seg;
       break;
+    case 'stats':
     case 'releases':
     case 'time':
     case 'projects':

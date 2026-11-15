@@ -67,6 +67,9 @@ export function createShell(root, _ctx) {
       title: t3('u3_more'),
       closeLabel: t3('u3_close'),
       body: html`<nav class="u3-more">
+        <a class="u3-more__link" href="#/releases" @click=${closeSheet}
+          >${icon('releases')} ${t3('u3_releases')}</a
+        >
         <a class="u3-more__link" href="#/projects" @click=${closeSheet}
           >${icon('projects')} ${t3('u3_projects')}</a
         >
@@ -113,16 +116,16 @@ export function createShell(root, _ctx) {
         <div class="u3-tabbar">
           ${tabBar({
             active:
-              active === 'projects' || active === 'settings' ? 'more' : active,
+              active === 'projects' ||
+              active === 'settings' ||
+              active === 'releases'
+                ? 'more'
+                : active,
             label: t3('u3_nav'),
             items: [
-              { name: 'desk', label: t3('u3_desk'), hash: '#/' },
+              { name: 'stats', label: t3('u3_stats'), hash: '#/' },
+              { name: 'desk', label: t3('u3_desk'), hash: '#/decisions' },
               { name: 'tasks', label: t3('u3_tasks'), hash: '#/issues' },
-              {
-                name: 'releases',
-                label: t3('u3_releases'),
-                hash: '#/releases'
-              },
               { name: 'more', label: t3('u3_more'), onClick: more }
             ]
           })}
