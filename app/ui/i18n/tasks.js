@@ -12,6 +12,8 @@ export const strings = {
   u3_tk_label: { en: 'Label', ar: 'الليبل' },
   u3_tk_assignee: { en: 'Assignee', ar: 'المسؤول' },
   u3_tk_prio: { en: 'Priority', ar: 'الأولوية' },
+  u3_tk_project: { en: 'Project', ar: 'المشروع' },
+  u3_tk_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
   u3_tk_any: { en: 'Any', ar: 'أي' },
   u3_tk_none: { en: 'No tasks', ar: 'لا توجد مهام' },
   u3_tk_loading: { en: 'Loading', ar: 'جارٍ التحميل' },

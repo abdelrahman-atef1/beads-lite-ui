@@ -149,9 +149,7 @@ describe('ui/views/tasks (v3)', () => {
   test('filters and search narrow the same way as legacy', async () => {
     const { a, b, legacy_filter } = setup(120);
     await flush();
-    const sel = /** @type {HTMLSelectElement} */ (
-      a.querySelector('select[aria-label]')
-    );
+    const sel = /** @type {HTMLElement} */ (a.querySelector('.u3t-menu'));
     expect(sel).toBeTruthy();
     // type filter through the shared persisted state of createFilterState
     const mineBtn = /** @type {HTMLElement} */ (a.querySelector('.u3t-fchip'));
