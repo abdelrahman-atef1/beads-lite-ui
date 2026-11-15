@@ -30,7 +30,8 @@
   align-items: center;
   max-width: 100%;
   overflow-x: auto;
-  padding-block: 2px;
+  /* room for the 44px tap area: the row clips what sticks out (overflow-x) */
+  padding-block: 8px;
 }
 .u3 .u3t-fchip,
 .u3 .u3t-menu {
@@ -57,7 +58,7 @@
   content: '';
   position: absolute;
   inset-inline: 0;
-  inset-block: -6px;
+  inset-block: -7px;
 }
 .u3 .u3t-ic {
   flex: none;

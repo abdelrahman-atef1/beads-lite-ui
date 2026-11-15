@@ -454,7 +454,25 @@ export function mount(el, ctx) {
      * @param {(v: string) => string} [show]
      */
     const menu = (name, values, show = (v) => v) =>
-      html`<label class="u3t-menu" data-on=${f[name] ? '1' : '0'}>
+      html`<label
+        class="u3t-menu"
+        data-on=${f[name] ? '1' : '0'}
+        @click=${(/** @type {MouseEvent} */ ev) => {
+          // the padded tap area outside the select opens it too
+          const sel = /** @type {HTMLSelectElement | null} */ (
+            /** @type {HTMLElement} */ (ev.currentTarget).querySelector('select')
+          );
+          if (sel && ev.target !== sel) {
+            ev.preventDefault();
+            sel.focus();
+            try {
+              sel.showPicker();
+            } catch {
+              // not supported or no user activation: focus is enough
+            }
+          }
+        }}
+      >
         ${chipIcon(name)}<span>${t3('u3_tk_' + name)}</span>
         <select
           aria-label=${t3('u3_tk_' + name)}
