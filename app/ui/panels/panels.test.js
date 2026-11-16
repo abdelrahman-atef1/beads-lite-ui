@@ -139,6 +139,23 @@ describe('bell (notify-*)', () => {
     ).toBe(true);
   });
 
+  test('tapping a decision notice opens that task at its decision card', async () => {
+    const root = stage();
+    const c = fakeClient({
+      'notify-list': SNAP,
+      'notify-mark-read': SNAP,
+      'push-key': { key: 'AQAB' },
+      'push-list': { subscriptions: [] }
+    });
+    const slot = /** @type {HTMLElement} */ (root.querySelector('header span'));
+    mountBell(slot, { client: c, host: root, pushEnv: pushEnv().env });
+    await wait(() => !!root.querySelector('.u3-pn-dot'));
+    /** @type {HTMLElement} */ (root.querySelector('[data-act=bell]')).click();
+    await wait(() => root.querySelectorAll('.u3-pn__item').length === 2);
+    /** @type {HTMLElement} */ (root.querySelector('[data-key=e1]')).click();
+    expect(window.location.hash).toBe('#/issues?issue=fatura-1&at=card');
+  });
+
   test('a pushed notify-event adds an item and lights the dot; no timers are used', async () => {
     const root = stage();
     const c = fakeClient({ 'notify-list': { ...SNAP, events: [], unread: 0 } });
@@ -315,6 +332,34 @@ describe('project outputs (outputs-project)', () => {
 });
 
 describe('report sheet', () => {
+  test('opens with the last project and version already filled', async () => {
+    const root = stage();
+    window.localStorage.setItem('bdui.report.project', 'rayeh');
+    window.localStorage.setItem('bdui.report.versions', '["2.0.1"]');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              workspaces: [{ path: 'E:/p/aaa' }, { path: 'E:/p/rayeh' }]
+            })
+          )
+      )
+    );
+    openReportSheet({ host: root });
+    await wait(() => !!root.querySelector('select option[value="rayeh"]'));
+    expect(
+      /** @type {HTMLSelectElement} */ (root.querySelector('[name=project]'))
+        .value
+    ).toBe('rayeh');
+    expect(
+      /** @type {HTMLInputElement} */ (root.querySelector('[name=version]'))
+        .value
+    ).toBe('2.0.1');
+    vi.unstubAllGlobals();
+  });
+
   test('needs a valid version, then posts one frame to /api/report and clears the draft', async () => {
     const root = stage();
     const fetchMock = vi.fn(async (/** @type {string} */ url) =>
