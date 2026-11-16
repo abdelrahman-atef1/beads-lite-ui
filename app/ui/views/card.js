@@ -23,6 +23,7 @@ export { setCardClient } from '../card/common.js';
 export { renderStepsComment };
 
 const ASK_MAX = 500;
+const WAIT_MS = 3000;
 const QUOTE_MAX = 300;
 const TYPED_MAX = 500;
 
@@ -124,9 +125,17 @@ async function write(el, p, type, payload) {
   p.error = '';
   paint(el, p);
   const lang = langOf(p);
+  // The socket queues a send while offline and delivers once on reconnect (no
+  // loss), so nothing fails for a long time: say so after 3 s, keep the pick.
+  const slow = setTimeout(() => {
+    if (!p.busy) return;
+    p.error = tc('u3_card_offline', lang);
+    paint(el, p);
+  }, WAIT_MS);
   try {
     const res = await clientOf(p.ctx).send(type, { id: p.item.id, ...payload });
     p.wake = String(res?.wake || '');
+    p.error = '';
     if (type === 'card-answer') {
       p.pick = null;
       p.typed = '';
@@ -146,6 +155,7 @@ async function write(el, p, type, payload) {
     p.error = errorText(code);
     if (code === 'changed') p.pick = null;
   } finally {
+    clearTimeout(slow);
     p.busy = false;
   }
   await load(el, p);

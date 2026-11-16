@@ -40,6 +40,10 @@ export const strings = {
   u3_card_answered: { en: 'Answered', ar: 'تم الرد' },
   u3_card_via_phone: { en: 'from the phone', ar: 'من الموبايل' },
   u3_card_via_pc: { en: 'from the PC', ar: 'من الكمبيوتر' },
+  u3_card_offline: {
+    en: 'Waiting for the connection. Your answer is kept and will be sent when it returns.',
+    ar: 'في انتظار الاتصال. ردك محفوظ وهيتبعت أول ما يرجع.'
+  },
   u3_card_recorded: { en: 'Answer recorded', ar: 'تم تسجيل الرد' },
   u3_card_sent: { en: 'Question sent', ar: 'تم إرسال السؤال' },
   u3_steps_err_secret: {

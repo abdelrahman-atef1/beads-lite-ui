@@ -8,6 +8,7 @@
  *  2. Every relative import in app/ resolves (a deleted file still imported
  *     fails here, not in a user's browser).
  *  3. index.html links only u3-*.css files that exist, and has no old shell.
+ *  4. Settings stays out of the nav until it has content.
  *
  * Usage: node scripts/v3-guard.mjs
  */
@@ -95,6 +96,23 @@ for (const m of html.matchAll(/<link rel="stylesheet" href="\.\/([^"]+)"/g)) {
 }
 if (/id="shell"|id="top-nav"/.test(html))
   bad.push('index.html has the old shell');
+
+// 4. Settings has no content yet: not in the nav or the More sheet (route kept).
+if (
+  /name: 'settings'/.test(
+    fs
+      .readFileSync(path.join(app, 'ui/routes.js'), 'utf8')
+      .split('export const NAV')[1]
+      .split('];')[0]
+  )
+)
+  bad.push('Settings is back in NAV before it has content');
+if (
+  /href="#\/settings"/.test(
+    fs.readFileSync(path.join(app, 'ui/shell.js'), 'utf8')
+  )
+)
+  bad.push('shell.js links Settings before it has content');
 
 if (bad.length) {
   console.error('v3-guard FAILED');

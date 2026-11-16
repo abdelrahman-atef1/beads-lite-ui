@@ -55,7 +55,7 @@ export function parseDecisionComment(text) {
     const kv = /^(q|effect|blocks|mode|show): ?(.*)$/.exec(line);
     if (kv) f[kv[1]] = kv[2];
   }
-  if (!f.q || opts.length < 2) return null;
+  if (!f.q || opts.length < 1) return null;
   return {
     q: f.q,
     effect: f.effect || '',

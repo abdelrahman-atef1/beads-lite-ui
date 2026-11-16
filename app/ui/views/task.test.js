@@ -39,12 +39,14 @@ const COMMENTS = [
   }
 ];
 
+let CARD_STATE = {};
 function setup(at) {
   document.body.innerHTML = '<div id="v"></div>';
   window.localStorage.setItem('beads-ui.lang', 'ar');
   window.location.hash = `#/issues?issue=p-1${at ? '&at=' + at : ''}`;
   const send = vi.fn(async (type, p) => {
     if (type === 'get-comments') return COMMENTS;
+    if (type === 'card-state') return CARD_STATE;
     if (type === 'add-comment')
       return [
         ...COMMENTS,
@@ -72,6 +74,48 @@ function setup(at) {
 
 describe('task page', () => {
   beforeEach(() => window.localStorage.clear());
+
+  test('a type card (one option) shows its answer box on the task page', async () => {
+    COMMENTS.push({
+      id: 'eeeeeeee-5555',
+      author: 'cos',
+      text: [
+        'ASK: Which wording?',
+        '',
+        '## Decision',
+        'q: Which wording?',
+        'show: A or B',
+        'options:',
+        '1. Write your reply'
+      ].join('\n'),
+      created_at: '2026-11-10T11:00:00Z'
+    });
+    CARD_STATE = {
+      id: 'p-1',
+      state: 'waiting',
+      sha: 'f'.repeat(64),
+      max_rounds: 3,
+      thread: [],
+      wake: { state: 'none' },
+      card: {
+        cls: 'type',
+        lang: 'ar',
+        q: 'Which wording?',
+        show: 'A or B',
+        opts: [{ n: 1, l: 'Write your reply' }]
+      }
+    };
+    try {
+      const { el } = setup('card');
+      await tick();
+      await tick();
+      expect(el.querySelector('.u3-cd__text')).not.toBeNull();
+      expect(el.querySelector('[data-act="send"]')).not.toBeNull();
+    } finally {
+      COMMENTS.pop();
+      CARD_STATE = {};
+    }
+  });
 
   test('renders fields and comments, newest first', async () => {
     const { el } = setup();

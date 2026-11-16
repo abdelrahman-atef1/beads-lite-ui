@@ -90,3 +90,26 @@ describe('decisionStates', () => {
     expect(st.get(0)?.kind).toBe('open');
   });
 });
+
+describe('type card (one option)', () => {
+  const TYPE = [
+    'ASK: Which wording?',
+    '## Decision',
+    'q: Which wording?',
+    'show: A or B',
+    'options:',
+    '1. Write your reply'
+  ].join('\n');
+  test('is a decision with exactly one option', () => {
+    expect(parseDecisionComment(TYPE)?.opts).toHaveLength(1);
+  });
+  test('still open on owner_decision', () => {
+    const st = decisionStates([c(ID1, TYPE)], { status: 'owner_decision' });
+    expect(st.get(0)?.kind).toBe('open');
+  });
+  test('no options at all is not a decision', () => {
+    expect(
+      parseDecisionComment(TYPE.replace('1. Write your reply', ''))
+    ).toBeNull();
+  });
+});

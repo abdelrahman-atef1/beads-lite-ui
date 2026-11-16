@@ -221,7 +221,7 @@ function stuckBlock(d) {
           <span class="u3-sh__rowmain">
             <strong dir="auto">${s.title || s.id}</strong>
             <span class="u3-sh__muted" dir="auto"
-              >${r.title ? r.title + ' - ' : ''}${r.name}</span
+              >${r.name}${r.title ? ' - ' + r.title : ''}</span
             >
           </span>
           <span class="u3-chip u3-chip--${TONE[s.status] || 'neutral'}"

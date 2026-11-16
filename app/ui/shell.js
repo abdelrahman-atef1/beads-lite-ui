@@ -76,9 +76,6 @@ export function createShell(root, _ctx) {
         <a class="u3-more__link" href="#/time" @click=${closeSheet}
           >${icon('time')} ${t3('u3_time')}</a
         >
-        <a class="u3-more__link" href="#/settings" @click=${closeSheet}
-          >${icon('settings')} ${t3('u3_settings')}</a
-        >
         <div class="u3-more__prefs">${prefs()}</div>
       </nav>`
     });
