@@ -9,6 +9,11 @@ export const strings =
     rl_all_projects: { en: 'All projects', ar: 'كل المشاريع' },
     rl_all_kinds: { en: 'All', ar: 'الكل' },
     rl_kind_deploy: { en: 'Deploy', ar: 'نشر' },
+    rl_server_title: { en: 'Server changes', ar: 'تغييرات الخادم' },
+    rl_server_note: {
+      en: 'Rules, workers and back-end changes. Nothing to open or install.',
+      ar: 'قواعد وخوادم وتغييرات خلفية. لا شيء يُفتح أو يُثبَّت.'
+    },
     rl_kind_build: { en: 'Build', ar: 'بناء' },
     rl_filter: { en: 'Filter', ar: 'تصفية' },
     rl_tasks_n: { en: '{n} tasks', ar: '{n} مهام' },

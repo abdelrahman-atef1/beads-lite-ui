@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { PAGE, beadPart, createReleases, releasesOf } from './releases.js';
+import {
+  PAGE,
+  beadPart,
+  createReleases,
+  isServerDeploy,
+  releasesOf
+} from './releases.js';
 
 /** Minimal stand-in for the shared validator. */
 const validator = {
@@ -104,6 +110,46 @@ describe('releasesOf', () => {
       href: 'https://example.dev/x'
     });
     expect(releasesOf(snap, null, { key: 'a', name: 'a' })).toEqual([]);
+  });
+});
+
+describe('isServerDeploy', () => {
+  test('rules, workers and provider consoles are server changes', () => {
+    const c = 'https://console.firebase.google.com/project/x';
+    expect(isServerDeploy('deploy', 'Abo Ali rules - two-level areas', c)).toBe(
+      true
+    );
+    expect(
+      isServerDeploy('deploy', 'Rayeh worker prod', 'https://w.example.dev')
+    ).toBe(true);
+    expect(isServerDeploy('deploy', 'Anything', c)).toBe(true);
+    expect(
+      isServerDeploy(
+        'deploy',
+        'Rayeh web prod - 1.1.0+20',
+        'https://rayeh.example.dev'
+      )
+    ).toBe(false);
+    expect(isServerDeploy('build', 'Rayeh rules build', null)).toBe(false);
+  });
+  test('a server record carries no link', () => {
+    const snap = {
+      rows: new Map([['p-1', { id: 'p-1' }]]),
+      comments: new Map([
+        [
+          'p-1',
+          [
+            {
+              id: 'c',
+              text: rec('deploy', 'Abo Ali rules - areas'),
+              created_at: '2026-11-01T00:00:00Z'
+            }
+          ]
+        ]
+      ])
+    };
+    const [r] = releasesOf(snap, validator, { key: 'a', name: 'a' });
+    expect(r).toMatchObject({ server: true, href: null });
   });
 });
 
