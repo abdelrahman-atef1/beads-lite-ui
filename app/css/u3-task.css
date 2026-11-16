@@ -301,13 +301,16 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .anchor-hit {
   outline: 2px solid var(--u3-blue);
   outline-offset: 2px;
-  background: var(--u3-blue-soft);
   border-radius: var(--u3-radius-s);
   animation: u3-ts-hit 2.4s ease-out;
 }
+/* the colour only flashes, then fades away; the border stays */
 @keyframes u3-ts-hit {
   from {
-    background: var(--u3-blue);
+    background: var(--u3-blue-soft);
+  }
+  to {
+    background: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -187,6 +187,9 @@ describe('decision card flow', () => {
     await tick();
     expect(el.querySelectorAll('.u3-cd .u3-cd__msg').length).toBe(2);
     expect(el.querySelector('[data-wake="delivered"]')).not.toBeNull();
+    expect(el.querySelector('[data-wake="delivered"]')?.textContent).toContain(
+      'ردك وصل لصاحب الطلب'
+    );
   });
 
   test('refused answer shows the error, no crash', async () => {

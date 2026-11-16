@@ -69,7 +69,10 @@ export const strings = {
     en: 'Could not load the card.',
     ar: 'تعذر تحميل الكارت.'
   },
-  u3_card_wake_delivered: { en: 'Asker woken', ar: 'تم تنبيه صاحب الطلب' },
+  u3_card_wake_delivered: {
+    en: 'Your reply reached the asker',
+    ar: 'ردك وصل لصاحب الطلب'
+  },
   u3_card_wake_queued: { en: 'Wake queued', ar: 'التنبيه في الانتظار' },
   u3_card_wake_nolisten: { en: 'No one listening', ar: 'مفيش حد بيسمع' },
   u3_card_wake_failed: { en: 'Wake failed', ar: 'التنبيه فشل' },
