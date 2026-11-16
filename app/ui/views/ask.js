@@ -1,8 +1,10 @@
 /**
  * Ask-Claude head + sheet (beads-lite-1bo5.6.59.8, client half of .56).
- * Task routes only (mounted through the ask/head-slot.js seam). One question,
- * nothing kept: closing the sheet drops the question and the answer, and
- * aborts a running request. Answers go through ask/markdown.js (DOM nodes
+ * Task routes only (mounted through the ask/head-slot.js seam). A chat of up
+ * to MAX_TURNS questions: the thread lives in this closure only (the server
+ * is stateless; each request carries the last few turns). Nothing is kept:
+ * closing the sheet or "new chat" drops the thread, and aborts a running
+ * request. Answers go through ask/markdown.js (DOM nodes
  * only, never HTML). Phone: bottom sheet. PC: popover by the head.
  */
 import { html, render } from 'lit-html';
@@ -18,6 +20,11 @@ import {
 import { renderMarkdown } from '../ask/markdown.js';
 import { t3 } from '../i18n.js';
 import { icon } from '../icons.js';
+
+/** Questions per chat; then "new chat". Server accepts <= 8 history entries. */
+export const MAX_TURNS = 8;
+/** History entries sent with a follow-up (newest). */
+const SEND_HISTORY = 6;
 
 /**
  * @param {string} key
@@ -61,10 +68,9 @@ export function mountAsk(host, opts = {}) {
   let banner = '';
   /** blocked = signed out / disabled: shown at once, input off */
   let blocked = '';
-  let truncated = false;
   let copied = false;
-  /** @type {DocumentFragment | null} */
-  let answerNodes = null;
+  /** @type {Array<{ q: string, a: string, nodes: DocumentFragment, truncated: boolean }>} */
+  let turns = [];
   /** @type {AbortController | null} */
   let abort = null;
   /** @type {AbortController | null} */
@@ -90,8 +96,8 @@ export function mountAsk(host, opts = {}) {
     stopTimers();
     phase = 'idle';
     question = hint = banner = blocked = '';
-    answerNodes = null;
-    truncated = copied = false;
+    turns = [];
+    copied = false;
   }
 
   async function loadStatus() {
@@ -153,8 +159,20 @@ export function mountAsk(host, opts = {}) {
       secs += 1;
       draw();
     }, 1000);
+    /** @type {Array<{ role: 'user' | 'assistant', text: string }>} */
+    const history = turns
+      .flatMap((x) => [
+        { role: /** @type {const} */ ('user'), text: x.q },
+        { role: /** @type {const} */ ('assistant'), text: x.a }
+      ])
+      .slice(-SEND_HISTORY);
     const r = await submitAsk(
-      { project: project(), id: taskId(), question: q },
+      {
+        project: project(),
+        id: taskId(),
+        question: q,
+        ...(history.length ? { history } : {})
+      },
       { fetch: opts.fetch, signal: mine.signal }
     );
     stopTimers();
@@ -162,8 +180,13 @@ export function mountAsk(host, opts = {}) {
     abort = null;
     if (!isOpen) return;
     if (r.ok) {
-      answerNodes = renderMarkdown(r.answer);
-      truncated = r.truncated;
+      turns.push({
+        q,
+        a: r.answer,
+        nodes: renderMarkdown(r.answer),
+        truncated: r.truncated
+      });
+      question = '';
       phase = 'answer';
     } else if (r.aborted) {
       return;
@@ -210,13 +233,14 @@ export function mountAsk(host, opts = {}) {
   function again() {
     question = '';
     phase = 'idle';
-    answerNodes = null;
+    turns = [];
+    banner = hint = '';
     draw();
     host.querySelector('textarea')?.focus();
   }
   async function copy() {
     const a = /** @type {HTMLElement | null} */ (
-      host.querySelector('.u3-ask__answer')
+      [...host.querySelectorAll('.u3-ask__answer')].pop() || null
     );
     try {
       await navigator.clipboard.writeText(a?.innerText || a?.textContent || '');
@@ -255,8 +279,8 @@ export function mountAsk(host, opts = {}) {
         dir="auto"
         rows="3"
         maxlength=${MAX_Q}
-        aria-label=${tr('u3_ask_ph')}
-        placeholder=${tr('u3_ask_ph')}
+        aria-label=${tr(turns.length ? 'u3_ask_ph_more' : 'u3_ask_ph')}
+        placeholder=${tr(turns.length ? 'u3_ask_ph_more' : 'u3_ask_ph')}
         .value=${live(question)}
         ?readonly=${busy}
         ?disabled=${!!blocked}
@@ -296,16 +320,20 @@ export function mountAsk(host, opts = {}) {
             </button>
           </div>`}
     </form>`;
-    const answer = html`<div class="u3-ask__q" dir="auto">${question}</div>
-      <div class="u3-ask__answer" aria-live="polite" tabindex="0">
-        ${answerNodes}${truncated
-          ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
-          : ''}
-      </div>
+    const capped = turns.length >= MAX_TURNS;
+    const thread = html`${turns.map(
+        (x) => html`<div class="u3-ask__q" dir="auto">${x.q}</div>
+          <div class="u3-ask__answer" aria-live="polite" tabindex="0">
+            ${x.nodes}${x.truncated
+              ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
+              : ''}
+          </div>`
+      )}
       <div class="u3-ask__actions">
         <button
           type="button"
-          class="u3-ask__btn u3-ask__btn--primary"
+          class="u3-ask__btn"
+          data-act="new-chat"
           @click=${again}
         >
           ${tr('u3_ask_new')}
@@ -313,7 +341,8 @@ export function mountAsk(host, opts = {}) {
         <button type="button" class="u3-ask__btn" @click=${copy}>
           ${copied ? tr('u3_ask_copied') : tr('u3_ask_copy')}
         </button>
-      </div>`;
+      </div>
+      ${capped ? html`<p class="u3-ask__note">${tr('u3_ask_cap')}</p>` : ''}`;
     const msg = blocked || banner;
     render(
       html`<button
@@ -362,7 +391,7 @@ export function mountAsk(host, opts = {}) {
                       ${msg}
                     </div>`
                   : ''}
-                ${phase === 'answer' ? answer : form} ${note}
+                ${turns.length ? thread : ''} ${capped ? '' : form} ${note}
               </div>
             </div>`
           : ''}`,

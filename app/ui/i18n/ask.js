@@ -10,8 +10,8 @@ export const strings = {
   u3_ask_ph: { en: 'Your question about this task', ar: 'سؤالك عن المهمة' },
   u3_ask_send: { en: 'Send', ar: 'إرسال' },
   u3_ask_note: {
-    en: 'One question, no earlier context.',
-    ar: 'سؤال واحد، من غير سياق سابق.'
+    en: 'You can ask follow-ups. Closing the window clears the chat.',
+    ar: 'تقدر تسأل أسئلة متابعة. قفل النافذة بيمسح المحادثة.'
   },
   u3_ask_empty: { en: 'Write your question first', ar: 'اكتب سؤالك الأول' },
   u3_ask_wait: {
@@ -19,7 +19,12 @@ export const strings = {
     ar: 'Claude بيقرأ المهمة ويفكر… {n} ث من {max}'
   },
   u3_ask_cancel: { en: 'Cancel', ar: 'إلغاء' },
-  u3_ask_new: { en: 'New question', ar: 'سؤال جديد' },
+  u3_ask_new: { en: 'New chat', ar: 'محادثة جديدة' },
+  u3_ask_ph_more: { en: 'Ask a follow-up', ar: 'اسأل سؤال متابعة' },
+  u3_ask_cap: {
+    en: 'This chat is full. Start a new chat to keep asking.',
+    ar: 'المحادثة دي اكتملت. ابدأ محادثة جديدة عشان تكمل.'
+  },
   u3_ask_copy: { en: 'Copy answer', ar: 'نسخ الإجابة' },
   u3_ask_copied: { en: 'Copied', ar: 'تم النسخ' },
   u3_ask_retry: { en: 'Try again', ar: 'حاول تاني' },

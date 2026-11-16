@@ -126,6 +126,62 @@ describe('ask head and sheet', () => {
     expect(a.querySelector('pre').getAttribute('dir')).toBe('ltr');
   });
 
+  test('follow-ups: thread stays, history is sent, new chat clears it', async () => {
+    let n = 0;
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'A' + ++n, truncated: false })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'one');
+    await tick();
+    await tick();
+    expect(q('textarea').value).toBe('');
+    ask(q, 'two');
+    await tick();
+    await tick();
+    const bodies = f.mock.calls
+      .filter((c) => c[0] === '/api/ask')
+      .map((c) => JSON.parse(c[1].body));
+    expect(bodies[0].history).toBeUndefined();
+    expect(bodies[1].history).toEqual([
+      { role: 'user', text: 'one' },
+      { role: 'assistant', text: 'A1' }
+    ]);
+    expect(host.querySelectorAll('.u3-ask__answer').length).toBe(2);
+    expect(q('form')).not.toBeNull();
+    q('[data-act=new-chat]').click();
+    expect(host.querySelectorAll('.u3-ask__answer').length).toBe(0);
+    ask(q, 'three');
+    await tick();
+    await tick();
+    const last = JSON.parse(f.mock.calls.at(-1)[1].body);
+    expect(last.history).toBeUndefined();
+  });
+
+  test('follow-ups: only the newest 6 entries are sent; 8 questions fill the chat', async () => {
+    const { f, q } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'ok', truncated: false })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    for (let i = 1; i <= 8; i++) {
+      ask(q, 'q' + i);
+      await tick();
+      await tick();
+    }
+    const posts = f.mock.calls.filter((c) => c[0] === '/api/ask');
+    expect(posts.length).toBe(8);
+    expect(JSON.parse(posts[7][1].body).history.length).toBe(6);
+    expect(JSON.parse(posts[7][1].body).history[0].text).toBe('q5');
+    expect(q('form')).toBeNull();
+    expect(q('[data-act=new-chat]')).not.toBeNull();
+  });
+
   test('every server error code has its own text', async () => {
     const codes = [
       'timeout',
