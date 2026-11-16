@@ -43,6 +43,16 @@ describe('icon set C', () => {
     }
   });
 
+  test('navigation icons are plain: no tile, neutral ink', () => {
+    const el = draw(icon('projects', { size: 16, tile: true }));
+    const span = el.querySelector('.u3-ic');
+    expect(span.className).toContain('u3-ic--plain');
+    expect(span.className).not.toContain('tile');
+    expect(span.getAttribute('style') || '').toBe('');
+    const val = draw(icon('projects', { size: 16 })).querySelector('.u3-ic');
+    expect(val.className).not.toContain('plain');
+  });
+
   test('old chip and panel names resolve to the same library', () => {
     for (const n of [
       'select',
