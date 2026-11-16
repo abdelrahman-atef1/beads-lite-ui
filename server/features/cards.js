@@ -3,10 +3,18 @@
  * (ADR 0006 D1-D3, beads-lite-1bo5.6.9).
  *
  *   card-state  {id}                              -> State  (phone door allowed)
- *   card-answer {id, option | text, sha}          -> Result (board token; phone allowed)
+ *   card-answer {id, q?, option | text, sha}      -> Result (board token; phone allowed)
  *   card-ask    {id, scope, quote?, question}     -> Result (board token; phone allowed)
  *   steps-done  {id, comment}                     -> Result (board token; phone allowed)
  * Result = { code, state, wake }   (a refusal throws { code } and carries no text)
+ *
+ * Several questions (card_qs, beads-lite-1bo5.13.12.1): State also lists
+ * questions[] ({n, class, q, effect, show, opts, att, sha, answered|null,
+ * stale}), answeredCount and total; a plain card is one question. card-answer
+ * takes q (1-based) and the sha of THAT question. An answer that is not the
+ * last one is recorded at once but wakes nobody (code 'answered-partial',
+ * wake 'none'); the last one gives the one decided wake. card-ask scope may
+ * carry a prefix 'q2:' (q2:question, q2:part, q2:option:3).
  *
  * The board never writes a decision record itself: answer and ask go to the
  * card CLI (learner/scripts/cards/card.mjs) by full path, request as JSON on
@@ -19,14 +27,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { matchWorkspace } from '../../app/issue-workspace.js';
-import { cleanAtt } from '../../app/utils/card-att.js';
 import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { withPrefixes } from '../workspace-prefix.js';
 import {
   STEPS_LABEL,
+  cardSha,
   cardsDirs,
+  cleanAttQ,
   findSteps,
   projectKey,
   scanBlocked
@@ -37,6 +46,8 @@ const log = debug('cards');
 
 const OWNER = 'abdelrahman';
 const BOARD = 'owner-board';
+const DECISION_HEAD = 'OWNER DECISION via board';
+const PARTIAL_HEAD = 'OWNER ANSWER via board (partial';
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const CLI_TIMEOUT_MS = 100_000;
 const MAX_COMMENTS = 60;
@@ -58,7 +69,9 @@ const REFUSALS = new Set([
   'move-pending',
   'not-found',
   'no-steps',
-  'stale-steps'
+  'stale-steps',
+  'already-answered',
+  'bad-question'
 ]);
 const STEPS_REF_RE = /^c-[0-9a-f]{8}$/;
 
@@ -241,13 +254,36 @@ export function lastDecision(comments) {
     const lines = String(c?.text ?? '')
       .split('\n')
       .map((l) => l.trim());
-    if (
-      c?.author === BOARD &&
-      lines[0].startsWith('OWNER DECISION via board')
-    ) {
+    if (c?.author === BOARD && lines[0].startsWith(DECISION_HEAD)) {
+      const via = /\((pc|phone)\)/.exec(lines[0]);
+      // a record of several questions: `answer k: option n "label"` or
+      // `answer k (typed, as one JSON string): "text"`, k = 1-5
+      const many = lines.filter((l) => /^answer [1-5](?::| \(typed)/.test(l));
+      if (many.length) {
+        const answers = many.map((l) => {
+          const q = Number(l[7]);
+          const n = lines.find((x) => x.startsWith(`note ${q} (typed`));
+          const a = l.replace(/^answer [1-5](?: \(typed[^)]*\))?: /, '');
+          return {
+            q,
+            answer: (n
+              ? a + ' | ' + n.replace(/^note \d \(typed[^)]*\): /, '')
+              : a
+            ).slice(0, 700)
+          };
+        });
+        return {
+          via: via ? via[1] : '',
+          answer: answers
+            .map((x) => `${x.q}: ${x.answer}`)
+            .join(' / ')
+            .slice(0, 700),
+          answers,
+          at: c.created_at
+        };
+      }
       const a = lines.find((l) => l.startsWith('answer'));
       const n = lines.find((l) => l.startsWith('note (typed'));
-      const via = /\((pc|phone)\)/.exec(lines[0]);
       return {
         via: via ? via[1] : '',
         answer: a
@@ -261,6 +297,51 @@ export function lastDecision(comments) {
     }
   }
   return null;
+}
+
+/**
+ * Partial answers of a multi card in the current decision cycle (after the
+ * newest decision record): who and when per card id, and for every question
+ * the hashes its partial records were given against.
+ *
+ * @param {any[]} comments
+ * @param {string} id bead
+ * @returns {{ byCard: Map<string, { via: string, at: string }>, shas: Map<number, Set<string>> }}
+ */
+export function partialRecords(comments, id) {
+  /** @type {Map<string, { via: string, at: string }>} */
+  let byCard = new Map();
+  /** @type {Map<number, Set<string>>} */
+  let shas = new Map();
+  for (const c of comments) {
+    if (c?.author !== BOARD) continue;
+    const lines = String(c.text ?? '')
+      .split('\n')
+      .map((l) => l.trim());
+    if (lines[0].startsWith(DECISION_HEAD)) {
+      byCard = new Map();
+      shas = new Map();
+      continue;
+    }
+    if (!lines[0].startsWith(PARTIAL_HEAD) || !lines.includes(`bead: ${id}`)) {
+      continue;
+    }
+    const get = (/** @type {RegExp} */ re) =>
+      lines.map((l) => re.exec(l)).find(Boolean);
+    const q = get(/^q: ([1-5])$/);
+    const sh = get(/^qsha: ([0-9a-f]{12})$/);
+    const cd = get(/^card: (b-[0-9a-f]{16})$/);
+    const via = get(/^via: (pc|phone)$/);
+    if (!q || !sh || !cd) continue;
+    byCard.set(cd[1], {
+      via: via ? via[1] : '',
+      at: String(c.created_at || '')
+    });
+    const k = Number(q[1]);
+    if (!shas.has(k)) shas.set(k, new Set());
+    /** @type {Set<string>} */ (shas.get(k)).add(sh[1]);
+  }
+  return { byCard, shas };
 }
 
 /**
@@ -383,6 +464,66 @@ export function createCards(opts = {}) {
     return { bead, comments, proj };
   }
 
+  /** @type {any} */
+  let reader = null;
+
+  /**
+   * The questions of a card with the live answer of each (a plain card is one
+   * question). A partial answer counts only while its question is unchanged;
+   * a question whose old answer no longer fits shows as stale.
+   *
+   * @param {any} m loaded card modules
+   * @param {any} card parsed card
+   * @param {string} id
+   * @param {any[]} comments
+   * @param {boolean} waiting
+   * @param {unknown} rawAtt
+   */
+  function questionsOf(m, card, id, comments, waiting, rawAtt) {
+    const shas = m.core.questionShas(card);
+    const att = cleanAttQ(rawAtt);
+    /** @type {Map<number, any>} */
+    let live = new Map();
+    /** @type {ReturnType<typeof partialRecords> | null} */
+    let part = null;
+    if (waiting && card.multi) {
+      // the card core itself decides which partial records count
+      reader ??= new m.core.CardCore({ bd: null, stateDir: os.tmpdir() });
+      live = reader.liveAnswers(comments, id, card);
+      part = partialRecords(comments, id);
+    }
+    const questions = card.qs.map((/** @type {any} */ x) => {
+      const hit = live.get(x.n);
+      const who = hit && part ? part.byCard.get(hit.cardId) : null;
+      const sha = shas[x.n - 1];
+      const given = part?.shas.get(x.n);
+      return {
+        n: x.n,
+        class: x.cls,
+        q: x.q,
+        effect: x.effect,
+        show: x.show,
+        opts: x.opts,
+        att: card.multi
+          ? att
+              .filter((a) => a.q === x.n)
+              .map(({ src, n, h }) => ({ src, n, h }))
+          : [],
+        sha,
+        answered: hit
+          ? {
+              ...(hit.a.n ? { n: hit.a.n, label: hit.a.label } : {}),
+              ...(hit.a.text !== undefined ? { text: hit.a.text } : {}),
+              via: who?.via || '',
+              at: who?.at || ''
+            }
+          : null,
+        stale: !hit && !!given && !given.has(sha.slice(0, 12))
+      };
+    });
+    return { questions, answeredCount: live.size, total: questions.length };
+  }
+
   /**
    * @param {string} id
    * @returns {Promise<any>}
@@ -414,7 +555,10 @@ export function createCards(opts = {}) {
         show: c.show,
         blocks: c.blocks,
         opts: c.opts,
-        att: cleanAtt(meta.card_att)
+        // card level only; an image of one question rides on that question
+        att: cleanAttQ(meta.card_att)
+          .filter((x) => !x.q)
+          .map(({ src, n, h }) => ({ src, n, h }))
       };
     }
     let st = 'none';
@@ -422,11 +566,17 @@ export function createCards(opts = {}) {
     else if (meta.card_state === 'asked' && bead.status !== 'closed') {
       st = 'asked';
     } else if (lastDecision(comments)) st = 'answered';
+    const shown = st === 'none' ? null : card;
+    const qs =
+      shown && parsed.ok
+        ? questionsOf(m, parsed.card, id, comments, waiting, meta.card_att)
+        : null;
     return {
       ...base,
       state: st,
-      card: st === 'none' ? null : card,
-      sha: waiting && card ? m.core.questionSha(parsed.card) : '',
+      card: shown,
+      ...(qs || {}),
+      sha: waiting && card ? cardSha(m.core, parsed.card) : '',
       round: Number(meta.card_round) || 0,
       max_rounds: m.core.MAX_ROUNDS,
       decision: st === 'answered' ? lastDecision(comments) : null,
@@ -460,6 +610,18 @@ export function createCards(opts = {}) {
       log('%s refused: %s', cmd, code);
       throw refuse(code);
     }
+    // An answer that leaves questions open is only recorded: nobody can act on
+    // half an answer, so no wake until the last one (design section 3).
+    if (cmd === 'answer' && out.code === 'answered-partial') {
+      return {
+        code: out.code,
+        round: 0,
+        wake: 'none',
+        q: out.q,
+        answeredCount: out.answered,
+        total: out.total
+      };
+    }
     // One wake for the role the bead goes back to; the event carries no text.
     let wk = 'failed';
     try {
@@ -473,7 +635,14 @@ export function createCards(opts = {}) {
     } catch {
       // the record is written; a missing wake is shown as failed
     }
-    return { code: out.code, round: out.round || 0, wake: wk };
+    return {
+      code: out.code,
+      round: out.round || 0,
+      wake: wk,
+      ...(out.total > 1
+        ? { answeredCount: out.answered, total: out.total }
+        : {})
+    };
   }
 
   /**
@@ -511,6 +680,13 @@ export function createCards(opts = {}) {
       const req = hasOpt ? { option: p.option } : { text: p.text };
       if (hasOpt && hasText) req.text = p.text;
       if (typeof p.sha === 'string') req.sha = p.sha;
+      // a card of several questions: which one this answer is for
+      if (p.q !== undefined) {
+        if (!Number.isInteger(p.q) || p.q < 1 || p.q > 5) {
+          throw refuse('bad-input');
+        }
+        req.q = p.q;
+      }
       return serial(id, () => write('answer', id, req, host));
     },
     /**

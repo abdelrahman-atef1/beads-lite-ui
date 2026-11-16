@@ -440,8 +440,11 @@ export function createNotifier(opts = {}) {
         if (!parsed.ok) continue; // no valid card, no notification
         const card = parsed.card;
         const m = bead.metadata || {};
+        // a multi card has no card_opts: its questions are what can change
         const hash = sha(
-          `${card.q}\n${JSON.stringify(m.card_opts ?? '')}`
+          `${card.q}\n${JSON.stringify(
+            card.multi ? (m.card_qs ?? '') : (m.card_opts ?? '')
+          )}`
         ).slice(0, 16);
         const base = `${key}|${bead.id}`;
         const dkey = `${base}|d|${hash}`;

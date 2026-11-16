@@ -244,6 +244,29 @@ export function cardOptions(it) {
 }
 
 /**
+ * How many questions a card holds: the length of `card_qs` (2-5) on a card of
+ * several questions, else 1. A bad `card_qs` counts as 1 (the feed already
+ * keeps a bad card out of the list).
+ *
+ * @param {BoardIssue} it
+ * @returns {number}
+ */
+export function cardQuestionCount(it) {
+  const raw = meta(it, 'card_qs');
+  if (!raw) {
+    return 1;
+  }
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) && arr.length >= 2 && arr.length <= 5
+      ? arr.length
+      : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/**
  * Short age label from an epoch-ms timestamp: 20m, 3h, 2d.
  *
  * @param {number|undefined} ts

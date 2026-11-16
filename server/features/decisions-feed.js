@@ -30,6 +30,7 @@
  * why:'no_card'|'secret'}] with no text, so the Desk lists it as a link to the
  * task instead of dropping it.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -57,6 +58,7 @@ const KEEP_META = [
   'card_show',
   'card_blocks',
   'card_opts',
+  'card_qs',
   'card_back',
   'card_lang',
   'card_title',
@@ -144,10 +146,81 @@ async function loadRules() {
       const core = fs.existsSync(path.join(dir, 'core.mjs'))
         ? await import(pathToFileURL(path.join(dir, 'core.mjs')).href)
         : null;
-      return { ...rules, questionSha: core?.questionSha };
+      return {
+        ...rules,
+        questionSha: core?.questionSha,
+        questionShas: core?.questionShas
+      };
     }
   }
   return null;
+}
+
+/**
+ * Every text of the questions of a multi card (card_qs), for the secret scan.
+ *
+ * @param {any} card parsed card
+ * @returns {string[]}
+ */
+export function multiTexts(card) {
+  return (Array.isArray(card.qs) ? card.qs : []).flatMap(
+    (/** @type {any} */ x) => [
+      x.q,
+      x.effect,
+      x.show,
+      ...(Array.isArray(x.opts) ? x.opts : []).flatMap(
+        (/** @type {any} */ o) => [o.l, o.note]
+      )
+    ]
+  );
+}
+
+/**
+ * The card's hash. A plain card: its question hash. A multi card: one hash
+ * over the hashes of all its questions (design section 1).
+ *
+ * @param {any} rules rules + questionSha/questionShas of the card core
+ * @param {any} card parsed card
+ * @returns {string}
+ */
+export function cardSha(rules, card) {
+  if (card.multi) {
+    if (typeof rules.questionShas !== 'function') return '';
+    return createHash('sha256')
+      .update(JSON.stringify(rules.questionShas(card)), 'utf8')
+      .digest('hex');
+  }
+  return typeof rules.questionSha === 'function' ? rules.questionSha(card) : '';
+}
+
+/**
+ * The card_att list with the question number kept (cleanAtt drops it): each item is
+ * re-checked alone. A multi card attaches an image to one question with `q`.
+ *
+ * @param {unknown} raw JSON string or list
+ * @returns {Array<{ src: string, n: string, h: string, q?: number }>}
+ */
+export function cleanAttQ(raw) {
+  /** @type {any} */
+  let list = raw;
+  if (typeof raw === 'string') {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  /** @type {Array<{ src: string, n: string, h: string, q?: number }>} */
+  const out = [];
+  for (const it of list) {
+    const ok = cleanAtt([it])[0];
+    if (!ok) continue;
+    const q = it && Number.isInteger(it.q) && it.q >= 1 && it.q <= 5 ? it.q : 0;
+    out.push(q ? { ...ok, q } : ok);
+    if (out.length >= 6) break;
+  }
+  return out;
 }
 
 /**
@@ -166,7 +239,9 @@ export function scanBlocked(rules, card, bead) {
     card.title,
     card.titleAr,
     String(bead.title || ''),
-    ...card.opts.flatMap((/** @type {any} */ o) => [o.l, o.note])
+    ...card.opts.flatMap((/** @type {any} */ o) => [o.l, o.note]),
+    // a multi card: every question of it is read by the owner too
+    ...(card.multi ? multiTexts(card) : [])
   ]) {
     if (text && rules.scanText(String(text)).length) return true;
   }
@@ -289,10 +364,15 @@ export function createDecisionsFeed(opts = {}) {
       if (typeof m[k] === 'string') metadata[k] = m[k];
     }
     // card_att: only re-checked /att/ items cross to the client (list or string)
-    const att = cleanAtt(m.card_att);
+    const att = cleanAttQ(m.card_att);
     if (att.length) {
       metadata.card_att = JSON.stringify(
-        att.map((x) => ({ a: x.src.slice(5), n: x.n, h: x.h }))
+        att.map((x) => ({
+          a: x.src.slice(5),
+          n: x.n,
+          h: x.h,
+          ...(x.q ? { q: x.q } : {})
+        }))
       );
     }
     const ts =
@@ -303,8 +383,9 @@ export function createDecisionsFeed(opts = {}) {
       id: bead.id,
       kind: 'decision',
       project: { key: proj.key, name: proj.name },
-      sha:
-        typeof rules.questionSha === 'function' ? rules.questionSha(card) : '',
+      sha: cardSha(rules, card),
+      // a multi card only: how many questions the row shows ("3 questions")
+      ...(card.multi ? { questions: card.qs.length } : {}),
       title: String(bead.title || ''),
       title_ar: typeof m.title_ar === 'string' ? m.title_ar : '',
       priority: typeof bead.priority === 'number' ? bead.priority : 2,

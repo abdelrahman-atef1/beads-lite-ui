@@ -8,8 +8,10 @@ import { parseFolded } from './fold.js';
  * The answer comes back as a comment with `re: c-<8hex>` of that comment.
  *
  * @typedef {{ n: number, l: string, rec: boolean, note: string }} DOpt
+ * @typedef {{ n: number, q: string, effect: string, show: string,
+ *   opts: DOpt[] }} DQuestion
  * @typedef {{ q: string, effect: string, blocks: string, show: string,
- *   nonBlocking: boolean, opts: DOpt[] }} DCard
+ *   nonBlocking: boolean, opts: DOpt[], questions?: DQuestion[] }} DCard
  * @typedef {{ kind: 'open' | 'nonblocking' | 'answered' | 'closed',
  *   answer?: string }} DState
  */
@@ -17,23 +19,18 @@ import { parseFolded } from './fold.js';
 const REF_RE = /(?:^|[\s,])re: (c-[0-9a-f]{8})\b/m;
 
 /**
- * @param {string} text
- * @returns {DCard | null} null when the comment is not a decision card
+ * One block of lines (the card level, or one `### Q<k>`): its key lines and
+ * numbered options.
+ *
+ * @param {string[]} blockLines
  */
-export function parseDecisionComment(text) {
-  const first = String(text ?? '')
-    .trimStart()
-    .split('\n', 1)[0];
-  if (!first.startsWith('ASK: ')) return null;
-  const p = parseFolded(text);
-  const sec = p?.sections.find((s) => s.name === 'Decision');
-  if (!sec) return null;
+function readBlock(blockLines) {
   /** @type {Record<string, string>} */
   const f = {};
   /** @type {DOpt[]} */
   const opts = [];
   let inOpts = false;
-  for (const line of sec.body.split('\n')) {
+  for (const line of blockLines) {
     const m = /^(\d{1,2})\. (.+)$/.exec(line);
     if (inOpts && m) {
       let l = m[2];
@@ -54,6 +51,64 @@ export function parseDecisionComment(text) {
     }
     const kv = /^(q|effect|blocks|mode|show): ?(.*)$/.exec(line);
     if (kv) f[kv[1]] = kv[2];
+  }
+  return { f, opts };
+}
+
+/**
+ * @param {string} text
+ * @returns {DCard | null} null when the comment is not a decision card
+ */
+export function parseDecisionComment(text) {
+  const first = String(text ?? '')
+    .trimStart()
+    .split('\n', 1)[0];
+  if (!first.startsWith('ASK: ')) return null;
+  const p = parseFolded(text);
+  const sec = p?.sections.find((s) => s.name === 'Decision');
+  if (!sec) return null;
+  // A card of several questions: the lines before the first `### Q<k>` are
+  // the card level (headline q, effect, blocks, show), then one block each.
+  /** @type {string[]} */
+  const head = [];
+  /** @type {Array<{ k: number, lines: string[] }>} */
+  const blocks = [];
+  for (const line of sec.body.split('\n')) {
+    const h = /^### Q(\d)\s*$/.exec(line);
+    if (h) {
+      blocks.push({ k: Number(h[1]), lines: [] });
+    } else if (blocks.length) {
+      blocks[blocks.length - 1].lines.push(line);
+    } else {
+      head.push(line);
+    }
+  }
+  const { f, opts } = readBlock(head);
+  if (blocks.length) {
+    // 2-5 blocks numbered 1..n in order, each with a q and at least one option
+    if (blocks.length < 2 || blocks.length > 5 || !f.q) return null;
+    /** @type {DQuestion[]} */
+    const questions = [];
+    for (let i = 0; i < blocks.length; i++) {
+      const b = readBlock(blocks[i].lines);
+      if (blocks[i].k !== i + 1 || !b.f.q || b.opts.length < 1) return null;
+      questions.push({
+        n: i + 1,
+        q: b.f.q,
+        effect: b.f.effect || f.effect || '',
+        show: b.f.show || '',
+        opts: b.opts
+      });
+    }
+    return {
+      q: f.q,
+      effect: f.effect || '',
+      blocks: f.blocks || '',
+      show: f.show || '',
+      nonBlocking: /^non-blocking/.test(f.mode || ''),
+      opts: [],
+      questions
+    };
   }
   if (!f.q || opts.length < 1) return null;
   return {
@@ -78,6 +133,20 @@ export function answerText(o, ref) {
 
 /** @param {string} text */
 function pickOf(text) {
+  // a record of several questions: `answer 1: option 2 "..."`, `answer 2: ...`
+  const many = [...text.matchAll(/^answer ([1-5]): option (\d+) "(.*)"$/gm)];
+  const typedMany = [
+    ...text.matchAll(/^answer ([1-5]) \(typed[^)]*\): (.*)$/gm)
+  ];
+  if (many.length + typedMany.length > 1) {
+    return [
+      ...many.map((m) => ({ k: Number(m[1]), t: `${m[2]} - ${m[3]}` })),
+      ...typedMany.map((m) => ({ k: Number(m[1]), t: m[2] }))
+    ]
+      .sort((a, b) => a.k - b.k)
+      .map((x) => `${x.k}: ${x.t}`)
+      .join(' / ');
+  }
   const rec = /^answer: option (\d+) "(.*)"$/m.exec(text);
   if (rec) return `${rec[1]} - ${rec[2]}`;
   const typed = /^answer \(typed[^)]*\): (.*)$/m.exec(text);
