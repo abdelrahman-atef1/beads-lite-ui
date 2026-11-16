@@ -154,6 +154,45 @@ export function mount(el, ctx) {
 
   const snap = (/** @type {string} */ id) => selectors.selectIssuesFor(id);
 
+  /** Every registered project: its id prefix (else folder name) and path. */
+  function registered() {
+    const ws = (ctx.store && ctx.store.getState().workspace) || {};
+    return (ws.available || [])
+      .map((/** @type {any} */ w) => {
+        const parts = String(w.path || '')
+          .split(/[\\/]/)
+          .filter(Boolean);
+        return {
+          key: String(w.prefix || parts[parts.length - 1] || '').toLowerCase(),
+          path: String(w.path || '')
+        };
+      })
+      .filter((/** @type {{key:string}} */ w) => w.key);
+  }
+  /** The registered project `key` when it is not the one open now, else null. */
+  function otherWorkspace(/** @type {string} */ key) {
+    const cur = ctx.store.getState().workspace?.current?.path || '';
+    const hit = registered().find(
+      (/** @type {{key:string,path:string}} */ w) => w.key === key
+    );
+    const seen = (model ? model.facetItems : []).some(
+      (i) => projectOf(i.id) === key
+    );
+    return hit && hit.path !== cur && !seen ? hit : null;
+  }
+  /** Another project's tasks live in its own workspace: switch, like the Projects screen. */
+  async function switchWorkspace(/** @type {string} */ path) {
+    try {
+      const r = await ctx.client.send('set-workspace', { path });
+      if (r && r.workspace) {
+        window.localStorage.setItem('beads-ui.workspace', path);
+        if (r.changed) window.location.reload();
+      }
+    } catch {
+      // stays on this project
+    }
+  }
+
   function refresh() {
     if (!alive) return;
     loaded = Boolean(stores.isLoaded && stores.isLoaded('tab:all'));
@@ -509,6 +548,11 @@ export function mount(el, ctx) {
         },
         pick: (v) => {
           if (name === 'project') {
+            const other = v ? otherWorkspace(v) : null;
+            if (other) {
+              void switchWorkspace(other.path);
+              return;
+            }
             projects = !v
               ? []
               : projects.includes(v)
@@ -553,6 +597,7 @@ export function mount(el, ctx) {
       'project',
       [
         ...new Set([
+          ...registered().map((/** @type {{key:string}} */ w) => w.key),
           ...(model ? model.facetItems : []).map((i) => projectOf(i.id)),
           ...projects
         ])
@@ -621,7 +666,7 @@ export function mount(el, ctx) {
             class="u3t-stat__chip u3t-stat__chip--${c.id}"
             aria-pressed=${effFocus() === c.id ? 'true' : 'false'}
             @click=${() => {
-              focus = focus === c.id && !phone() ? '' : c.id;
+              focus = focus === c.id ? '' : c.id;
               draw();
             }}
           >
@@ -635,7 +680,7 @@ export function mount(el, ctx) {
               class="u3t-stat__chip u3t-stat__chip--other"
               aria-pressed=${effFocus() === 'other' ? 'true' : 'false'}
               @click=${() => {
-                focus = 'other';
+                focus = focus === 'other' ? '' : 'other';
                 draw();
               }}
             >
