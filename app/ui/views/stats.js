@@ -10,6 +10,7 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
+import { relIfToday } from '../card/common.js';
 import { personLabel } from '../data/people.js';
 import { projectLabel } from '../data/project-icons.js';
 import { PERIODS, loadStats } from '../data/stats.js';
@@ -162,7 +163,11 @@ function age(ms) {
 }
 /** @param {string | null} iso */
 const when = (iso) =>
-  iso ? iso.slice(0, 16).replace('T', ' ') : tr('unknown');
+  iso
+    ? relIfToday(Date.parse(iso), getLang(), () =>
+        iso.slice(0, 16).replace('T', ' ')
+      )
+    : tr('unknown');
 
 /** @param {string} id */
 const href = (id) => '#/issues?issue=' + encodeURIComponent(id);

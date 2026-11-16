@@ -34,6 +34,21 @@ export function tc(key, lang, vars) {
     : s;
 }
 
+/**
+ * A time from today reads relative ("5m ago"); any other day uses `other()`.
+ *
+ * @param {number} ms epoch
+ * @param {string} lang
+ * @param {() => string} other
+ * @param {number} [now]
+ */
+export function relIfToday(ms, lang, other, now = Date.now()) {
+  if (ms && new Date(ms).toDateString() === new Date(now).toDateString()) {
+    return ageText(ms, lang, now);
+  }
+  return other();
+}
+
 /** @param {string} id */
 export function taskHref(id) {
   return `#/issues?issue=${encodeURIComponent(id)}`;

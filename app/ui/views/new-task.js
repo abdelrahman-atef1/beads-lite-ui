@@ -113,7 +113,6 @@ export function openNewTask(host, ctx, opts = {}) {
     if (issues.length && !issues.some((i) => i.id === parent))
       return fail('u3_nt_parent_unknown');
     if (!NEW_TYPES.includes(f.type)) return fail('u3_nt_type_req');
-    if (!assignee) return fail('u3_nt_assignee_req');
     if (!(prio >= 0 && prio <= 4)) return fail('u3_nt_prio_req');
     const labels = f.labels
       .split(',')
@@ -123,7 +122,8 @@ export function openNewTask(host, ctx, opts = {}) {
     error = '';
     paint();
     /** @type {any} */
-    const payload = { title, type: f.type, priority: prio, parent, assignee };
+    const payload = { title, type: f.type, priority: prio, parent };
+    if (assignee) payload.assignee = assignee;
     if (f.description) payload.description = f.description;
     try {
       /** @type {any} */
@@ -137,7 +137,7 @@ export function openNewTask(host, ctx, opts = {}) {
         return;
       }
       let note = '';
-      if (reply?.assignee !== assignee) {
+      if (assignee && reply?.assignee !== assignee) {
         try {
           await send('update-assignee', { id, assignee });
         } catch {
