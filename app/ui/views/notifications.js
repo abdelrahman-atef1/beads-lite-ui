@@ -146,7 +146,11 @@ export function mountBell(el, opts) {
     }
     if (!it.bead) return;
     close();
-    location.hash = '#/issues?issue=' + encodeURIComponent(it.bead);
+    // A decision notice lands on the decision card itself and scrolls to it.
+    location.hash =
+      '#/issues?issue=' +
+      encodeURIComponent(it.bead) +
+      (it.kind === 'decision' ? '&at=card' : '');
   }
 
   /**

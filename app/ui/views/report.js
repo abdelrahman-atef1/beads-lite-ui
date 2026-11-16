@@ -109,7 +109,7 @@ export function openReportSheet(o) {
     draft = {};
   }
   const st = {
-    project: String(draft.project || ''),
+    project: String(draft.project || lsGet(LS_PROJECT) || ''),
     version: String(draft.version || recentVersions()[0] || ''),
     text: String(draft.text || ''),
     projects: /** @type {string[]} */ ([]),
