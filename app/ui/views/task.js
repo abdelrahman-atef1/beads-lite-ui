@@ -14,7 +14,11 @@ import {
   parseAnchor
 } from '../../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../../utils/att-images.js';
-import { parseDecisionComment } from '../../utils/decision-comment.js';
+import {
+  answerText,
+  decisionStates,
+  parseDecisionComment
+} from '../../utils/decision-comment.js';
 import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
@@ -244,6 +248,39 @@ export function mount(el, ctx) {
         </section>`
       : nothing;
 
+  /**
+   * The comment's own decision (question, options, state) for a bead that has
+   * no card record, so its answer buttons still show here.
+   *
+   * @param {any} c
+   */
+  function decisionFallback(c) {
+    const d = parseDecisionComment(String(c.text || ''));
+    const list = comments || [];
+    const idx = list.indexOf(c);
+    if (!d || idx < 0) return undefined;
+    const st = decisionStates(list, issue).get(idx);
+    if (!st || st.kind === 'closed') return undefined;
+    const ref = commentAnchor(c);
+    return {
+      card: {
+        q: d.q,
+        effect: d.effect,
+        show: d.show,
+        blocks: d.blocks,
+        opts: d.opts,
+        att: []
+      },
+      answer: st.kind === 'answered' ? st.answer : '',
+      /** @param {any} o */
+      answer_with: async (o) => {
+        const res = await send('add-comment', { id, text: answerText(o, ref) });
+        if (Array.isArray(res)) comments = res;
+        draw();
+      }
+    };
+  }
+
   /** @param {any} c - @param {boolean} as_card */
   function commentView(c, as_card) {
     const body_text = String(c.text || '');
@@ -251,7 +288,10 @@ export function mount(el, ctx) {
     const author = String(c.author || '') || t3('u3_ts_unknown');
     let body;
     if (as_card) {
-      body = renderCard({ id, title: issue?.title || '' }, ctx);
+      body = renderCard(
+        { id, title: issue?.title || '', fallback: decisionFallback(c) },
+        ctx
+      );
     } else if (body_text.startsWith('STEPS: ')) {
       const st = renderStepsComment(c, { issueId: id, client: ctx.client });
       body =
@@ -442,41 +482,43 @@ export function mount(el, ctx) {
               ${relations('u3_ts_dependents', others)} ${commentsBlock()}
             </div>
             <aside class="u3-ts__side">
-              <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
-              ${edit.isEditing()
-                ? edit.rows(i)
-                : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
-                  ${row(
-                    t3('u3_ts_assignee'),
-                    i.assignee
-                      ? personChip({ role: String(i.assignee) })
-                      : t3('u3_ts_none')
-                  )}
-                  ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
-              ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
-              ${parent
-                ? row(
-                    t3('u3_ts_parent'),
-                    html`<a class="u3-mono" href=${href(parent.id)}
-                      >${parent.id}</a
-                    >`
-                  )
-                : nothing}
-              ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
-              ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
-              ${labels.length && !edit.isEditing()
-                ? row(
-                    t3('u3_ts_labels'),
-                    html`<span class="u3-ts__labels"
-                      >${labels.map((/** @type {string} */ l) =>
-                        chip({ label: l })
-                      )}</span
-                    >`
-                  )
-                : nothing}
-              ${i.close_reason
-                ? row(t3('u3_ts_close_reason'), i.close_reason)
-                : nothing}
+              <details class="u3-ts__fold" ?open=${edit.isEditing()}>
+                <summary class="u3-ts__h">${t3('u3_ts_details')}</summary>
+                ${edit.isEditing()
+                  ? edit.rows(i)
+                  : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+                    ${row(
+                      t3('u3_ts_assignee'),
+                      i.assignee
+                        ? personChip({ role: String(i.assignee) })
+                        : t3('u3_ts_none')
+                    )}
+                    ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
+                ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
+                ${parent
+                  ? row(
+                      t3('u3_ts_parent'),
+                      html`<a class="u3-mono" href=${href(parent.id)}
+                        >${parent.id}</a
+                      >`
+                    )
+                  : nothing}
+                ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
+                ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
+                ${labels.length && !edit.isEditing()
+                  ? row(
+                      t3('u3_ts_labels'),
+                      html`<span class="u3-ts__labels"
+                        >${labels.map((/** @type {string} */ l) =>
+                          chip({ label: l })
+                        )}</span
+                      >`
+                    )
+                  : nothing}
+                ${i.close_reason
+                  ? row(t3('u3_ts_close_reason'), i.close_reason)
+                  : nothing}
+              </details>
             </aside>
           </div>`
       ),

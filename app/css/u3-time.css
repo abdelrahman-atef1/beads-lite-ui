@@ -564,3 +564,16 @@ html[dir='rtl'] .u3 .u3-tm__q {
 .u3 .u3-ex__g-n {
   white-space: nowrap;
 }
+
+/* Collapsed by default: the task comes first (beads-lite-1bo5.6.59.36). */
+.u3 .u3-tm__fold > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.u3 .u3-tm__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+}

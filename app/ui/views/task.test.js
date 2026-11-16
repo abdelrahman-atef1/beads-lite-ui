@@ -117,6 +117,54 @@ describe('task page', () => {
     }
   });
 
+  test('an ASK comment with no card record shows its options and answers by comment (.59.36)', async () => {
+    COMMENTS.push({
+      id: 'eeeeeeee-5555',
+      author: 'cos',
+      text: [
+        'ASK: Apply the rule?',
+        '',
+        '## Decision',
+        'q: Apply the rule?',
+        'effect: all roles log deploys',
+        'options:',
+        '1. Yes (recommended)',
+        '2. Edit it'
+      ].join('\n'),
+      created_at: '2026-11-10T11:00:00Z'
+    });
+    ISSUE.status = 'owner_decision';
+    CARD_STATE = { id: 'p-1', state: 'none', card: null };
+    try {
+      const { el, send } = setup('card');
+      await tick();
+      await tick();
+      const opts = el.querySelectorAll('.u3-cd__opt');
+      expect(opts.length).toBe(2);
+      opts[0].click();
+      await tick();
+      el.querySelector('[data-act="confirm"]').click();
+      await tick();
+      const call = send.mock.calls.find((c) => c[0] === 'add-comment');
+      expect(call[1].text).toMatch(/^Answered: 1 - Yes, re: c-eeeeeeee$/);
+    } finally {
+      COMMENTS.pop();
+      ISSUE.status = 'in_progress';
+      CARD_STATE = {};
+    }
+  });
+
+  test('the Time and Details sections start collapsed (.59.36)', async () => {
+    const { el } = setup();
+    await tick();
+    await tick();
+    const folds = el.querySelectorAll(
+      'details.u3-ts__fold, details.u3-tm__fold'
+    );
+    expect(folds.length).toBe(2);
+    for (const d of folds) expect(d.open).toBe(false);
+  });
+
   test('renders fields and comments, newest first', async () => {
     const { el } = setup();
     await tick();

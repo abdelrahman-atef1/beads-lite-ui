@@ -161,6 +161,27 @@ async function write(el, p, type, payload) {
   await load(el, p);
 }
 
+/**
+ * Answer a comment-only decision: the task page posts "Answered: n - label,
+ * re: c-xxxx" as a comment (the same text the legacy board wrote).
+ *
+ * @param {HTMLElement} el @param {Panel} p @param {{n:number,l:string}} o
+ */
+async function fbWrite(el, p, o) {
+  if (p.busy) return;
+  p.busy = true;
+  p.error = '';
+  paint(el, p);
+  try {
+    await p.item.fallback.answer_with(o);
+    p.pick = null;
+  } catch {
+    p.error = errorText('failed');
+  }
+  p.busy = false;
+  paint(el, p);
+}
+
 /** @param {Panel} p */
 function langOf(p) {
   const c = p.data?.card;
@@ -238,25 +259,40 @@ function paint(el, p) {
           opts: []
         }
       : null);
-  const state = d?.state || 'waiting';
-  if (p.failed && !d) {
+  // A '## Decision' comment on a bead with no card record (task page): the
+  // options come from the comment, the answer goes back as a comment.
+  const fb = p.item.fallback;
+  const use_fb = Boolean(fb) && !d?.card;
+  const dd = use_fb && fb && !fb.answer ? { card: fb.card, fb: true } : d;
+  const cc = use_fb && fb ? fb.card : c;
+  const state = use_fb
+    ? fb.answer
+      ? 'answered'
+      : 'waiting'
+    : d?.state || 'waiting';
+  if (p.failed && !d && !use_fb) {
     render(html`<p class="u3-cd__err" role="alert">${p.failed}</p>`, el);
     return;
   }
   const foot = html`<div class="u3-cd__foot">
-    ${state === 'waiting' && d && !p.asking ? askArea(el, p, d, lang) : nothing}
+    ${state === 'waiting' && d && !use_fb && !p.asking
+      ? askArea(el, p, d, lang)
+      : nothing}
     <a class="u3-cd__link" href=${taskHref(p.item.id)}
       >${tc('u3_card_open_task', lang)}</a
     >
   </div>`;
-  const body = html`${c
-    ? cardBody(c, lang)
+  const body = html`${cc
+    ? cardBody(cc, lang)
     : html`<p class="u3-cd__q" dir="auto">${p.item.title}</p>`}
-  ${state === 'waiting' && d ? answerArea(el, p, d, lang) : nothing}
+  ${state === 'waiting' && dd ? answerArea(el, p, dd, lang) : nothing}
+  ${use_fb && fb?.answer
+    ? html`<p class="u3-cd__rec" dir="auto" data-answered>${fb.answer}</p>`
+    : nothing}
   ${state === 'asked'
     ? html`<p class="u3-cd__note" data-asked>${tc('u3_card_waiting', lang)}</p>`
     : nothing}
-  ${state === 'answered' && d?.decision
+  ${state === 'answered' && !use_fb && d?.decision
     ? html`<p class="u3-cd__rec" dir="auto" data-answered>
         ${d.decision.answer}
         <small
@@ -268,7 +304,9 @@ function paint(el, p) {
       </p>`
     : nothing}
   ${d?.thread?.length ? threadView(d.thread, lang) : nothing}
-  ${state === 'waiting' && d && p.asking ? askForm(el, p, d, lang) : nothing}
+  ${state === 'waiting' && d && !use_fb && p.asking
+    ? askForm(el, p, d, lang)
+    : nothing}
   ${p.error ? html`<p class="u3-cd__err" role="alert">${p.error}</p>` : nothing}
   ${wakeChip(p, d, lang)}`;
   render(
@@ -364,7 +402,10 @@ function answerArea(el, p, d, lang) {
         class="u3-btn u3-btn--primary u3-btn--block u3-cd__opt"
         data-act="confirm"
         ?disabled=${p.busy}
-        @click=${() => write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
+        @click=${() =>
+          d.fb
+            ? void fbWrite(el, p, o)
+            : write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
       >
         <span dir="auto">${tc('u3_card_confirm', lang)}: ${o.l}</span>
       </button>

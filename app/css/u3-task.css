@@ -370,3 +370,15 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .u3-ed__row .u3-ts__labels {
   justify-content: flex-start;
 }
+
+/* Details fold: collapsed by default (beads-lite-1bo5.6.59.36). */
+.u3 .u3-ts__fold > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+.u3 .u3-ts__fold[open] > summary {
+  margin-block-end: var(--u3-sp-3);
+}
