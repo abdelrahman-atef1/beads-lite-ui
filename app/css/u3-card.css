@@ -83,7 +83,7 @@
 .u3 .u3-cd__opts {
   display: flex;
   flex-direction: column;
-  gap: var(--u3-sp-2);
+  gap: var(--u3-sp-3);
 }
 .u3 .u3-cd__opt {
   flex-wrap: wrap;
@@ -93,6 +93,12 @@
   white-space: normal;
   text-align: center;
   border-radius: 999px;
+}
+/* unmistakable separate buttons: filled surface + a border that shows on the card */
+.u3 .u3-cd__opt.u3-btn--ghost {
+  background: var(--u3-surface-2);
+  border: 1.5px solid var(--u3-text-3);
+  color: var(--u3-text);
 }
 .u3 .u3-cd__opt small {
   font-weight: 400;
@@ -184,7 +190,6 @@
   flex-wrap: wrap;
   gap: var(--u3-sp-3);
 }
-.u3 .u3-cd__ask,
 .u3 .u3-cd__link {
   min-height: 44px;
   display: inline-flex;
@@ -195,8 +200,24 @@
   font: inherit;
   cursor: pointer;
 }
+/* 'ask before you answer' / 'I have a question': a real button, not a text link */
 .u3 .u3-cd__ask {
-  color: var(--u3-text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--u3-sp-4);
+  border: 1.5px solid var(--u3-text-3);
+  border-radius: 999px;
+  background: var(--u3-surface-2);
+  color: var(--u3-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.u3 .u3-cd__ask:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .u3 .u3-cd__link {
   color: var(--u3-blue);

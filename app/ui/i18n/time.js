@@ -33,8 +33,8 @@ export const strings = {
   u3_tm_tok_out: { en: 'output {n}', ar: 'خرج {n}' },
   u3_tm_tok_cache: { en: 'cache {n}', ar: 'كاش {n}' },
   u3_tm_tok_unknown: {
-    en: 'Tokens: unknown. Not tied to this task, not zero.',
-    ar: 'التوكنز: غير معروفة. مش مربوطة بالمهمة، مش صفر.'
+    en: 'No token data recorded for this task yet.',
+    ar: 'مفيش بيانات توكنز متسجّلة للمهمة دي لسه.'
   },
   u3_tm_conf_high: { en: 'high confidence', ar: 'ثقة عالية' },
   u3_tm_conf_mixed: { en: 'mixed confidence', ar: 'ثقة متوسطة' },

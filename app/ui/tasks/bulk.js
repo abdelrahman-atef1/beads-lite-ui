@@ -354,7 +354,7 @@ export function createBulk(o) {
             : action === 'assign'
               ? tt(st.role ? 'u3_bk_c_assign' : 'u3_bk_c_unassign', {
                   n,
-                  role: st.role
+                  role: personLabel(st.role).full
                 })
               : tt('u3_bk_c_defer', {
                   n,

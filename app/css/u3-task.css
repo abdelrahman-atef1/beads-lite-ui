@@ -301,13 +301,16 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .anchor-hit {
   outline: 2px solid var(--u3-blue);
   outline-offset: 2px;
-  background: var(--u3-blue-soft);
   border-radius: var(--u3-radius-s);
   animation: u3-ts-hit 2.4s ease-out;
 }
+/* the colour only flashes, then fades away; the border stays */
 @keyframes u3-ts-hit {
   from {
-    background: var(--u3-blue);
+    background: var(--u3-blue-soft);
+  }
+  to {
+    background: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -609,4 +612,14 @@ html[dir='rtl'] .u3 .u3-ts__timebtn::after {
 }
 .u3 .u3-ts__time:not([data-open]) u3-time-slot {
   overflow: hidden;
+}
+.u3 .u3-ts__rel-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-ts__blockers {
+  border-inline-start: 3px solid var(--u3-red, #c0392b);
+  padding-inline-start: var(--u3-sp-3, 12px);
 }

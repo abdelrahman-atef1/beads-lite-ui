@@ -88,6 +88,14 @@ describe('task page edits', () => {
     });
   });
 
+  test('assignee picker shows full names, values stay role codes', async () => {
+    const { el } = setup();
+    await edit(el);
+    const o = el.querySelector('#u3-ed-asg option[value="cos"]');
+    expect(o.textContent).toContain('مارد وشوشني');
+    expect(o.textContent).not.toBe('cos');
+  });
+
   test('title and description save with edit-text', async () => {
     const { el, send } = setup();
     await edit(el);

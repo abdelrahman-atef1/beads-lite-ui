@@ -1,7 +1,7 @@
 // @ts-nocheck -- fixture-heavy view test
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { mount } from './task.js';
+import { fmtDate, mount } from './task.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 30));
 const ISSUE = {
@@ -236,6 +236,58 @@ describe('task page', () => {
     }
   });
 
+  test('a blocked task lists what blocks it; a release record is a short line (13.17)', async () => {
+    const saved = ISSUE.dependencies;
+    ISSUE.status = 'blocked';
+    ISSUE.dependencies = [
+      ...saved,
+      {
+        id: 'p-7',
+        dependency_type: 'blocks',
+        title: 'Waiting thing',
+        status: 'open',
+        assignee: 'sre'
+      },
+      { id: 'p-8', dependency_type: 'blocks', title: 'Done', status: 'closed' }
+    ];
+    COMMENTS.push({
+      id: 'ffffffff-6666',
+      author: '',
+      text: 'OUTPUT v1 deploy\n{"ref":"https://a.pages.dev/x","label":"App prod - fix","commit":"abc1234def"}'
+    });
+    try {
+      const { el } = setup();
+      await tick();
+      const b = el.querySelector('[data-blockers]');
+      expect(b.textContent).toContain('p-7');
+      expect(b.textContent).toContain('Waiting thing');
+      expect(b.textContent).toContain('sre');
+      expect(b.textContent).not.toContain('p-8');
+      expect(b.querySelector('a').getAttribute('href')).toContain('p-7');
+      const r = el.querySelector('[data-release]');
+      expect(r.textContent).toContain('App prod - fix');
+      expect(r.querySelector('a').getAttribute('href')).toBe(
+        'https://a.pages.dev/x'
+      );
+      expect(el.textContent).not.toContain('OUTPUT v1');
+    } finally {
+      ISSUE.status = 'in_progress';
+      ISSUE.dependencies = saved;
+      COMMENTS.pop();
+    }
+  });
+
+  test('blocked with no recorded blocker says so (13.17)', async () => {
+    ISSUE.status = 'blocked';
+    try {
+      const { el } = setup();
+      await tick();
+      expect(el.querySelector('[data-blockers]')).not.toBeNull();
+    } finally {
+      ISSUE.status = 'in_progress';
+    }
+  });
+
   test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
     document.body.innerHTML = '<div id="v"></div>';
     window.localStorage.setItem('beads-ui.lang', 'en');
@@ -369,9 +421,7 @@ describe('task page', () => {
     const base = send.getMockImplementation();
     send.mockImplementation((type, p) => {
       if (type !== 'add-comment') return base(type, p);
-      return fail
-        ? Promise.reject(new Error('x'))
-        : new Promise(() => {}); // socket holds it until back online
+      return fail ? Promise.reject(new Error('x')) : new Promise(() => {}); // socket holds it until back online
     });
     vi.useFakeTimers();
     try {
@@ -407,5 +457,18 @@ describe('task page', () => {
     await tick();
     expect(el.querySelector('textarea')).toBeNull();
     expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
+  });
+});
+
+describe('fmtDate', () => {
+  const now = new Date(2026, 10, 16, 15, 0, 0).getTime();
+  test('a date from today is relative', () => {
+    expect(fmtDate(now - 5 * 60000, now)).toMatch(/5/);
+    expect(fmtDate(now - 5 * 60000, now)).toMatch(/ago|منذ|من/);
+    expect(fmtDate(now - 2 * 3600000, now)).toMatch(/2/);
+  });
+  test('an older date keeps the full date', () => {
+    const y = new Date(2026, 10, 14, 15, 0, 0).getTime();
+    expect(fmtDate(y, now)).toMatch(/2026/);
   });
 });
