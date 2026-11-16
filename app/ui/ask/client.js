@@ -46,7 +46,7 @@ export function projectKey(workspace_path) {
 }
 
 /**
- * @param {{ project: string, id: string, question: string }} d
+ * @param {{ project?: string, id?: string, scope?: 'stats', days?: number, question: string, history?: Array<{ role: 'user' | 'assistant', text: string }> }} d
  * @param {{ fetch?: typeof fetch, token?: string, signal?: AbortSignal }} [o]
  * @returns {Promise<{ ok: true, answer: string, truncated: boolean } | { ok: false, offline?: boolean, aborted?: boolean, error?: string, retryAfter?: number }>}
  */

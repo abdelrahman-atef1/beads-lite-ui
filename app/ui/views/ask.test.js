@@ -182,6 +182,31 @@ describe('ask head and sheet', () => {
     expect(q('[data-act=new-chat]')).not.toBeNull();
   });
 
+  test('stats scope: posts scope and days, no project or id, own texts', async () => {
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'ok', truncated: false })
+    );
+    host.dataset.scope = 'stats';
+    host.dataset.days = '30';
+    q('.u3-ask__head').click();
+    await tick();
+    expect(q('.u3-ask__ctx').textContent).toContain('30');
+    expect(q('textarea').placeholder).toMatch(/numbers/);
+    ask(q, 'what is slow?');
+    await tick();
+    await tick();
+    const post = /** @type {any} */ (
+      f.mock.calls.find((c) => c[0] === '/api/ask')
+    );
+    expect(JSON.parse(post[1].body)).toEqual({
+      scope: 'stats',
+      days: 30,
+      question: 'what is slow?'
+    });
+  });
+
   test('every server error code has its own text', async () => {
     const codes = [
       'timeout',

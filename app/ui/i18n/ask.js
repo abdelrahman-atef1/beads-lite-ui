@@ -20,6 +20,26 @@ export const strings = {
   },
   u3_ask_cancel: { en: 'Cancel', ar: 'إلغاء' },
   u3_ask_new: { en: 'New chat', ar: 'محادثة جديدة' },
+  u3_ask_title_stats: {
+    en: 'Ask Claude about the numbers',
+    ar: 'اسأل Claude عن الأرقام'
+  },
+  u3_ask_ph_stats: {
+    en: 'Your question about these numbers',
+    ar: 'سؤالك عن الأرقام دي'
+  },
+  u3_ask_note_stats: {
+    en: 'Reads only the numbers on this screen, not task text. Ask how to improve them.',
+    ar: 'بيقرأ الأرقام اللي في الشاشة دي بس، مش نصوص المهام. اسأله إزاي نحسّنها.'
+  },
+  u3_ask_label_stats: {
+    en: 'AI answer from these numbers. It can be wrong. Not saved.',
+    ar: 'إجابة من الذكاء الاصطناعي من الأرقام دي، ممكن تكون غلط. مش بتتحفظ.'
+  },
+  u3_ask_ctx_stats: {
+    en: 'Stats · last {n} days',
+    ar: 'الإحصائيات · آخر {n} يوم'
+  },
   u3_ask_ph_more: { en: 'Ask a follow-up', ar: 'اسأل سؤال متابعة' },
   u3_ask_cap: {
     en: 'This chat is full. Start a new chat to keep asking.',

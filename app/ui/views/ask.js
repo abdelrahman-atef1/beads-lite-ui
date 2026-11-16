@@ -23,6 +23,12 @@ import { icon } from '../icons.js';
 
 /** Questions per chat; then "new chat". Server accepts <= 8 history entries. */
 export const MAX_TURNS = 8;
+const STATS_KEYS = new Set([
+  'u3_ask_title',
+  'u3_ask_ph',
+  'u3_ask_note',
+  'u3_ask_label'
+]);
 /** History entries sent with a follow-up (newest). */
 const SEND_HISTORY = 6;
 
@@ -80,7 +86,15 @@ export function mountAsk(host, opts = {}) {
   /** @type {any} */
   let busyTimer = null;
 
+  /** Stats screen: host has data-scope="stats" and data-days (the open period). */
+  const isStats = () => host.dataset.scope === 'stats';
   const taskId = () => host.dataset.id || '';
+  const ctxText = () =>
+    isStats()
+      ? tr('u3_ask_ctx_stats', { n: host.dataset.days || '7' })
+      : taskId();
+  const k = (/** @type {string} */ key) =>
+    tr(isStats() && STATS_KEYS.has(key) ? key + '_stats' : key);
   const project = () =>
     projectKey(h.u3ctx?.store?.getState?.().workspace?.current?.path || '');
   const stopTimers = () => {
@@ -168,8 +182,12 @@ export function mountAsk(host, opts = {}) {
       .slice(-SEND_HISTORY);
     const r = await submitAsk(
       {
-        project: project(),
-        id: taskId(),
+        ...(isStats()
+          ? {
+              scope: /** @type {const} */ ('stats'),
+              days: Number(host.dataset.days) || 7
+            }
+          : { project: project(), id: taskId() }),
         question: q,
         ...(history.length ? { history } : {})
       },
@@ -272,15 +290,15 @@ export function mountAsk(host, opts = {}) {
 
   function draw() {
     const busy = phase === 'wait' || phase === 'busy';
-    const note = html`<p class="u3-ask__label">${tr('u3_ask_label')}</p>`;
+    const note = html`<p class="u3-ask__label">${k('u3_ask_label')}</p>`;
     const form = html`<form @submit=${send}>
       <textarea
         class="u3-ask__ta"
         dir="auto"
         rows="3"
         maxlength=${MAX_Q}
-        aria-label=${tr(turns.length ? 'u3_ask_ph_more' : 'u3_ask_ph')}
-        placeholder=${tr(turns.length ? 'u3_ask_ph_more' : 'u3_ask_ph')}
+        aria-label=${turns.length ? tr('u3_ask_ph_more') : k('u3_ask_ph')}
+        placeholder=${turns.length ? tr('u3_ask_ph_more') : k('u3_ask_ph')}
         .value=${live(question)}
         ?readonly=${busy}
         ?disabled=${!!blocked}
@@ -322,12 +340,13 @@ export function mountAsk(host, opts = {}) {
     </form>`;
     const capped = turns.length >= MAX_TURNS;
     const thread = html`${turns.map(
-        (x) => html`<div class="u3-ask__q" dir="auto">${x.q}</div>
-          <div class="u3-ask__answer" aria-live="polite" tabindex="0">
-            ${x.nodes}${x.truncated
-              ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
-              : ''}
-          </div>`
+        (x) =>
+          html`<div class="u3-ask__q" dir="auto">${x.q}</div>
+            <div class="u3-ask__answer" aria-live="polite" tabindex="0">
+              ${x.nodes}${x.truncated
+                ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
+                : ''}
+            </div>`
       )}
       <div class="u3-ask__actions">
         <button
@@ -369,7 +388,7 @@ export function mountAsk(host, opts = {}) {
                 <div class="u3-ask__grip" aria-hidden="true"></div>
                 <div class="u3-ask__hd">
                   <h2 id="u3-ask-title">
-                    ${SPARK}<span>${tr('u3_ask_title')}</span>
+                    ${SPARK}<span>${k('u3_ask_title')}</span>
                   </h2>
                   <button
                     type="button"
@@ -380,8 +399,8 @@ export function mountAsk(host, opts = {}) {
                     ${icon('a_close', { size: 16 })}
                   </button>
                 </div>
-                <div class="u3-ask__ctx u3-mono" dir="ltr">${taskId()}</div>
-                <p class="u3-ask__note">${tr('u3_ask_note')}</p>
+                <div class="u3-ask__ctx u3-mono" dir="ltr">${ctxText()}</div>
+                <p class="u3-ask__note">${k('u3_ask_note')}</p>
                 ${msg
                   ? html`<div
                       class="u3-ask__banner"
@@ -407,7 +426,10 @@ export function mountAsk(host, opts = {}) {
       if (isOpen) void loadStatus();
     }
   });
-  mo.observe(host, { attributes: true, attributeFilter: ['data-id'] });
+  mo.observe(host, {
+    attributes: true,
+    attributeFilter: ['data-id', 'data-scope']
+  });
   const onLang = () => draw();
   window.addEventListener('bdui-lang', onLang);
   draw();
