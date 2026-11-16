@@ -274,7 +274,12 @@ export function createDecisionsFeed(opts = {}) {
     const att = cleanAtt(m.card_att);
     if (att.length) {
       metadata.card_att = JSON.stringify(
-        att.map((x) => ({ a: x.src.slice(5), n: x.n, h: x.h }))
+        att.map((x) => ({
+          a: x.src.slice(5),
+          n: x.n,
+          h: x.h,
+          ...(x.t !== undefined ? { t: x.t } : {})
+        }))
       );
     }
     const ts =
