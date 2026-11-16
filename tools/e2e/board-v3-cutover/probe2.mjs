@@ -1,0 +1,14 @@
+import { chromium } from '@playwright/test';
+import { CHROME, base, E } from './lib.mjs';
+const b = await chromium.launch({ executablePath: CHROME, headless: true });
+const c = await b.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
+await c.addInitScript(() => { localStorage.setItem('beads-ui.lang', 'en'); localStorage.setItem('beads-ui.theme', 'light'); });
+const p = await c.newPage();
+const seed = E().seed;
+await p.goto(base('pc') + '/#/decisions'); await p.waitForTimeout(6000);
+console.log('DESK', (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 700));
+await p.goto(base('pc') + `/#/issues?issue=${seed.q_pc}&at=card`); await p.waitForTimeout(4000);
+console.log('TASK', (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 1200));
+console.log('cardhost', await p.evaluate(() => document.querySelector('.u3-cardhost')?.innerText.slice(0,300)));
+await p.screenshot({ path: 'probe-task.png' });
+await b.close();

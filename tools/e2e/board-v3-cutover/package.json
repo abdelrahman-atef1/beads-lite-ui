@@ -1,0 +1,1 @@
+{"name":"qa-pw-cut","private":true,"type":"module","devDependencies":{"@playwright/test":"1.57.0"}}
