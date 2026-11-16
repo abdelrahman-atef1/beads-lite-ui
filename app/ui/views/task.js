@@ -20,6 +20,7 @@ import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
 import { priorityName } from '../../utils/priority.js';
+import { splitReactions } from '../../utils/reactions.js';
 import { statusLabel } from '../../utils/status.js';
 import { renderAskHead } from '../ask/head-slot.js';
 import { renderStepsComment } from '../card/steps.js';
@@ -70,6 +71,8 @@ const TONE = /** @type {Record<string, string>} */ ({
  * @param {HTMLElement} el
  * @param {any} ctx
  */
+const QUEUED_MS = 4000;
+
 export function mount(el, ctx) {
   const stores = ctx.sub_issue_stores;
   const subs = ctx.subscriptions;
@@ -88,6 +91,7 @@ export function mount(el, ctx) {
   let text = '';
   let pending = false;
   let post_error = false;
+  let queued = false;
   // Flat page (beads-lite-1bo5.13.2): one tab at a time, the add-comment box
   // is one line until tapped, the ⋯ menu and the time detail are closed.
   let tab = 'comments';
@@ -194,18 +198,28 @@ export function mount(el, ctx) {
     if (!body || pending || body.length > COMMENT_MAX) return;
     pending = true;
     post_error = false;
+    queued = false;
     draw();
+    // Offline the socket holds the request and sends it on reconnect: say so
+    // instead of sitting on "Sending…" (queued, no second post needed).
+    const q = setTimeout(() => {
+      queued = true;
+      draw();
+    }, QUEUED_MS);
     try {
       const res = await send('add-comment', { id, text: body });
       if (Array.isArray(res)) {
         comments = res;
-        await afterCommentPosted(ctx, id, body);
         text = '';
         composing = false;
+        // mentions are scanned in the background; the box closes at once
+        void afterCommentPosted(ctx, id, body).catch(() => {});
       }
     } catch {
       post_error = true;
     }
+    clearTimeout(q);
+    queued = false;
     pending = false;
     draw();
   }
@@ -318,8 +332,8 @@ export function mount(el, ctx) {
         </section>`
       : nothing;
 
-  /** @param {any} c - @param {boolean} as_card */
-  function commentView(c, as_card) {
+  /** @param {any} c - @param {boolean} as_card - @param {{ emoji: string, who: string[] }[]} [reacts] */
+  function commentView(c, as_card, reacts = []) {
     const body_text = String(c.text || '');
     const a = commentAnchor(c);
     const author = String(c.author || '') || t3('u3_ts_unknown');
@@ -352,19 +366,30 @@ export function mount(el, ctx) {
         >
       </header>
       <div class="u3-ts__cb">${body}</div>
+      ${reacts.length
+        ? html`<div class="u3-ts__rx" data-reactions>
+            ${reacts.map(
+              (r) =>
+                html`<span class="u3-ts__rxc" title=${r.who.join(', ')}
+                  >${r.emoji}
+                  <span class="u3-muted">${r.who.join(', ')}</span></span
+                >`
+            )}
+          </div>`
+        : nothing}
       ${renderMentionChips(id, c, c === comments?.[comments.length - 1])}
     </article>`;
   }
 
   function commentsBlock() {
-    const list = comments || [];
+    const { real: list, byAnchor } = splitReactions(comments || []);
     let seen_decision = false;
     // Newest first, like the legacy page; the card shows once (newest ask).
     const items = [...list].reverse().map((c) => {
       const is_d = Boolean(parseDecisionComment(String(c.text || '')));
       const first = is_d && !seen_decision;
       if (is_d) seen_decision = true;
-      return commentView(c, first);
+      return commentView(c, first, byAnchor.get(commentAnchor(c)) || []);
     });
     const open = composing || pending || Boolean(text.trim());
     const composer = open
@@ -410,8 +435,18 @@ export function mount(el, ctx) {
               onClick: () => void post()
             })}
           </div>
+          ${queued && pending
+            ? html`<p role="status" class="u3-muted">${t3('u3_ts_queued')}</p>`
+            : nothing}
           ${post_error
-            ? html`<p role="alert" class="u3-ts__err">${t3('u3_ts_failed')}</p>`
+            ? html`<p role="alert" class="u3-ts__err">
+                ${t3('u3_ts_failed')}
+                ${button({
+                  label: t3('u3_ts_retry'),
+                  variant: 'ghost',
+                  onClick: () => void post()
+                })}
+              </p>`
             : nothing}
         </div>`
       : html`<button

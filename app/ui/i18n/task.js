@@ -37,6 +37,10 @@ export const strings = {
   },
   u3_ts_send: { en: 'Post comment', ar: 'ابعت التعليق' },
   u3_ts_sending: { en: 'Sending…', ar: 'بنبعت…' },
+  u3_ts_queued: {
+    en: 'Queued: it will be sent when you are back online',
+    ar: 'في الانتظار: هتتبعت أول ما النت يرجع'
+  },
   u3_ts_failed: { en: 'The comment was not posted', ar: 'التعليق ما اتبعتش' },
   u3_ts_unknown: { en: 'Unknown', ar: 'مجهول' },
   u3_ts_project: { en: 'Project', ar: 'المشروع' },

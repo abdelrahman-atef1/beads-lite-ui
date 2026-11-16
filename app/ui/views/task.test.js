@@ -171,6 +171,28 @@ describe('task page', () => {
     expect(el.querySelector('.anchor-hit').textContent).toContain('line two');
   });
 
+  test('reactions fold under their comment and leave the thread/count (13.3)', async () => {
+    COMMENTS.push(
+      { id: 'f1', author: 'swe', text: 'REACT: 👀 re: c-aaaaaaaa' },
+      { id: 'f2', author: 'qa', text: 'REACT: 👀 re: c-aaaaaaaa' }
+    );
+    try {
+      const { el } = setup();
+      await tick();
+      expect(el.querySelectorAll('.u3-ts__c').length).toBe(3);
+      const chips = el.querySelectorAll(
+        '[data-anchor="c-aaaaaaaa"] .u3-ts__rxc'
+      );
+      expect(chips.length).toBe(1);
+      expect(chips[0].textContent).toContain('👀');
+      expect(chips[0].textContent).toContain('swe, qa');
+      expect(el.textContent).not.toContain('REACT:');
+    } finally {
+      COMMENTS.pop();
+      COMMENTS.pop();
+    }
+  });
+
   test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
     document.body.innerHTML = '<div id="v"></div>';
     window.localStorage.setItem('beads-ui.lang', 'en');
@@ -289,6 +311,58 @@ describe('task page', () => {
     });
     expect(el.querySelectorAll('.u3-ts__c').length).toBe(4);
     expect(el.querySelector('textarea')).toBeNull(); // back to the one line
+    expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
+  });
+  test('offline post shows queued after a few seconds; a refused post offers Retry', async () => {
+    const { el, send } = setup();
+    await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
+    const ta = el.querySelector('textarea');
+    ta.value = 'offline note';
+    ta.dispatchEvent(new Event('input'));
+    await tick();
+    let fail = false;
+    const base = send.getMockImplementation();
+    send.mockImplementation((type, p) => {
+      if (type !== 'add-comment') return base(type, p);
+      return fail
+        ? Promise.reject(new Error('x'))
+        : new Promise(() => {}); // socket holds it until back online
+    });
+    vi.useFakeTimers();
+    try {
+      [...el.querySelectorAll('.u3-ts__act button')].pop().click();
+      await vi.advanceTimersByTimeAsync(4500);
+      expect(el.querySelector('[role="status"]')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('a refused post shows failed with a Retry that posts again', async () => {
+    const { el, send } = setup();
+    await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
+    const ta = el.querySelector('textarea');
+    ta.value = 'will fail';
+    ta.dispatchEvent(new Event('input'));
+    await tick();
+    const base = send.getMockImplementation();
+    let n = 0;
+    send.mockImplementation((type, p) =>
+      type === 'add-comment' && n++ === 0
+        ? Promise.reject(new Error('x'))
+        : base(type, p)
+    );
+    [...el.querySelectorAll('.u3-ts__act button')].pop().click();
+    await tick();
+    const err = el.querySelector('.u3-ts__err');
+    expect(err).toBeTruthy();
+    err.querySelector('button').click();
+    await tick();
+    expect(el.querySelector('textarea')).toBeNull();
     expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
   });
 });
