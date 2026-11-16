@@ -76,3 +76,42 @@ describe('lanes', () => {
     expect(loadGroup()).toBe('none');
   });
 });
+
+describe('lane counts add up (beads-lite-1bo5.13.23)', () => {
+  test('every issue is counted once: lane chips = column cards + unknown', () => {
+    const statuses = [
+      'open',
+      'in_progress',
+      'blocked',
+      'deferred',
+      'owner_decision',
+      'waiting_for_test',
+      'waiting_for_merge',
+      'weird_x'
+    ];
+    const items = statuses.flatMap((st, k) =>
+      [0, 1, 2].map((n) =>
+        mk('p' + (k % 3) + '-' + k + n, {
+          status: st,
+          assignee: n === 2 ? '' : 'swe'
+        })
+      )
+    );
+    items.push(mk('p0-dep', { status: 'open' }));
+    const blocked = new Set(['p0-dep']);
+    for (const by of /** @type {const} */ (['none', 'project', 'assignee'])) {
+      const lanes = groupIssues(items, by, { blocked_ids: blocked });
+      const chips = lanes.reduce((n, l) => n + l.issues.length, 0);
+      const cards = lanes.reduce((n, l) => {
+        const s = /** @type {any} */ (l.s);
+        const cols = Object.values(s.columns).reduce(
+          (a, c) => a + /** @type {any[]} */ (c).length,
+          0
+        );
+        return n + cols + s.unknown.length;
+      }, 0);
+      expect(chips).toBe(items.length);
+      expect(cards).toBe(items.length);
+    }
+  });
+});

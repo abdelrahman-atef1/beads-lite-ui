@@ -74,3 +74,41 @@ describe('attStrip', () => {
     delete (/** @type {any} */ (window).matchMedia);
   });
 });
+
+describe('clips on a card (beads-lite-1bo5.13.21)', () => {
+  const MP3 = 'company/2026-11/0123456789abcdef.mp3';
+  const MP4 = 'company/2026-11/fedcba9876543210.mp4';
+  test('cleanAtt keeps clips with kind and a valid start second; images unchanged', () => {
+    const got = cleanAtt([
+      { a: OK, n: 'img', t: 5 },
+      { a: MP3, n: 'ear', t: 16 },
+      { a: MP4, n: 'eye', t: -3 },
+      { a: 'company/2026-11/0123456789abcdef.exe' }
+    ]);
+    expect(got).toEqual([
+      { src: '/att/' + OK, n: 'img', h: '' },
+      { src: '/att/' + MP3, n: 'ear', h: '', kind: 'audio', t: 16 },
+      { src: '/att/' + MP4, n: 'eye', h: '', kind: 'video' }
+    ]);
+  });
+  test('attStrip draws native audio/video controls starting at t', () => {
+    const d = document.createElement('div');
+    render(
+      attStrip(
+        cleanAtt([
+          { a: MP3, n: 'a', t: 16 },
+          { a: MP4, n: 'v' }
+        ]),
+        words
+      ),
+      d
+    );
+    const au = d.querySelector('audio');
+    const vi = d.querySelector('video');
+    expect(au.hasAttribute('controls')).toBe(true);
+    expect(au.getAttribute('src')).toBe('/att/' + MP3 + '#t=16');
+    expect(vi.hasAttribute('controls')).toBe(true);
+    expect(vi.getAttribute('src')).toBe('/att/' + MP4);
+    expect(d.querySelector('img')).toBeNull();
+  });
+});

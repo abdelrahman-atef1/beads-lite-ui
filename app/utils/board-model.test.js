@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
+  COLUMNS,
+  KNOWN_STATUSES,
   ageLabel,
   cardOptions,
   displayTitle,
@@ -8,22 +10,28 @@ import {
 } from './board-model.js';
 
 describe('utils/board-model', () => {
-  test('splitColumns sends unknown statuses to Other and skips closed', () => {
-    const { columns, other } = splitColumns(
+  test('splitColumns: 8 statuses, Deferred own lane, unknown is an error list', () => {
+    const { columns, unknown } = splitColumns(
       [
         { id: 'a', status: 'open' },
         { id: 'b', status: 'open' },
         { id: 'c', status: 'open' },
         { id: 'd', status: 'closed' },
-        { id: 'e', status: 'deferred' }
+        { id: 'e', status: 'deferred' },
+        { id: 'f', status: 'in_review' },
+        { id: 'g', status: 'waiting_for_merge' }
       ],
       new Set(['a']),
       new Set(['b'])
     );
-    expect(columns.ready.map((i) => i.id)).toEqual(['a']);
+    expect(columns.ready.map((i) => i.id)).toEqual(['a', 'c']);
     expect(columns.blocked.map((i) => i.id)).toEqual(['b']);
-    // open but neither ready nor blocked, and deferred: not lost
-    expect(other.map((i) => i.id).sort()).toEqual(['c', 'e']);
+    expect(columns.deferred.map((i) => i.id)).toEqual(['e']);
+    expect(columns.merge.map((i) => i.id)).toEqual(['g']);
+    expect(unknown.map((i) => i.id)).toEqual(['f']);
+    expect('other' in columns).toBe(false);
+    expect(COLUMNS.length + 1).toBe(KNOWN_STATUSES.length);
+    expect(KNOWN_STATUSES).toHaveLength(8);
   });
 
   test('isDesk is retired: no card is PC-only (company-1bo5.6.38)', () => {

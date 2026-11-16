@@ -58,17 +58,19 @@ export const COLUMNS = [
     color: 's-blocked',
     en: 'Blocked',
     ar: 'معطّل'
+  },
+  {
+    id: 'deferred',
+    status: 'deferred',
+    glyph: '‖',
+    color: 's-defer',
+    en: 'Deferred',
+    ar: 'مؤجلة'
   }
 ];
 
-export const OTHER_COLUMN = {
-  id: 'other',
-  status: '',
-  glyph: '•',
-  color: 's-closed',
-  en: 'Other',
-  ar: 'أخرى'
-};
+/** The statuses the board knows: the columns plus closed. Nothing else. */
+export const KNOWN_STATUSES = [...COLUMNS.map((c) => c.status), 'closed'];
 
 export const CLOSED_COLUMN = {
   id: 'closed',
@@ -110,12 +112,14 @@ export const DESK_LABELS = [
  * - `all` is every non-closed issue (any status string, custom ones too).
  * - `ready_ids` is `bd ready` membership; `blocked_ids` is `bd blocked`
  *   (dependency-blocked, whose own status is `open`).
- * - Statuses outside the seven land in "Other" (appended at the end).
+ * - No "Other" bucket: a status outside KNOWN_STATUSES goes to `unknown`, which
+ *   the board shows as an error row naming the task. `open` that is not
+ *   dependency-blocked is Ready.
  *
  * @param {BoardIssue[]} all
  * @param {Set<string>} ready_ids
  * @param {Set<string>} blocked_ids
- * @returns {{ columns: Record<string, BoardIssue[]>, other: BoardIssue[] }}
+ * @returns {{ columns: Record<string, BoardIssue[]>, unknown: BoardIssue[] }}
  */
 export function splitColumns(all, ready_ids, blocked_ids) {
   /** @type {Record<string, BoardIssue[]>} */
@@ -124,7 +128,7 @@ export function splitColumns(all, ready_ids, blocked_ids) {
     columns[c.id] = [];
   }
   /** @type {BoardIssue[]} */
-  const other = [];
+  const unknown = [];
   for (const it of all) {
     const st = String(it.status || 'open');
     if (st === 'closed') {
@@ -133,10 +137,8 @@ export function splitColumns(all, ready_ids, blocked_ids) {
     if (st === 'open') {
       if (blocked_ids.has(it.id)) {
         columns.blocked.push(it);
-      } else if (ready_ids.has(it.id)) {
-        columns.ready.push(it);
       } else {
-        other.push(it);
+        columns.ready.push(it);
       }
       continue;
     }
@@ -144,10 +146,10 @@ export function splitColumns(all, ready_ids, blocked_ids) {
     if (col) {
       columns[col.id].push(it);
     } else {
-      other.push(it);
+      unknown.push(it);
     }
   }
-  return { columns, other };
+  return { columns, unknown };
 }
 
 /**

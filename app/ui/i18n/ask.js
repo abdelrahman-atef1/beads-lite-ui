@@ -10,8 +10,8 @@ export const strings = {
   u3_ask_ph: { en: 'Your question about this task', ar: 'سؤالك عن المهمة' },
   u3_ask_send: { en: 'Send', ar: 'إرسال' },
   u3_ask_note: {
-    en: 'One question, no earlier context.',
-    ar: 'سؤال واحد، من غير سياق سابق.'
+    en: 'You can ask follow-ups. Closing the window clears the chat.',
+    ar: 'تقدر تسأل أسئلة متابعة. قفل النافذة بيمسح المحادثة.'
   },
   u3_ask_empty: { en: 'Write your question first', ar: 'اكتب سؤالك الأول' },
   u3_ask_wait: {
@@ -19,7 +19,47 @@ export const strings = {
     ar: 'Claude بيقرأ المهمة ويفكر… {n} ث من {max}'
   },
   u3_ask_cancel: { en: 'Cancel', ar: 'إلغاء' },
-  u3_ask_new: { en: 'New question', ar: 'سؤال جديد' },
+  u3_ask_new: { en: 'New chat', ar: 'محادثة جديدة' },
+  u3_ask_title_stats: {
+    en: 'Ask Claude about the numbers',
+    ar: 'اسأل Claude عن الأرقام'
+  },
+  u3_ask_ph_stats: {
+    en: 'Your question about these numbers',
+    ar: 'سؤالك عن الأرقام دي'
+  },
+  u3_ask_note_stats: {
+    en: 'Reads only the numbers on this screen, not task text. Ask how to improve them.',
+    ar: 'بيقرأ الأرقام اللي في الشاشة دي بس، مش نصوص المهام. اسأله إزاي نحسّنها.'
+  },
+  u3_ask_label_stats: {
+    en: 'AI answer from these numbers. It can be wrong. Not saved.',
+    ar: 'إجابة من الذكاء الاصطناعي من الأرقام دي، ممكن تكون غلط. مش بتتحفظ.'
+  },
+  u3_ask_ctx_stats: {
+    en: 'Stats · last {n} days',
+    ar: 'الإحصائيات · آخر {n} يوم'
+  },
+  u3_ask_rep_title: {
+    en: 'Draft bug report. Nothing is filed until you tap.',
+    ar: 'مسودة بلاغ. مفيش حاجة بتتسجل غير لما تضغط.'
+  },
+  u3_ask_rep_file: { en: 'File report', ar: 'سجّل البلاغ' },
+  u3_ask_rep_filing: { en: 'Filing…', ar: 'بيتسجل…' },
+  u3_ask_rep_filed: { en: 'Report filed: {id}', ar: 'البلاغ اتسجل: {id}' },
+  u3_ask_rep_offline: {
+    en: 'No connection. The report was not filed; tap again.',
+    ar: 'مفيش اتصال. البلاغ ماتسجلش؛ اضغط تاني.'
+  },
+  u3_ask_rep_failed: {
+    en: 'The board refused the report. Try the report form.',
+    ar: 'اللوحة رفضت البلاغ. جرّب نموذج البلاغ.'
+  },
+  u3_ask_ph_more: { en: 'Ask a follow-up', ar: 'اسأل سؤال متابعة' },
+  u3_ask_cap: {
+    en: 'This chat is full. Start a new chat to keep asking.',
+    ar: 'المحادثة دي اكتملت. ابدأ محادثة جديدة عشان تكمل.'
+  },
   u3_ask_copy: { en: 'Copy answer', ar: 'نسخ الإجابة' },
   u3_ask_copied: { en: 'Copied', ar: 'تم النسخ' },
   u3_ask_retry: { en: 'Try again', ar: 'حاول تاني' },
@@ -63,6 +103,10 @@ export const strings = {
   u3_ask_e_forbidden: {
     en: 'Not allowed. Reload the page and try again.',
     ar: 'مش مسموح. أعد تحميل الصفحة وحاول تاني.'
+  },
+  u3_ask_e_nostats: {
+    en: 'There are no numbers for this period yet, so there is nothing to ask about.',
+    ar: 'مفيش أرقام للفترة دي لسه، فمفيش حاجة تتسأل عنها.'
   },
   u3_ask_e_notfound: {
     en: 'This task was not found.',

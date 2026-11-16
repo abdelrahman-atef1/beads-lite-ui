@@ -10,8 +10,8 @@
 .u3 .u3-ic svg {
   display: block;
 }
-.u3 .u3-ic--tile {
-  background: var(--u3-ic-soft, var(--u3-surface-2));
+.u3 .u3-ic--plain {
+  color: inherit;
 }
 .u3 .u3-ic--blue {
   color: var(--u3-blue);

@@ -35,6 +35,7 @@ import { t3 } from '../i18n.js';
 import { icon } from '../icons.js';
 import { personChip } from '../people/person-chip.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
+import { createHolder } from '../task/holder.js';
 import { renderTimeSlot } from '../task/time-slot.js';
 import { renderCard } from './card.js';
 import {
@@ -75,7 +76,8 @@ const TONE = /** @type {Record<string, string>} */ ({
   blocked: 'red',
   owner_decision: 'amber',
   waiting_for_test: 'teal',
-  waiting_for_merge: 'green'
+  waiting_for_merge: 'green',
+  deferred: 'neutral'
 });
 
 /**
@@ -125,6 +127,8 @@ export function mount(el, ctx) {
     redraw: () => draw()
   });
 
+  const holder = createHolder({ edit, get: () => issue, redraw: () => draw() });
+
   function readIssue() {
     const cid = `detail:${id}`;
     const snap = stores.snapshotFor ? stores.snapshotFor(cid) : [];
@@ -155,6 +159,7 @@ export function mount(el, ctx) {
   function open(next) {
     teardown();
     edit.reset();
+    holder.reset();
     id = next;
     issue = null;
     sub_failed = false;
@@ -627,10 +632,6 @@ export function mount(el, ctx) {
       t3('u3_ts_status'),
       statusVal(i.status, { size: 18 })
     )}
-    ${row(
-      t3('u3_ts_assignee'),
-      i.assignee ? personChip({ role: String(i.assignee) }) : t3('u3_ts_none')
-    )}
     ${row(t3('u3_ts_priority'), priorityVal(i.priority, { size: 18 }))}
     ${row(t3('u3_ts_project'), projectOf(i.id))}
     ${i.issue_type
@@ -732,6 +733,7 @@ export function mount(el, ctx) {
             >
             <span class="u3-ts__pj">${projectOf(i.id)}</span>
           </p>
+          ${holder.row(i, 'top')} ${blockers}
           <div class="u3-ts__time" ?data-open=${time_open}>
             ${renderTimeSlot(i, ctx)}
             <button
@@ -766,7 +768,7 @@ export function mount(el, ctx) {
             )}
           </nav>
           <div class="u3-ts__cols">
-            <div class="u3-ts__main">${blockers}${panel}</div>
+            <div class="u3-ts__main">${panel}</div>
             <aside class="u3-ts__side${editing ? ' is-editing' : ''}">
               <div class="u3-ts__acts">
                 ${button({
@@ -784,9 +786,10 @@ export function mount(el, ctx) {
                   onClick: () => addSubtask()
                 })}
               </div>
-              ${editing ? edit.rows(i) : facts}
+              ${editing ? edit.rows(i) : html`${holder.row(i, 'side')}${facts}`}
             </aside>
-          </div>`
+          </div>
+          ${holder.toast()}`
       ),
       el
     );

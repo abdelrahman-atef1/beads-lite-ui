@@ -63,20 +63,21 @@ export const ICON_IDS = Object.keys(GLYPHS);
 /**
  * @param {string} name icon id (or an older alias)
  * @param {{ size?: number, tile?: boolean, tone?: string, label?: string }} [o]
- *   size = glyph px (default 20); tile = coloured square behind it;
+ *   size = glyph px (default 20); tile = navigation icon, drawn plain in neutral ink (no square);
  *   tone = override colour; label = accessible name (default: decorative)
  */
 export function icon(name, o = {}) {
   const [tone, body] = glyphOf(name);
   const size = o.size || 20;
-  const t = o.tone || tone;
+  // Nav/card icons (tile:true) are plain now (1bo5.13.22): no square, neutral ink.
+  // Colour stays on value icons (status, priority, type) that tell things apart.
+  const t = o.tone || (o.tile ? 'plain' : tone);
   const id = ALIAS[name] || name;
-  const cls = `u3-ic u3-ic--${t}${o.tile ? ' u3-ic--tile' : ''}${id === 'a_next' || id === 'a_back' ? ' u3-ic--dir' : ''}`;
-  const box = o.tile ? Math.round(size * 1.5) : size;
+  const cls = `u3-ic u3-ic--${t}${id === 'a_next' || id === 'a_back' ? ' u3-ic--dir' : ''}`;
   const g = html`<svg
     viewBox="0 0 256 256"
-    width=${o.tile ? Math.round(size * 0.95) : size}
-    height=${o.tile ? Math.round(size * 0.95) : size}
+    width=${size}
+    height=${size}
     fill="currentColor"
     aria-hidden="true"
   >
@@ -85,9 +86,6 @@ export function icon(name, o = {}) {
   return html`<span
     class=${cls}
     data-icon=${id}
-    style=${o.tile
-      ? `width:${box}px;height:${box}px;border-radius:${Math.round(box * 0.3)}px`
-      : ''}
     role=${o.label ? 'img' : 'presentation'}
     aria-label=${o.label || ''}
     >${g}</span

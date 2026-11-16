@@ -371,7 +371,8 @@ export function createDecisionsFeed(opts = {}) {
           a: x.src.slice(5),
           n: x.n,
           h: x.h,
-          ...(x.q ? { q: x.q } : {})
+          ...(x.q ? { q: x.q } : {}),
+          ...(x.t !== undefined ? { t: x.t } : {})
         }))
       );
     }

@@ -362,7 +362,7 @@ describe('card attachments (.59.29.2)', () => {
       '/att/' + OK
     ]);
     expect(el.querySelector('.att-strip__lbl').textContent).toBe(
-      'صور للمراجعة'
+      'للمراجعة'
     );
   });
   test('no att: no strip', async () => {

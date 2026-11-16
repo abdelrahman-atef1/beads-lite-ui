@@ -18,8 +18,9 @@ const STATUSES = [
   'waiting_for_merge',
   'open',
   'blocked',
-  'weird'
+  'deferred'
 ];
+let WEIRD = false;
 const flush = () => new Promise((r) => setTimeout(r, 80));
 /**
  * Wait (bounded) until the rest-of-cards paint has landed.
@@ -56,6 +57,9 @@ function fixture(n) {
     };
     all.push(it);
     if (st === 'open') (i % 2 ? ready : blocked).push(it);
+  }
+  if (WEIRD) {
+    all.push({ id: 'x-weird', title: 'W', status: 'in_review', priority: 2 });
   }
   const closed = Array.from({ length: 120 }, (_, i) => ({
     id: `c-${i}`,
@@ -119,7 +123,7 @@ const MAP = {
   merge: 'merge',
   ready: 'ready',
   blocked: 'blocked',
-  other: 'other'
+  deferred: 'deferred'
 };
 
 describe('ui/views/tasks (v3)', () => {
@@ -134,6 +138,25 @@ describe('ui/views/tasks (v3)', () => {
     expect(seen.length).toBe(200);
     expect(new Set(seen).size).toBe(200);
     expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBe(200);
+  });
+
+  test('an unknown status is a visible error row, never a column', async () => {
+    WEIRD = true;
+    try {
+      const { a, h } = setup(14);
+      await flush();
+      const row = a.querySelector('[data-testid="unknown-status"]');
+      expect(row).not.toBeNull();
+      expect(row?.textContent).toContain('x-weird');
+      expect(row?.textContent).toContain('in_review');
+      expect(a.querySelector('#u3t-other')).toBeNull();
+      expect(a.querySelector('.u3t-stat__chip--other')).toBeNull();
+      expect(a.querySelector('#u3t-deferred')).not.toBeNull();
+      expect(a.querySelector('.u3t-stat__chip--deferred')).not.toBeNull();
+      h.unmount();
+    } finally {
+      WEIRD = false;
+    }
   });
 
   test('filters and search narrow the board', async () => {
@@ -271,7 +294,7 @@ describe('ui/views/tasks (v3)', () => {
     test('arrow keys move between options and focus returns to the chip', async () => {
       const { a, h } = setup(30);
       await flush();
-      chip(a, 'type').click();
+      chip(a, 'project').click();
       const opts = () => [...a.querySelectorAll('.u3t-opt')];
       expect(document.activeElement).toBe(opts()[0]); // "Any" is the chosen one
       key('ArrowDown');
@@ -284,12 +307,10 @@ describe('ui/views/tasks (v3)', () => {
       expect(document.activeElement).toBe(opts()[0]);
       /** @type {HTMLElement} */ (opts()[1]).click();
       await flush();
-      expect(a.querySelector('.u3t-pop')).toBeNull();
-      expect(document.activeElement).toBe(chip(a, 'type'));
-      chip(a, 'type').click();
+      expect(a.querySelector('.u3t-pop')).not.toBeNull(); // several allowed: stays open
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       expect(a.querySelector('.u3t-pop')).toBeNull();
-      expect(document.activeElement).toBe(chip(a, 'type'));
+      expect(document.activeElement).toBe(chip(a, 'project'));
       h.unmount();
     });
 
@@ -306,5 +327,135 @@ describe('ui/views/tasks (v3)', () => {
       );
       h.unmount();
     });
+  });
+});
+
+describe('filters as sets (beads-lite-1bo5.13.16.1)', () => {
+  const stat = (/** @type {HTMLElement} */ a, /** @type {string} */ c) =>
+    /** @type {HTMLElement} */ (a.querySelector(`.u3t-stat__chip--${c}`));
+  const cols = (/** @type {HTMLElement} */ a) =>
+    [...a.querySelectorAll('.u3t-col')].map((e) => e.id);
+  const search = () => new URLSearchParams(window.location.search);
+
+  test('owner decision and blocked together; remove one, then clear all; URL follows', async () => {
+    const { a, h } = setup(60);
+    await flush();
+    stat(a, 'owner').click();
+    await flush();
+    stat(a, 'blocked').click();
+    await flush();
+    expect(stat(a, 'owner').getAttribute('aria-pressed')).toBe('true');
+    expect(stat(a, 'blocked').getAttribute('aria-pressed')).toBe('true');
+    expect(cols(a)).toEqual(['u3t-owner', 'u3t-blocked']);
+    expect(search().get('status')).toBe('owner_decision,blocked');
+    const chip = /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-ac[data-dim="status"]')
+    );
+    expect(chip.textContent).toContain('+1');
+    // one tap on a counter removes that status
+    stat(a, 'owner').click();
+    await flush();
+    expect(cols(a)).toEqual(['u3t-blocked']);
+    expect(search().get('status')).toBe('blocked');
+    // the chip x clears the whole dimension
+    /** @type {HTMLElement} */ (
+      a.querySelector('[data-remove="status"]')
+    ).click();
+    await flush();
+    expect(search().get('status')).toBe(null);
+    expect(a.querySelector('.u3t-active')).toBeNull();
+    // clear all
+    stat(a, 'owner').click();
+    stat(a, 'test').click();
+    await flush();
+    /** @type {HTMLElement} */ (
+      a.querySelector('[data-testid="chips-clear-all"]')
+    ).click();
+    await flush();
+    expect(window.location.search).toBe('');
+    expect(
+      JSON.parse(window.localStorage.getItem('u3.tasks.filters') || '{}').status
+    ).toEqual([]);
+    h.unmount();
+  });
+
+  test('Filters sheet: checkbox rows with counts, Mine toggles the assignee set, Esc closes', async () => {
+    const { a, h } = setup(60);
+    await flush();
+    const btn = () =>
+      /** @type {HTMLElement} */ (
+        a.querySelector('[data-testid="filters-btn"]')
+      );
+    btn().click();
+    expect(a.querySelector('.u3t-sh[role="dialog"]')).not.toBeNull();
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-sh__sec[data-dim="assignee"] .u3t-sh__hb')
+    ).click();
+    const opt = (/** @type {string} */ v) =>
+      /** @type {HTMLElement} */ (
+        a.querySelector(`.u3t-sh__sec[data-dim="assignee"] [data-v="${v}"]`)
+      );
+    expect(opt('swe').querySelector('.u3t-sh__n')?.textContent).toBe('20');
+    opt('swe').click();
+    opt('qa').click();
+    expect(search().get('assignee')).toBe('swe,qa');
+    expect(opt('swe').getAttribute('aria-checked')).toBe('true');
+    // counts of the other options honour the filter just set
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-sh__sec[data-dim="prio"] .u3t-sh__hb')
+    ).click();
+    expect(
+      a.querySelector('.u3t-sh__sec[data-dim="prio"] [data-v="0"] .u3t-sh__n')
+        ?.textContent
+    ).toBe('8');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(a.querySelector('.u3t-sh')).toBeNull();
+    expect(document.activeElement).toBe(btn());
+    expect(btn().querySelector('.u3t-fbtn__n')?.textContent).toBe('1');
+    h.unmount();
+  });
+
+  test('Mine and Urgent read and write the sets; empty state clears', async () => {
+    const { a, h } = setup(60);
+    await flush();
+    const q = (/** @type {string} */ k) =>
+      /** @type {HTMLElement} */ (a.querySelector(`[data-quick="${k}"]`));
+    q('u3_tk_p01').click();
+    await flush();
+    expect(search().get('prio')).toBe('0,1');
+    expect(q('u3_tk_p01').getAttribute('aria-pressed')).toBe('true');
+    q('u3_tk_mine').click(); // nothing is assigned to the owner
+    await flush();
+    expect(search().get('assignee')).toBe('abdelrahman');
+    expect(a.querySelector('[data-testid="no-match"]')).not.toBeNull();
+    /** @type {HTMLElement} */ (
+      a.querySelector('[data-testid="no-match-clear"]')
+    ).click();
+    await flush();
+    expect(a.querySelector('[data-testid="no-match"]')).toBeNull();
+    expect(window.location.search).toBe('');
+    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBeGreaterThan(
+      0
+    );
+    h.unmount();
+  });
+
+  test('a lane header count opens that status in the lane', async () => {
+    window.localStorage.setItem('u3.tasks.group', 'project');
+    const { a, h } = setup(60);
+    await flush();
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-group__b[data-group-by="project"]')
+    ).click();
+    await flush();
+    const b = /** @type {HTMLElement | null} */ (
+      a.querySelector('.u3t-lane__stat[data-lane-status="blocked"]')
+    );
+    expect(b).not.toBeNull();
+    b?.click();
+    await flush();
+    expect(search().get('status')).toBe('blocked');
+    expect(cols(a).every((id) => id === 'u3t-blocked')).toBe(true);
+    h.unmount();
   });
 });

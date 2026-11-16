@@ -14,6 +14,18 @@ export const strings = {
   u3_tk_prio: { en: 'Priority', ar: 'الأولوية' },
   u3_tk_project: { en: 'Project', ar: 'المشروع' },
   u3_tk_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
+  u3_tk_status: { en: 'Status', ar: 'الحالة' },
+  u3_tk_epic: { en: 'Epic', ar: 'الإيبك' },
+  u3_tk_clear_all: { en: 'Clear all', ar: 'امسح الكل' },
+  u3_tk_clear_one: { en: 'Clear', ar: 'امسح' },
+  u3_tk_find: { en: 'Find', ar: 'دوّر' },
+  u3_tk_done: { en: 'Done', ar: 'تمام' },
+  u3_tk_remove: { en: 'Remove filter', ar: 'شيل الفلتر' },
+  u3_tk_no_match: {
+    en: 'No tasks match these filters',
+    ar: 'مفيش مهام بتطابق الفلاتر دي'
+  },
+  u3_tk_no_match_btn: { en: 'Clear all filters', ar: 'امسح كل الفلاتر' },
   u3_tk_any: { en: 'Any', ar: 'أي' },
   u3_tk_skipped: {
     en: 'Not shown (could not be read):',
@@ -42,7 +54,11 @@ export const strings = {
   u3_tk_lane_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
   u3_tk_lane_noepic: { en: 'No epic', ar: 'بدون إيبك' },
   u3_tk_lane_others: { en: 'Others', ar: 'أخرى' },
-  u3_tk_col_other: { en: 'Other', ar: 'أخرى' },
+  u3_tk_col_deferred: { en: 'Deferred', ar: 'مؤجلة' },
+  u3_tk_unknown_status: {
+    en: 'Unknown status "{s}" on {id}: fix it in bd, the board only knows 8 statuses',
+    ar: 'حالة غير معروفة "{s}" في {id}: صحّحها في bd، اللوحة تعرف ٨ حالات فقط'
+  },
   u3_bk_lane_all: { en: 'Select lane', ar: 'حدّد الحارة' },
   u3_bk_select: { en: 'Select', ar: 'تحديد' },
   u3_bk_selected: { en: 'selected', ar: 'محدّدة' },

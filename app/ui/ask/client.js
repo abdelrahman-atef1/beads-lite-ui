@@ -19,6 +19,7 @@ export function errorKey(code) {
     claude_failed: 'u3_ask_e_failed',
     forbidden: 'u3_ask_e_forbidden',
     not_found: 'u3_ask_e_notfound',
+    no_stats: 'u3_ask_e_nostats',
     bad_request: 'u3_ask_e_bad',
     too_large: 'u3_ask_e_bad',
     bad_type: 'u3_ask_e_forbidden',
@@ -46,9 +47,9 @@ export function projectKey(workspace_path) {
 }
 
 /**
- * @param {{ project: string, id: string, question: string }} d
+ * @param {{ project?: string, id?: string, scope?: 'stats', days?: number, question: string, history?: Array<{ role: 'user' | 'assistant', text: string }> }} d
  * @param {{ fetch?: typeof fetch, token?: string, signal?: AbortSignal }} [o]
- * @returns {Promise<{ ok: true, answer: string, truncated: boolean } | { ok: false, offline?: boolean, aborted?: boolean, error?: string, retryAfter?: number }>}
+ * @returns {Promise<{ ok: true, answer: string, truncated: boolean, draft: string } | { ok: false, offline?: boolean, aborted?: boolean, error?: string, retryAfter?: number }>}
  */
 export async function submitAsk(d, o = {}) {
   const f = o.fetch || globalThis.fetch.bind(globalThis);
@@ -76,7 +77,12 @@ export async function submitAsk(d, o = {}) {
     // not json (proxy error page)
   }
   if (res.ok && j && j.ok && typeof j.answer === 'string')
-    return { ok: true, answer: j.answer, truncated: !!j.truncated };
+    return {
+      ok: true,
+      answer: j.answer,
+      truncated: !!j.truncated,
+      draft: typeof j.report_draft?.text === 'string' ? j.report_draft.text : ''
+    };
   if (!j && (res.status === 502 || res.status === 503 || res.status === 504))
     return { ok: false, offline: true };
   return {

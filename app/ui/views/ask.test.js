@@ -126,6 +126,167 @@ describe('ask head and sheet', () => {
     expect(a.querySelector('pre').getAttribute('dir')).toBe('ltr');
   });
 
+  test('follow-ups: thread stays, history is sent, new chat clears it', async () => {
+    let n = 0;
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'A' + ++n, truncated: false })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'one');
+    await tick();
+    await tick();
+    expect(q('textarea').value).toBe('');
+    ask(q, 'two');
+    await tick();
+    await tick();
+    const bodies = f.mock.calls
+      .filter((c) => c[0] === '/api/ask')
+      .map((c) => JSON.parse(c[1].body));
+    expect(bodies[0].history).toBeUndefined();
+    expect(bodies[1].history).toEqual([
+      { role: 'user', text: 'one' },
+      { role: 'assistant', text: 'A1' }
+    ]);
+    expect(host.querySelectorAll('.u3-ask__answer').length).toBe(2);
+    expect(q('form')).not.toBeNull();
+    q('[data-act=new-chat]').click();
+    expect(host.querySelectorAll('.u3-ask__answer').length).toBe(0);
+    ask(q, 'three');
+    await tick();
+    await tick();
+    const last = JSON.parse(f.mock.calls.at(-1)[1].body);
+    expect(last.history).toBeUndefined();
+  });
+
+  test('follow-ups: only the newest 6 entries are sent; 8 questions fill the chat', async () => {
+    const { f, q } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'ok', truncated: false })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    for (let i = 1; i <= 8; i++) {
+      ask(q, 'q' + i);
+      await tick();
+      await tick();
+    }
+    const posts = f.mock.calls.filter((c) => c[0] === '/api/ask');
+    expect(posts.length).toBe(8);
+    expect(JSON.parse(posts[7][1].body).history.length).toBe(6);
+    expect(JSON.parse(posts[7][1].body).history[0].text).toBe('q5');
+    expect(q('form')).toBeNull();
+    expect(q('[data-act=new-chat]')).not.toBeNull();
+  });
+
+  test('stats scope: posts scope and days, no project or id, own texts', async () => {
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: true, answer: 'ok', truncated: false })
+    );
+    host.dataset.scope = 'stats';
+    host.dataset.days = '30';
+    q('.u3-ask__head').click();
+    await tick();
+    expect(q('.u3-ask__ctx').textContent).toContain('30');
+    expect(q('textarea').placeholder).toMatch(/numbers/);
+    ask(q, 'what is slow?');
+    await tick();
+    await tick();
+    const post = /** @type {any} */ (
+      f.mock.calls.find((c) => c[0] === '/api/ask')
+    );
+    expect(JSON.parse(post[1].body)).toEqual({
+      scope: 'stats',
+      days: 30,
+      question: 'what is slow?'
+    });
+  });
+
+  test('report draft: shown, nothing filed until the tap, then /api/report once', async () => {
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : u === '/api/report'
+          ? reply({ ok: true, id: 'beads-lite-1bo5.13.99' })
+          : reply({
+              ok: true,
+              answer: 'Here is a draft.',
+              truncated: false,
+              report_draft: {
+                text: 'Save button does nothing on the task page'
+              }
+            })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'file this as a bug');
+    await tick();
+    await tick();
+    expect(q('.u3-ask__draft-text').textContent).toContain('Save button');
+    expect(f.mock.calls.some((c) => c[0] === '/api/report')).toBe(false);
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    const rep = f.mock.calls.filter((c) => c[0] === '/api/report');
+    expect(rep.length).toBe(1);
+    expect(rep[0][1].headers['x-bdui-report']).toBe('1');
+    expect(host.textContent).toContain('beads-lite-1bo5.13.99');
+    expect(q('[data-act=file-report]')).toBeNull();
+  });
+
+  test('report draft: a refused filing says so and can be tapped again', async () => {
+    let n = 0;
+    const { q } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : u === '/api/report'
+          ? ++n === 1
+            ? reply({ ok: false, error: 'rate_limited' }, 429)
+            : reply({ ok: true, id: 'x-1' })
+          : reply({
+              ok: true,
+              answer: 'd',
+              truncated: false,
+              report_draft: { text: 'bug' }
+            })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'report it');
+    await tick();
+    await tick();
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    expect(q('.u3-ask__draft [role=alert]')).not.toBeNull();
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    expect(q('[data-act=file-report]')).toBeNull();
+  });
+
+  test('stats with no numbers yet: plain no-numbers message, not "task not found"', async () => {
+    const { q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: false, error: 'no_stats' }, 404)
+    );
+    host.dataset.scope = 'stats';
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'what is slow?');
+    await tick();
+    await tick();
+    const t = q('.u3-ask__banner').textContent;
+    expect(t).toMatch(/no numbers for this period/);
+    expect(t).not.toMatch(/task/i);
+  });
+
   test('every server error code has its own text', async () => {
     const codes = [
       'timeout',
