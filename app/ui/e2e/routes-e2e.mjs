@@ -69,6 +69,13 @@ for (const e of fs.readdirSync(beadsSrc, { withFileTypes: true })) {
     path.join(proj, '.beads', e.name)
   );
 }
+// The copy must not reach the owner's other stores: drop "additional" repos from
+// its config (a routed store the bd package cannot open made every list load
+// forever, so the screens were empty in the screenshots).
+const cfg = path.join(proj, '.beads', 'config.yaml');
+if (fs.existsSync(cfg)) {
+  fs.writeFileSync(cfg, ['repos:', '    primary: "."', ''].join('\n'));
+}
 const boardHome = path.join(data, 'board-home');
 fs.mkdirSync(boardHome, { recursive: true });
 
@@ -104,7 +111,8 @@ try {
 
   // marker = a selector that exists only when that screen is mounted
   const ROUTES = [
-    ['desk', '#/', '.dk3'],
+    ['stats', '#/', '.u3-sh'],
+    ['desk', '#/decisions', '.dk3'],
     ['tasks', '#/issues', '[data-view="tasks"]'],
     ['tasks-board', '#/board', '[data-view="tasks"]'],
     ['task', '#/issues?issue=beads-lite-1bo5.6.59.19', '[data-view="task"]'],
@@ -115,15 +123,16 @@ try {
     ['ui-kit', '#/ui-kit', '[data-view="kit"]']
   ];
   const SIZES = [
-    ['phone390', { width: 390, height: 844 }],
-    ['pc1440', { width: 1440, height: 900 }]
+    ['phone390', { width: 390, height: 844 }, 'dark'],
+    ['pc1440', { width: 1440, height: 900 }, 'dark'],
+    ['pc1440-light', { width: 1440, height: 900 }, 'light']
   ];
   /** @type {string[]} */
   let deskJs = [];
-  for (const [sname, vp] of SIZES) {
+  for (const [sname, vp, scheme] of SIZES) {
     const ctx = await browser.newContext({
       viewport: vp,
-      colorScheme: 'dark'
+      colorScheme: /** @type {'dark'|'light'} */ (scheme)
     });
     await ctx.addInitScript(() => {
       localStorage.setItem('beads-ui.lang', 'ar');
@@ -153,6 +162,22 @@ try {
       } catch {
         ok = false;
       }
+      if (name === 'task') {
+        // the task loads over the socket after the screen mounts
+        await p
+          .waitForSelector('.u3-ts__chips', { timeout: 20000 })
+          .catch(() => {});
+      }
+      if (name === 'tasks' || name === 'tasks-board') {
+        await p
+          .waitForSelector('.u3t-card', { timeout: 20000 })
+          .catch(() => {});
+      }
+      if (name === 'desk') {
+        await p
+          .waitForSelector('.dk3 .u3-row, .dk3 .u3-cd', { timeout: 20000 })
+          .catch(() => {});
+      }
       await sleep(300);
       const chunkReqs = js.filter((j) => j.url.startsWith('main.') === false);
       check(
@@ -164,15 +189,49 @@ try {
       );
       if (name === 'desk') deskJs = js.map((j) => j.url);
       if (name === 'task') {
-        // the task screen is its own chunk: not in the desk's first load
-        const extra = js.filter((j) => !deskJs.includes(j.url));
+        // The task screen is its own chunk, not inside the main file. (Old check
+        // said "not in the desk's first load"; since the idle prefetch in
+        // boot.js the desk page fetches the lazy chunks too, so that was stale.)
+        const main = js.filter((j) => j.url.startsWith('main.'));
+        const chunks = js.filter((j) => !j.url.startsWith('main.'));
         check(
-          `${sname} task chunk loads on demand, not with the desk`,
-          extra.length > 0 && deskJs.length > 0,
-          `${extra.length} more js file(s), ${extra.reduce((x, j) => x + j.gz, 0)} bytes on the wire`
+          `${sname} task screen is a separate chunk, not inside the main file`,
+          chunks.length > 0 && main.length === 1,
+          `main ${main[0]?.gz} bytes, ${chunks.length} chunk(s) ${chunks.reduce((x, j) => x + j.gz, 0)} bytes`
         );
       }
-      if (sname === 'phone390') {
+      // icon set C (1bo5.6.59.32 / 13.9 / 13.6): icons drawn on every screen, none broken
+      const ic = await p.evaluate(() => ({
+        icons: document.querySelectorAll('.u3 .u3-ic svg').length,
+        emptyIcons: [...document.querySelectorAll('.u3 .u3-ic')].filter(
+          (e) => !e.querySelector('svg path, svg circle, svg rect')
+        ).length,
+        brokenProj: [...document.querySelectorAll('img.u3-proj__img')].filter(
+          (i) =>
+            i instanceof HTMLImageElement && i.complete && i.naturalWidth === 0
+        ).length,
+        projImgs: document.querySelectorAll('img.u3-proj__img').length,
+        priIcons: document.querySelectorAll('.u3-val [data-icon^="p_"]').length,
+        stIcons: document.querySelectorAll('.u3-val [data-icon^="s_"]').length
+      }));
+      check(
+        `${sname} ${name} icons drawn, none empty or broken`,
+        ic.icons > 0 && ic.emptyIcons === 0 && ic.brokenProj === 0,
+        JSON.stringify(ic)
+      );
+      if (name === 'task') {
+        await p
+          .locator('.u3-ts__side')
+          .first()
+          .screenshot({ path: path.join(out, `${sname}-task-details.png`) })
+          .catch(() => {});
+        check(
+          `${sname} task shows status and priority as icons`,
+          ic.priIcons > 0 && ic.stIcons > 0,
+          JSON.stringify(ic)
+        );
+      }
+      {
         await p.screenshot({
           path: path.join(out, `${sname}-${name}.png`),
           fullPage: false
@@ -182,7 +241,7 @@ try {
     }
     // route switch in one page: chunks load on first open, the last click wins
     const p = await ctx.newPage();
-    await p.goto(`http://127.0.0.1:${port}/#/`, {
+    await p.goto(`http://127.0.0.1:${port}/#/decisions`, {
       waitUntil: 'domcontentloaded'
     });
     await p.waitForSelector('.dk3', { timeout: 20000 });

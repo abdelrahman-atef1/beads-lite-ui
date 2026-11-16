@@ -1,4 +1,5 @@
 import { html, render } from 'lit-html';
+import { icon } from '../icons.js';
 
 /**
  * Bottom sheet (phone) / centred panel (PC). Mounts into `host`, closes on
@@ -41,7 +42,7 @@ export function openSheet(host, o) {
             aria-label=${o.closeLabel}
             @click=${close}
           >
-            ×
+            ${icon('a_close', { size: 16 })}
           </button>
         </div>
         <div class="u3-sheet__body">${o.body}</div>

@@ -12,6 +12,7 @@ import { priorityName } from '../../utils/priority.js';
 import { statusLabel } from '../../utils/status.js';
 import { chip } from '../components/index.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 
 export const TITLE_MAX = 500;
 export const TEXT_MAX = 100000;
@@ -122,7 +123,9 @@ export function createTaskEdit(o) {
         title=${editing ? t3('u3_ed_done') : t3('u3_ed_edit')}
         @click=${() => this.toggle()}
       >
-        ${editing ? '✓' : '✎'}
+        ${editing
+          ? icon('a_approve', { size: 18 })
+          : icon('a_edit', { size: 18 })}
       </button>`;
     },
 
@@ -364,7 +367,7 @@ export function createTaskEdit(o) {
                         'u3_ed_fail_label'
                       )}
                   >
-                    ×
+                    ${icon('a_close', { size: 16 })}
                   </button></span
                 >`
             )}

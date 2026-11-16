@@ -11,6 +11,7 @@
 import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
 import { personLabel } from '../data/people.js';
+import { projectLabel } from '../data/project-icons.js';
 import { PERIODS, loadStats } from '../data/stats.js';
 import { fmtDur } from '../data/time-math.js';
 
@@ -466,7 +467,7 @@ function projectsTokensBlock(d) {
         (/** @type {any} */ p) =>
           html`<div class="u3-sh__row u3-sh__row--q">
             <span class="u3-sh__rowmain"
-              ><strong dir="auto">${p.project}</strong
+              ><strong dir="auto">${projectLabel(p.project)}</strong
               ><span class="u3-sh__muted"
                 >${tr('tk_closed', { n: nf.format(p.closed) })}</span
               ></span
@@ -629,11 +630,42 @@ export function mount(el, ctx) {
     loading = false;
     draw();
   }
+  // Touch has no hover, so the title tooltips (bar values, split shares) never
+  // showed on a phone: a tap on any element with a title opens it as a bubble.
+  /** @type {HTMLElement | null} */
+  let tip = null;
+  let tip_timer = 0;
+  const hideTip = () => {
+    clearTimeout(tip_timer);
+    tip?.remove();
+    tip = null;
+  };
+  /** @param {Event} e */
+  const onTap = (e) => {
+    const t = /** @type {HTMLElement | null} */ (
+      /** @type {HTMLElement} */ (e.target).closest?.('[title]')
+    );
+    hideTip();
+    const text = t?.getAttribute('title');
+    if (!t || !text || !el.contains(t)) return;
+    const r = t.getBoundingClientRect();
+    tip = document.createElement('div');
+    tip.className = 'u3-sh__tip';
+    tip.setAttribute('role', 'status');
+    tip.textContent = text;
+    tip.style.left = Math.round(r.left + r.width / 2) + 'px';
+    tip.style.top = Math.round(r.top) + 'px';
+    (el.closest('.u3') || document.body).appendChild(tip);
+    tip_timer = window.setTimeout(hideTip, 3000);
+  };
+  el.addEventListener('click', onTap);
   window.addEventListener('bdui-lang', draw);
   void load();
   return {
     unmount() {
       seq++;
+      hideTip();
+      el.removeEventListener('click', onTap);
       window.removeEventListener('bdui-lang', draw);
     }
   };

@@ -17,6 +17,7 @@ import {
 } from '../ask/client.js';
 import { renderMarkdown } from '../ask/markdown.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 
 /**
  * @param {string} key
@@ -347,7 +348,7 @@ export function mountAsk(host, opts = {}) {
                     aria-label=${tr('u3_ask_close')}
                     @click=${close}
                   >
-                    ×
+                    ${icon('a_close', { size: 16 })}
                   </button>
                 </div>
                 <div class="u3-ask__ctx u3-mono" dir="ltr">${taskId()}</div>

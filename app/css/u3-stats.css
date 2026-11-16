@@ -215,3 +215,17 @@
   color: var(--u3-text);
   font-size: var(--u3-fs-m);
 }
+
+/* tap tooltip for touch (bar values, split shares) */
+.u3-sh__tip {
+  position: fixed;
+  z-index: 60;
+  transform: translate(-50%, calc(-100% - 8px));
+  max-width: min(80vw, 280px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--u3-text, #e8ebf2);
+  color: var(--u3-bg, #0e121b);
+  font-size: 13px;
+  pointer-events: none;
+}

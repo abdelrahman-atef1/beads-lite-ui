@@ -20,11 +20,18 @@ import {
   displayTitle
 } from '../../utils/board-model.js';
 import { priorityName } from '../../utils/priority.js';
+import {
+  priorityIconName,
+  priorityVal,
+  typeIconName,
+  typeVal
+} from '../components/vicon.js';
 import { personLabel, uiDir } from '../data/people.js';
+import { projectLabel } from '../data/project-icons.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 import { personChip } from '../people/person-chip.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
-import { chipIcon, typeIconName } from '../tasks/chip-icons.js';
 import { filterMenu } from '../tasks/filter-menu.js';
 import {
   GROUPS,
@@ -309,8 +316,10 @@ export function mount(el, ctx) {
         ? html`<span class="u3t-card__sub" dir="auto">${secondary}</span>`
         : ''}
       <span class="u3t-card__foot">
-        <span class="u3-chip u3-chip--${pri <= 1 ? 'red' : 'neutral'}"
-          >${priorityName(pri)}</span
+        <span class="u3t-card__ics"
+          >${it.issue_type
+            ? typeVal(String(it.issue_type), { iconOnly: true })
+            : ''}${priorityVal(pri, { iconOnly: true })}</span
         >
         ${colId === 'blocked' || blockers.length
           ? html`<span class="u3-chip u3-chip--red"
@@ -419,7 +428,9 @@ export function mount(el, ctx) {
             <span
               class="u3t-lane__name"
               dir=${group_by === 'assignee' ? uiDir() : 'auto'}
-              >${laneName(g)}</span
+              >${group_by === 'project' && g.label
+                ? projectLabel(g.label)
+                : laneName(g)}</span
             >
             <span class="u3-chip">${g.issues.length}</span>
           </button>
@@ -556,7 +567,7 @@ export function mount(el, ctx) {
         @click=${() =>
           filter.set({ chip: f.chip === v ? 'all' : /** @type {any} */ (v) })}
       >
-        ${chipIcon(ic)}${t3(key)}
+        ${icon(ic, { size: 16 })}${t3(key)}
       </button>`;
     /**
      * @param {'type'|'label'|'assignee'|'prio'|'project'} name
@@ -620,8 +631,7 @@ export function mount(el, ctx) {
       pris.map((v) => ({
         value: v,
         label: priorityName(Number(v)),
-        icon: 'prio',
-        tone: 'u3t-ic--p' + v
+        icon: priorityIconName(Number(v))
       }))
     )}
     ${menu(
@@ -634,7 +644,7 @@ export function mount(el, ctx) {
         ])
       ]
         .sort()
-        .map((v) => ({ value: v, label: v, icon: 'project' }))
+        .map((v) => ({ value: v, label: v, icon: 'project', project: v }))
     )}`;
     return html`<div class="u3t-bar">
         ${groupBar()}

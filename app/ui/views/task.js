@@ -22,13 +22,14 @@ import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
-import { priorityName } from '../../utils/priority.js';
 import { splitReactions } from '../../utils/reactions.js';
-import { statusLabel } from '../../utils/status.js';
 import { renderAskHead } from '../ask/head-slot.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button, chip } from '../components/index.js';
+import { priorityVal, statusVal, typeVal } from '../components/vicon.js';
+import { projectLabel } from '../data/project-icons.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 import { personChip } from '../people/person-chip.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
 import { renderTimeSlot } from '../task/time-slot.js';
@@ -324,7 +325,7 @@ export function mount(el, ctx) {
                     <span class="u3-ts__rt" dir="auto">${d.title || ''}</span>
                     ${d.status
                       ? chip({
-                          label: statusLabel(d.status),
+                          label: statusVal(d.status),
                           tone: TONE[d.status] || 'neutral'
                         })
                       : nothing}
@@ -558,14 +559,16 @@ export function mount(el, ctx) {
       ]
     ];
     const hot = Number(i.priority) <= 1;
-    const facts = html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+    const facts = html`${row(t3('u3_ts_status'), statusVal(i.status, { size: 18 }))}
     ${row(
       t3('u3_ts_assignee'),
       i.assignee ? personChip({ role: String(i.assignee) }) : t3('u3_ts_none')
     )}
-    ${row(t3('u3_ts_priority'), priorityName(i.priority))}
+    ${row(t3('u3_ts_priority'), priorityVal(i.priority, { size: 18 }))}
     ${row(t3('u3_ts_project'), projectOf(i.id))}
-    ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
+    ${i.issue_type
+      ? row(t3('u3_ts_type'), typeVal(String(i.issue_type), { size: 18 }))
+      : nothing}
     ${parent
       ? row(
           t3('u3_ts_parent'),
@@ -613,7 +616,7 @@ export function mount(el, ctx) {
               class="u3-ts__back"
               href="#/issues"
               aria-label=${t3('u3_ts_back')}
-              >&larr;</a
+              >${icon('a_back', { size: 20 })}</a
             >
             <span class="u3-ts__id u3-mono" dir="ltr">${i.id}</span>
             <span class="u3-ts__tools">
@@ -654,10 +657,10 @@ export function mount(el, ctx) {
           ${edit.title(i)}
           <p class="u3-ts__facts">
             <span class="u3-ts__st u3-ts__st--${TONE[i.status] || 'neutral'}"
-              >${statusLabel(i.status)}</span
+              >${statusVal(i.status, { size: 16 })}</span
             >
             <span class="u3-ts__pr${hot ? ' u3-ts__pr--hot' : ''}"
-              >${priorityName(i.priority)}</span
+              >${priorityVal(i.priority, { size: 16 })}</span
             >
             <span class="u3-ts__pj">${projectOf(i.id)}</span>
           </p>

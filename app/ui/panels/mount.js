@@ -5,11 +5,11 @@
  * (SHELL-REQ on beads-lite-1bo5.6.59); idempotent, so a second call is a no-op.
  */
 import { html, render } from 'lit-html';
+import { icon } from '../icons.js';
 import { mountBell } from '../views/notifications.js';
 import { openProjectOutputs } from '../views/outputs.js';
 import { createReportEntry } from '../views/report.js';
 import { tp } from './i18n.js';
-import { pIcon } from './icons.js';
 
 /**
  * @param {HTMLElement} root - the #u3 element
@@ -40,7 +40,7 @@ export function mountPanels(root, ctx) {
           title=${tp('pn_outputs')}
           @click=${() => openProjectOutputs({ client, host: root })}
         >
-          ${pIcon('outputs')}
+          ${icon('outputs', { size: 22 })}
         </button>
         <button
           type="button"
@@ -51,7 +51,7 @@ export function mountPanels(root, ctx) {
           title=${tp('pn_report')}
           @click=${() => report.open()}
         >
-          ${pIcon('report')}
+          ${icon('report', { size: 22 })}
         </button>`,
       lead
     );

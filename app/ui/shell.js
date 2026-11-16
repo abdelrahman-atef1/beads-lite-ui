@@ -68,13 +68,13 @@ export function createShell(root, _ctx) {
       closeLabel: t3('u3_close'),
       body: html`<nav class="u3-more">
         <a class="u3-more__link" href="#/releases" @click=${closeSheet}
-          >${icon('releases')} ${t3('u3_releases')}</a
+          >${icon('releases', { size: 16, tile: true })} ${t3('u3_releases')}</a
         >
         <a class="u3-more__link" href="#/projects" @click=${closeSheet}
-          >${icon('projects')} ${t3('u3_projects')}</a
+          >${icon('projects', { size: 16, tile: true })} ${t3('u3_projects')}</a
         >
         <a class="u3-more__link" href="#/time" @click=${closeSheet}
-          >${icon('time')} ${t3('u3_time')}</a
+          >${icon('time', { size: 16, tile: true })} ${t3('u3_time')}</a
         >
         <div class="u3-more__prefs">${prefs()}</div>
       </nav>`
@@ -94,7 +94,9 @@ export function createShell(root, _ctx) {
                   class="u3-nav"
                   href=${n.hash}
                   aria-current=${n.name === active ? 'page' : 'false'}
-                  >${icon(n.name)}<span>${t3('u3_' + n.name)}</span></a
+                  >${icon(n.name, { size: 16, tile: true })}<span
+                    >${t3('u3_' + n.name)}</span
+                  ></a
                 >`
             )}
           </nav>
