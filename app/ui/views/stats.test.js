@@ -101,6 +101,27 @@ describe('stats home', () => {
     h.unmount();
   });
 
+  test('Ask button: stats scope host follows the period and goes away on unmount', async () => {
+    const send = vi.fn(async () => data);
+    const el = document.createElement('div');
+    document.body.append(el);
+    const h = mount(el, { client: { send } });
+    const host = /** @type {HTMLElement} */ (
+      document.querySelector('.u3-ask[data-scope="stats"]')
+    );
+    expect(host.querySelector('.u3-ask__head')).not.toBeNull();
+    expect(host.dataset.days).toBe('7');
+    await vi.waitFor(() =>
+      expect(el.querySelector('.u3-tms__p')).not.toBeNull()
+    );
+    el.querySelectorAll('.u3-tms__p')[2].dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    );
+    expect(host.dataset.days).toBe('60');
+    h.unmount();
+    expect(document.querySelector('.u3-ask[data-scope="stats"]')).toBeNull();
+  });
+
   test('numbers older than 36 h say so', async () => {
     const el = document.createElement('div');
     document.body.append(el);

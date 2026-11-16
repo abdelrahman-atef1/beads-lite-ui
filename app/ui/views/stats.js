@@ -14,6 +14,7 @@ import { personLabel } from '../data/people.js';
 import { projectLabel } from '../data/project-icons.js';
 import { PERIODS, loadStats } from '../data/stats.js';
 import { fmtDur } from '../data/time-math.js';
+import { mountAsk } from './ask.js';
 
 const DAY = 86_400_000;
 const STALE_MS = 36 * 3_600_000;
@@ -618,6 +619,7 @@ export function mount(el, ctx) {
   /** @param {number} n */
   function pick(n) {
     days = n;
+    askHost.dataset.days = String(n);
     void load();
   }
   async function load() {
@@ -660,10 +662,20 @@ export function mount(el, ctx) {
   };
   el.addEventListener('click', onTap);
   window.addEventListener('bdui-lang', draw);
+  // The assistant on this screen: same sheet, scope stats (beads-lite-1bo5.6.59.37.2).
+  // Its host lives beside the screen (the screen's own markup is redrawn on every draw).
+  const askHost = document.createElement('div');
+  askHost.className = 'u3-ask';
+  askHost.dataset.scope = 'stats';
+  askHost.dataset.days = String(days);
+  (el.closest('.u3') || document.body).appendChild(askHost);
+  const ask = mountAsk(askHost);
   void load();
   return {
     unmount() {
       seq++;
+      ask.destroy();
+      askHost.remove();
       hideTip();
       el.removeEventListener('click', onTap);
       window.removeEventListener('bdui-lang', draw);

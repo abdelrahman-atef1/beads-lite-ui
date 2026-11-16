@@ -1,12 +1,15 @@
 /**
  * Ask-Claude head + sheet (beads-lite-1bo5.6.59.8, client half of .56).
- * Task routes only (mounted through the ask/head-slot.js seam). One question,
- * nothing kept: closing the sheet drops the question and the answer, and
- * aborts a running request. Answers go through ask/markdown.js (DOM nodes
+ * Task routes only (mounted through the ask/head-slot.js seam). A chat of up
+ * to MAX_TURNS questions: the thread lives in this closure only (the server
+ * is stateless; each request carries the last few turns). Nothing is kept:
+ * closing the sheet or "new chat" drops the thread, and aborts a running
+ * request. Answers go through ask/markdown.js (DOM nodes
  * only, never HTML). Phone: bottom sheet. PC: popover by the head.
  */
 import { html, render } from 'lit-html';
 import { live } from 'lit-html/directives/live.js';
+import { submitReport } from '../../views/report.js';
 import {
   MAX_Q,
   WAIT_MAX_S,
@@ -18,6 +21,17 @@ import {
 import { renderMarkdown } from '../ask/markdown.js';
 import { t3 } from '../i18n.js';
 import { icon } from '../icons.js';
+
+/** Questions per chat; then "new chat". Server accepts <= 8 history entries. */
+export const MAX_TURNS = 8;
+const STATS_KEYS = new Set([
+  'u3_ask_title',
+  'u3_ask_ph',
+  'u3_ask_note',
+  'u3_ask_label'
+]);
+/** History entries sent with a follow-up (newest). */
+const SEND_HISTORY = 6;
 
 /**
  * @param {string} key
@@ -61,10 +75,9 @@ export function mountAsk(host, opts = {}) {
   let banner = '';
   /** blocked = signed out / disabled: shown at once, input off */
   let blocked = '';
-  let truncated = false;
   let copied = false;
-  /** @type {DocumentFragment | null} */
-  let answerNodes = null;
+  /** @type {Array<{ q: string, a: string, nodes: DocumentFragment, truncated: boolean, draft: string, filed: string, filing: boolean, fileErr: string }>} */
+  let turns = [];
   /** @type {AbortController | null} */
   let abort = null;
   /** @type {AbortController | null} */
@@ -74,7 +87,15 @@ export function mountAsk(host, opts = {}) {
   /** @type {any} */
   let busyTimer = null;
 
+  /** Stats screen: host has data-scope="stats" and data-days (the open period). */
+  const isStats = () => host.dataset.scope === 'stats';
   const taskId = () => host.dataset.id || '';
+  const ctxText = () =>
+    isStats()
+      ? tr('u3_ask_ctx_stats', { n: host.dataset.days || '7' })
+      : taskId();
+  const k = (/** @type {string} */ key) =>
+    tr(isStats() && STATS_KEYS.has(key) ? key + '_stats' : key);
   const project = () =>
     projectKey(h.u3ctx?.store?.getState?.().workspace?.current?.path || '');
   const stopTimers = () => {
@@ -90,8 +111,8 @@ export function mountAsk(host, opts = {}) {
     stopTimers();
     phase = 'idle';
     question = hint = banner = blocked = '';
-    answerNodes = null;
-    truncated = copied = false;
+    turns = [];
+    copied = false;
   }
 
   async function loadStatus() {
@@ -153,8 +174,24 @@ export function mountAsk(host, opts = {}) {
       secs += 1;
       draw();
     }, 1000);
+    /** @type {Array<{ role: 'user' | 'assistant', text: string }>} */
+    const history = turns
+      .flatMap((x) => [
+        { role: /** @type {const} */ ('user'), text: x.q },
+        { role: /** @type {const} */ ('assistant'), text: x.a }
+      ])
+      .slice(-SEND_HISTORY);
     const r = await submitAsk(
-      { project: project(), id: taskId(), question: q },
+      {
+        ...(isStats()
+          ? {
+              scope: /** @type {const} */ ('stats'),
+              days: Number(host.dataset.days) || 7
+            }
+          : { project: project(), id: taskId() }),
+        question: q,
+        ...(history.length ? { history } : {})
+      },
       { fetch: opts.fetch, signal: mine.signal }
     );
     stopTimers();
@@ -162,8 +199,17 @@ export function mountAsk(host, opts = {}) {
     abort = null;
     if (!isOpen) return;
     if (r.ok) {
-      answerNodes = renderMarkdown(r.answer);
-      truncated = r.truncated;
+      turns.push({
+        q,
+        a: r.answer,
+        nodes: renderMarkdown(r.answer),
+        truncated: r.truncated,
+        draft: r.draft,
+        filed: '',
+        filing: false,
+        fileErr: ''
+      });
+      question = '';
       phase = 'answer';
     } else if (r.aborted) {
       return;
@@ -207,16 +253,65 @@ export function mountAsk(host, opts = {}) {
     phase = 'idle';
     draw();
   }
+  /** Where a report is filed: this task's project, else the last one used. */
+  function reportProject() {
+    let p = isStats() ? '' : project();
+    if (!p) {
+      try {
+        p = window.localStorage.getItem('bdui.report.project') || '';
+      } catch {
+        // no storage
+      }
+    }
+    return p || 'beads-lite';
+  }
+  function reportVersion() {
+    try {
+      const v = JSON.parse(
+        window.localStorage.getItem('bdui.report.versions') || '[]'
+      )[0];
+      if (typeof v === 'string' && v) return v;
+    } catch {
+      // no storage
+    }
+    return 'board-v3';
+  }
+  /**
+   * The only way a report is filed: a person taps the button under a draft.
+   * Same /api/report path as the board's report form.
+   *
+   * @param {(typeof turns)[number]} x
+   */
+  async function fileReport(x) {
+    if (x.filing || x.filed || !x.draft) return;
+    x.filing = true;
+    x.fileErr = '';
+    draw();
+    const r = await submitReport(
+      {
+        project: reportProject(),
+        text: x.draft,
+        version: reportVersion()
+      },
+      { fetch: opts.fetch }
+    );
+    x.filing = false;
+    if (r.ok) x.filed = r.id;
+    else if (r.offline) x.fileErr = tr('u3_ask_rep_offline');
+    else x.fileErr = tr('u3_ask_rep_failed');
+    draw();
+  }
   function again() {
     question = '';
     phase = 'idle';
-    answerNodes = null;
+    turns = [];
+    banner = hint = '';
     draw();
     host.querySelector('textarea')?.focus();
   }
   async function copy() {
     const a = /** @type {HTMLElement | null} */ (
-      host.querySelector('.u3-ask__answer')
+      [...host.querySelectorAll('.u3-ask__answer')].pop() || null
     );
     try {
       await navigator.clipboard.writeText(a?.innerText || a?.textContent || '');
@@ -248,15 +343,15 @@ export function mountAsk(host, opts = {}) {
 
   function draw() {
     const busy = phase === 'wait' || phase === 'busy';
-    const note = html`<p class="u3-ask__label">${tr('u3_ask_label')}</p>`;
+    const note = html`<p class="u3-ask__label">${k('u3_ask_label')}</p>`;
     const form = html`<form @submit=${send}>
       <textarea
         class="u3-ask__ta"
         dir="auto"
         rows="3"
         maxlength=${MAX_Q}
-        aria-label=${tr('u3_ask_ph')}
-        placeholder=${tr('u3_ask_ph')}
+        aria-label=${turns.length ? tr('u3_ask_ph_more') : k('u3_ask_ph')}
+        placeholder=${turns.length ? tr('u3_ask_ph_more') : k('u3_ask_ph')}
         .value=${live(question)}
         ?readonly=${busy}
         ?disabled=${!!blocked}
@@ -296,16 +391,43 @@ export function mountAsk(host, opts = {}) {
             </button>
           </div>`}
     </form>`;
-    const answer = html`<div class="u3-ask__q" dir="auto">${question}</div>
-      <div class="u3-ask__answer" aria-live="polite" tabindex="0">
-        ${answerNodes}${truncated
-          ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
+    const reportBox = (/** @type {(typeof turns)[number]} */ x) =>
+      html`<div class="u3-ask__draft" data-act="report-draft">
+        <p class="u3-ask__label">${tr('u3_ask_rep_title')}</p>
+        <pre class="u3-ask__draft-text" dir="auto">${x.draft}</pre>
+        ${x.filed
+          ? html`<p role="status">
+              ${tr('u3_ask_rep_filed', { id: x.filed })}
+            </p>`
+          : html`<button
+              type="button"
+              class="u3-ask__btn u3-ask__btn--primary"
+              data-act="file-report"
+              ?disabled=${x.filing}
+              @click=${() => void fileReport(x)}
+            >
+              ${x.filing ? tr('u3_ask_rep_filing') : tr('u3_ask_rep_file')}
+            </button>`}
+        ${x.fileErr
+          ? html`<div class="u3-ask__hint" role="alert">${x.fileErr}</div>`
           : ''}
-      </div>
+      </div>`;
+    const capped = turns.length >= MAX_TURNS;
+    const thread = html`${turns.map(
+        (x) =>
+          html`<div class="u3-ask__q" dir="auto">${x.q}</div>
+            <div class="u3-ask__answer" aria-live="polite" tabindex="0">
+              ${x.nodes}${x.truncated
+                ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
+                : ''}
+            </div>
+            ${x.draft ? reportBox(x) : ''}`
+      )}
       <div class="u3-ask__actions">
         <button
           type="button"
-          class="u3-ask__btn u3-ask__btn--primary"
+          class="u3-ask__btn"
+          data-act="new-chat"
           @click=${again}
         >
           ${tr('u3_ask_new')}
@@ -313,7 +435,8 @@ export function mountAsk(host, opts = {}) {
         <button type="button" class="u3-ask__btn" @click=${copy}>
           ${copied ? tr('u3_ask_copied') : tr('u3_ask_copy')}
         </button>
-      </div>`;
+      </div>
+      ${capped ? html`<p class="u3-ask__note">${tr('u3_ask_cap')}</p>` : ''}`;
     const msg = blocked || banner;
     render(
       html`<button
@@ -340,7 +463,7 @@ export function mountAsk(host, opts = {}) {
                 <div class="u3-ask__grip" aria-hidden="true"></div>
                 <div class="u3-ask__hd">
                   <h2 id="u3-ask-title">
-                    ${SPARK}<span>${tr('u3_ask_title')}</span>
+                    ${SPARK}<span>${k('u3_ask_title')}</span>
                   </h2>
                   <button
                     type="button"
@@ -351,8 +474,8 @@ export function mountAsk(host, opts = {}) {
                     ${icon('a_close', { size: 16 })}
                   </button>
                 </div>
-                <div class="u3-ask__ctx u3-mono" dir="ltr">${taskId()}</div>
-                <p class="u3-ask__note">${tr('u3_ask_note')}</p>
+                <div class="u3-ask__ctx u3-mono" dir="ltr">${ctxText()}</div>
+                <p class="u3-ask__note">${k('u3_ask_note')}</p>
                 ${msg
                   ? html`<div
                       class="u3-ask__banner"
@@ -362,7 +485,7 @@ export function mountAsk(host, opts = {}) {
                       ${msg}
                     </div>`
                   : ''}
-                ${phase === 'answer' ? answer : form} ${note}
+                ${turns.length ? thread : ''} ${capped ? '' : form} ${note}
               </div>
             </div>`
           : ''}`,
@@ -378,7 +501,10 @@ export function mountAsk(host, opts = {}) {
       if (isOpen) void loadStatus();
     }
   });
-  mo.observe(host, { attributes: true, attributeFilter: ['data-id'] });
+  mo.observe(host, {
+    attributes: true,
+    attributeFilter: ['data-id', 'data-scope']
+  });
   const onLang = () => draw();
   window.addEventListener('bdui-lang', onLang);
   draw();
