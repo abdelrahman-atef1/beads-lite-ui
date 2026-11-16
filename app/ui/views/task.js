@@ -20,6 +20,7 @@ import {
 } from '../../utils/decision-comment.js';
 import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
+import { ageText } from '../card/common.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
 import { splitReactions } from '../../utils/reactions.js';
@@ -44,11 +45,15 @@ import { createTaskEdit } from './task-edit.js';
 
 const COMMENT_MAX = 20000;
 
-/** @param {string | number | undefined} v */
-export function fmtDate(v) {
+/** @param {string | number | undefined} v - @param {number} [now] */
+export function fmtDate(v, now = Date.now()) {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
+  // A date from today reads relative ("5m ago"); older ones keep the full date.
+  if (d.toDateString() === new Date(now).toDateString()) {
+    return ageText(d.getTime(), getLang(), now);
+  }
   // Western digits in both languages.
   return d.toLocaleDateString(
     getLang() === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US',

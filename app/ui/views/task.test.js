@@ -1,7 +1,7 @@
 // @ts-nocheck -- fixture-heavy view test
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { mount } from './task.js';
+import { fmtDate, mount } from './task.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 30));
 const ISSUE = {
@@ -407,5 +407,18 @@ describe('task page', () => {
     await tick();
     expect(el.querySelector('textarea')).toBeNull();
     expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
+  });
+});
+
+describe('fmtDate', () => {
+  const now = new Date(2026, 10, 16, 15, 0, 0).getTime();
+  test('a date from today is relative', () => {
+    expect(fmtDate(now - 5 * 60000, now)).toMatch(/5/);
+    expect(fmtDate(now - 5 * 60000, now)).toMatch(/ago|منذ|من/);
+    expect(fmtDate(now - 2 * 3600000, now)).toMatch(/2/);
+  });
+  test('an older date keeps the full date', () => {
+    const y = new Date(2026, 10, 14, 15, 0, 0).getTime();
+    expect(fmtDate(y, now)).toMatch(/2026/);
   });
 });
