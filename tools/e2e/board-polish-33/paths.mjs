@@ -1,0 +1,9 @@
+export const WT = 'E:/Projects/beads-lite-ui/.work/wt/qa-beads-lite-1bo5-6-59-33';
+export const SC = WT + '/.work/scratch/b/cut';
+export const OUT = WT + '/.work/out/beads-lite-1bo5.6.59.33/qa';
+export const BD = 'C:/Users/abduu/AppData/Roaming/npm/node_modules/@beads/bd/bin/bd.exe';
+export const UPSTREAM = 'I:/Claude Files/data/tools/bd/bd-upstream-1.3.1/bd.exe';
+export const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+export const HOMEC = 'C:/Users/abduu/company';
+export const STORES = ['beads-lite', 'learner', 'whisper-flow'];
+export const TN = 'abdelrahman.tail8a4e50.ts.net';
