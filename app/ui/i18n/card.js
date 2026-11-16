@@ -13,6 +13,7 @@ export const strings = {
     en: 'This question has no card yet: answer it on Desk.',
     ar: 'السؤال ده ملوش كارت لسه: رد عليه من المكتب.'
   },
+  u3_card_note_ph: { en: 'Your note (optional)', ar: 'ملاحظتك (اختياري)' },
   u3_card_confirm: { en: 'Confirm', ar: 'تأكيد' },
   u3_card_back: { en: 'Back', ar: 'رجوع' },
   u3_card_type_ph: { en: 'Type your answer', ar: 'اكتب ردك' },

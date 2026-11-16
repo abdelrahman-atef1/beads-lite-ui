@@ -246,10 +246,16 @@ export function lastDecision(comments) {
       lines[0].startsWith('OWNER DECISION via board')
     ) {
       const a = lines.find((l) => l.startsWith('answer'));
+      const n = lines.find((l) => l.startsWith('note (typed'));
       const via = /\((pc|phone)\)/.exec(lines[0]);
       return {
         via: via ? via[1] : '',
-        answer: a ? a.slice(0, 700) : '',
+        answer: a
+          ? (n ? a + ' | ' + n.replace(/^note \(typed[^)]*\): /, '') : a).slice(
+              0,
+              700
+            )
+          : '',
         at: c.created_at
       };
     }
@@ -500,9 +506,10 @@ export function createCards(opts = {}) {
       const id = p?.id;
       const hasOpt = p?.option !== undefined && p?.option !== null;
       const hasText = typeof p?.text === 'string';
-      if (hasOpt === hasText) throw refuse('bad-input');
+      if (!hasOpt && !hasText) throw refuse('bad-input'); // option, text, or option + note
       /** @type {Record<string, unknown>} */
       const req = hasOpt ? { option: p.option } : { text: p.text };
+      if (hasOpt && hasText) req.text = p.text;
       if (typeof p.sha === 'string') req.sha = p.sha;
       return serial(id, () => write('answer', id, req, host));
     },

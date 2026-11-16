@@ -26,6 +26,9 @@ const ASK_MAX = 500;
 const WAIT_MS = 3000;
 const QUOTE_MAX = 300;
 const TYPED_MAX = 500;
+// Options that mean "I have something to say": the text box is required for them.
+const NOTE_OPT =
+  /ملاحظات|اكتب|اختيار (تاني|تانى|آخر|اخر)|رد تاني|notes?\b|other|something else|write/i;
 
 /**
  * @typedef {object} Panel
@@ -398,13 +401,38 @@ function answerArea(el, p, d, lang) {
   }
   if (p.pick !== null && c.opts[p.pick]) {
     const o = c.opts[p.pick];
+    const need = NOTE_OPT.test(o.l);
     return html`<div class="u3-cd__opts">
+      <textarea
+        class="u3-cd__text"
+        data-note
+        dir="auto"
+        rows="3"
+        maxlength=${TYPED_MAX}
+        placeholder=${tc('u3_card_note_ph', lang)}
+        .value=${p.typed}
+        @input=${(/** @type {Event} */ ev) => {
+          p.typed = /** @type {HTMLTextAreaElement} */ (ev.target).value;
+        }}
+      ></textarea>
       <button
         type="button"
         class="u3-btn u3-btn--primary u3-btn--block u3-cd__opt"
         data-act="confirm"
         ?disabled=${p.busy}
-        @click=${() => write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
+        @click=${() => {
+          const text = p.typed.trim();
+          if (need && !text) {
+            p.error = errorText('empty');
+            paint(el, p);
+            return;
+          }
+          void write(el, p, 'card-answer', {
+            option: o.n,
+            sha: d.sha,
+            ...(text ? { text } : {})
+          });
+        }}
       >
         <span dir="auto">${tc('u3_card_confirm', lang)}: ${o.l}</span>
       </button>
@@ -434,6 +462,7 @@ function answerArea(el, p, d, lang) {
           ?disabled=${p.busy}
           @click=${() => {
             p.pick = i;
+            p.typed = '';
             p.error = '';
             paint(el, p);
           }}

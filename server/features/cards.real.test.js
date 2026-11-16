@@ -246,4 +246,48 @@ describe.skipIf(!have)('real card answer on a copy', () => {
     expect(ok.code).toBe('recorded');
     expect(show(id2).status).toBe('open');
   }, 120000);
+
+  test('option + note: one record with both lines, bead back to the asker, wake queued (beads-lite-1bo5.13.5)', async () => {
+    const c = cards();
+    const id3 = bd([
+      'create',
+      'Pick or say?',
+      '-t',
+      'task',
+      '--silent',
+      '--metadata',
+      JSON.stringify({
+        card_class: 'tap',
+        card_q: 'Go ahead?',
+        card_effect: 'Starts the work',
+        card_blocks: 'the story',
+        card_back: 'swe',
+        card_opts: JSON.stringify([
+          { l: 'Yes', rec: true },
+          { l: 'I have notes' }
+        ])
+      })
+    ]).trim();
+    bd(['update', id3, '-s', 'owner_decision', '-a', 'abdelrahman']);
+    const s3 = await c.state(id3);
+    const before = pending().length;
+    const done = await c.answer(
+      { id: id3, option: 2, text: 'yes, but start with B', sha: s3.sha },
+      'localhost:3000'
+    );
+    expect(done).toMatchObject({ code: 'recorded', wake: 'queued' });
+    expect(show(id3).status).toBe('open');
+    expect(show(id3).assignee).toBe('swe');
+    const rec = comments(id3).filter((/** @type {any} */ x) =>
+      x.text.startsWith('OWNER DECISION via board')
+    );
+    expect(rec).toHaveLength(1);
+    expect(rec[0].text).toContain('answer: option 2 "I have notes"');
+    expect(rec[0].text).toContain(
+      'note (typed, as one JSON string): "yes, but start with B"'
+    );
+    expect(pending().length).toBe(before + 1);
+    const after = await c.state(id3);
+    expect(after.decision.answer).toContain('yes, but start with B');
+  }, 120000);
 });

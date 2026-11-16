@@ -368,3 +368,55 @@ describe('card attachments (.59.29.2)', () => {
     expect(el.querySelector('.att-strip')).toBeNull();
   });
 });
+
+describe('pick shows the note box at once (beads-lite-1bo5.13.5)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem('beads-ui.lang', 'en');
+  });
+  const NOTES = {
+    ...AR,
+    card: {
+      ...AR.card,
+      lang: 'en',
+      opts: [
+        { n: 1, l: 'Yes', rec: true },
+        { n: 2, l: 'I have notes' }
+      ]
+    }
+  };
+
+  test('a notes option needs text; Confirm sends option and text together', async () => {
+    const { el, send } = mount(NOTES);
+    await tick();
+    el.querySelector('[data-opt="2"]').click();
+    await tick();
+    expect(el.querySelector('[data-note]')).not.toBeNull();
+    el.querySelector('[data-act="confirm"]').click();
+    await tick();
+    expect(send.mock.calls.some((c) => c[0] === 'card-answer')).toBe(false);
+    const box = el.querySelector('[data-note]');
+    box.value = 'start with B';
+    box.dispatchEvent(new Event('input'));
+    el.querySelector('[data-act="confirm"]').click();
+    await tick();
+    const call = send.mock.calls.find((c) => c[0] === 'card-answer');
+    expect(call[1]).toMatchObject({
+      option: 2,
+      text: 'start with B',
+      sha: 'f'.repeat(64)
+    });
+  });
+
+  test('a plain option sends no text when the box is empty', async () => {
+    const { el, send } = mount(NOTES);
+    await tick();
+    el.querySelector('[data-opt="1"]').click();
+    await tick();
+    el.querySelector('[data-act="confirm"]').click();
+    await tick();
+    const call = send.mock.calls.find((c) => c[0] === 'card-answer');
+    expect(call[1].text).toBeUndefined();
+    expect(call[1].option).toBe(1);
+  });
+});
