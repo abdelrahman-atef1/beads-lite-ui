@@ -2,6 +2,7 @@
 /** @type {Record<string, { en: string, ar: string }>} */
 export const strings = {
   u3p_title: { en: 'Projects', ar: 'المشاريع' },
+  u3p_all: { en: 'All', ar: 'الكل' },
   u3p_current: { en: 'Current', ar: 'الحالي' },
   u3p_beads: { en: 'tasks', ar: 'مهمة' },
   u3p_waiting: { en: 'waiting for you', ar: 'مستنية ردك' },

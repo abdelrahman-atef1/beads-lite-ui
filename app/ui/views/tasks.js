@@ -567,7 +567,7 @@ export function mount(el, ctx) {
         name,
         icon: name,
         title: t3('u3_tk_' + name),
-        any: t3('u3_tk_any'),
+        any: name === 'project' ? t3('u3_tk_all') : t3('u3_tk_any'),
         options,
         selected: name === 'project' ? projects : f[name] ? [f[name]] : [],
         multi: name === 'project',

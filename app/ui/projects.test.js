@@ -96,7 +96,7 @@ describe('projects screen', () => {
       store: { getState: () => state, subscribe: () => () => {} },
       client: { send }
     });
-    const rows = el.querySelectorAll('.u3p-row');
+    const rows = el.querySelectorAll('.u3p-row[data-path]');
     expect(rows.length).toBe(2);
     expect(rows[1].textContent).toContain('7');
     /** @type {HTMLElement} */ (rows[1]).click();
@@ -106,5 +106,42 @@ describe('projects screen', () => {
     await vi.waitFor(() =>
       expect(window.localStorage.getItem('beads-ui.workspace')).toBe('/p/two')
     );
+  });
+});
+
+describe('projects screen All row', () => {
+  test('All clears the saved project filter and opens Tasks', () => {
+    window.localStorage.clear();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const ws = {
+      current: { path: 'E:/p/a' },
+      available: [
+        { path: 'E:/p/a', counts: { total: 3 } },
+        { path: 'E:/p/b', counts: { total: 4 } }
+      ]
+    };
+    const store = {
+      getState: () => ({ workspace: ws }),
+      subscribe: () => () => {}
+    };
+    const ctx = {
+      store,
+      client: { send: async () => ({}) },
+      ...fakeBase().base
+    };
+    mount(el, /** @type {any} */ (ctx));
+    const all = /** @type {HTMLElement} */ (el.querySelector('[data-all]'));
+    expect(all.textContent).toContain('7');
+    window.localStorage.setItem(
+      'u3.tasks.filters',
+      JSON.stringify({ projects: ['b'] })
+    );
+    all.click();
+    expect(window.location.hash).toBe('#/issues');
+    expect(
+      JSON.parse(window.localStorage.getItem('u3.tasks.filters') || '{}')
+        .projects
+    ).toEqual([]);
   });
 });

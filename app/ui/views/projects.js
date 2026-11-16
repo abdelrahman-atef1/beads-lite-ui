@@ -10,6 +10,7 @@ import { chip } from '../components/index.js';
 import { allIssues } from '../data/all.js';
 import { tp } from '../i18n/projects-t.js';
 import { attachSearch } from '../search.js';
+import { loadSaved, save } from '../tasks/saved-filters.js';
 
 const WS_KEY = 'beads-ui.workspace';
 const DOTS = ['blue', 'teal', 'amber', 'purple', 'green', 'red'];
@@ -93,6 +94,40 @@ export function mount(el, ctx) {
     draw();
   }
 
+  /** All: open Tasks with no project filter (remembered like the other filters). */
+  function showAll() {
+    save({ ...loadSaved(), projects: [] });
+    window.location.hash = '#/issues';
+  }
+
+  /** @param {any[]} list */
+  function allRow(list) {
+    const known = list
+      .map((/** @type {any} */ w) => w.counts && w.counts.total)
+      .filter((/** @type {unknown} */ n) => typeof n === 'number');
+    const total = known.length
+      ? known.reduce(
+          (/** @type {number} */ a, /** @type {number} */ b) => a + b,
+          0
+        )
+      : null;
+    return html`<li>
+      <button
+        type="button"
+        class="u3p-row"
+        data-all="1"
+        ?disabled=${!!switching}
+        @click=${showAll}
+      >
+        <i class="u3-dot u3-dot--blue" aria-hidden="true"></i>
+        <span class="u3p-row__name">${tp('u3p_all')}</span>
+        <span class="u3p-row__count"
+          >${total ?? '-'} <small>${tp('u3p_beads')}</small></span
+        >
+      </button>
+    </li>`;
+  }
+
   /**
    * @param {any} ws
    * @param {string} cur_path
@@ -136,6 +171,7 @@ export function mount(el, ctx) {
       html`<section class="u3p" data-view="projects">
         ${list.length
           ? html`<ul class="u3p-list">
+              ${list.length > 1 ? allRow(list) : ''}
               ${list.map((/** @type {any} */ w) => row(w, cur_path))}
             </ul>`
           : html`<p class="u3-muted">${tp('u3p_empty')}</p>`}
