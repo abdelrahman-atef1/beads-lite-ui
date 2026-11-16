@@ -4,7 +4,7 @@
  *
  *   list-decisions-all {}            -> Snap   (phone door allowed)
  *   decisions-all (push)             -> Snap   (only when the list changed)
- * Snap = { items: Item[], projects: [{key,name,count}], rules_ok }
+ * Snap = { items: Item[], unanswerable: [{id,project,why}], projects: [{key,name,count}], rules_ok }
  * Item = { id, project:{key,name}, title, title_ar, priority, updated_at,
  *          assignee, metadata:{card_*} }
  *
@@ -20,10 +20,15 @@
  * also has a card keeps kind 'decision' and carries the same `steps` object.
  * The UI builds `&at=<comment>` from it. Convention note: bead .58.
  *
- * Gate: a bead appears only with a card the card core accepts, and only when
- * no card text trips the secret scan (fails closed). Desk cards are retired
- * (owner 2026-11-02); anything still marked card_class=desk or the old PC-only
- * labels is left out, so it is never answerable here.
+ * Gate: a card shows only when the card core accepts it and no card text trips
+ * the secret scan (fails closed). Desk cards are retired (owner 2026-11-02,
+ * "full control"): card_class=desk, the old PC-only labels and sec/legal
+ * creators are listed like any other card (beads-lite-1bo5.13.15).
+ *
+ * Every owner_decision bead is accounted for (the Tasks count must match):
+ * one that cannot show as a card goes in `unanswerable` = [{id, project,
+ * why:'no_card'|'secret'}] with no text, so the Desk lists it as a link to the
+ * task instead of dropping it.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,7 +37,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cleanAtt } from '../../app/utils/card-att.js';
 import { runBdJson } from '../bd.js';
 import { debug } from '../logging.js';
-import { isDeskIssue } from '../phone.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
 import { watchDb } from '../watcher.js';
 
@@ -189,8 +193,23 @@ export function createDecisionsFeed(opts = {}) {
         ['list', '--status', 'owner_decision', '--json', '--limit', '0'],
         { cwd, priority: 'background', timeout_ms: 60000 }
       );
-      if (r.code !== 0) throw new Error(r.stderr || 'bd list failed');
-      return Array.isArray(r.stdoutJson) ? r.stdoutJson : [];
+      if (r.code === 0) {
+        return Array.isArray(r.stdoutJson) ? r.stdoutJson : [];
+      }
+      // A store without the custom status set rejects `--status owner_decision`
+      // ("invalid status") though it holds such beads (filmmaker, learner,
+      // landing, 2026-11-16): list everything open and filter, as the board does.
+      if (!/invalid status/i.test(String(r.stderr))) {
+        throw new Error(r.stderr || 'bd list failed');
+      }
+      const all = await runBdJson(
+        ['list', '--json', '--tree=false', '--limit', '0'],
+        { cwd, priority: 'background', timeout_ms: 60000 }
+      );
+      if (all.code !== 0) throw new Error(all.stderr || 'bd list failed');
+      return (Array.isArray(all.stdoutJson) ? all.stdoutJson : []).filter(
+        (/** @type {any} */ b) => b && b.status === 'owner_decision'
+      );
     });
   // Off in tests that inject only listParked (no real bd behind a fake path).
   const listSteps =
@@ -231,7 +250,7 @@ export function createDecisionsFeed(opts = {}) {
 
   /** @type {any} */
   let rules = opts.rules;
-  /** @type {Map<string, { path: string, key: string, name: string, items: any[], loaded: boolean, close: () => void }>} */
+  /** @type {Map<string, { path: string, key: string, name: string, items: any[], bad: any[], loaded: boolean, close: () => void }>} */
   const projects = new Map();
   /** @type {Map<string, { running: boolean, again: boolean }>} */
   const flight = new Map();
@@ -255,8 +274,7 @@ export function createDecisionsFeed(opts = {}) {
       typeof bead.id !== 'string' ||
       !BEAD_ID_RE.test(bead.id) ||
       bead.status !== 'owner_decision' ||
-      !rules ||
-      isDeskIssue(bead)
+      !rules
     ) {
       return null;
     }
@@ -293,6 +311,26 @@ export function createDecisionsFeed(opts = {}) {
       updated_at: ts,
       assignee: typeof bead.assignee === 'string' ? bead.assignee : '',
       metadata
+    };
+  }
+
+  /**
+   * Why a decision bead cannot show as a card: a card the core rejects or a
+   * card text that trips the secret scan. Text is never copied.
+   *
+   * @param {any} bead
+   * @param {{ key: string, name: string }} proj
+   */
+  function toBad(bead, proj) {
+    if (!bead || typeof bead.id !== 'string' || !BEAD_ID_RE.test(bead.id)) {
+      return null;
+    }
+    if (bead.status !== 'owner_decision') return null;
+    const parsed = rules ? rules.parseCard(bead) : { ok: false };
+    return {
+      id: bead.id,
+      project: { key: proj.key, name: proj.name },
+      why: parsed.ok ? 'secret' : 'no_card'
     };
   }
 
@@ -343,11 +381,14 @@ export function createDecisionsFeed(opts = {}) {
   function snapshot() {
     /** @type {any[]} */
     const items = [];
+    /** @type {any[]} */
+    const bad = [];
     const plist = [];
     for (const p of projects.values()) {
       // a workspace whose scan never worked (dead, no db) stays out of the dropdown
       if (!p.loaded) continue;
       items.push(...p.items);
+      bad.push(...p.bad);
       plist.push({ key: p.key, name: p.name, count: p.items.length });
     }
     // Priority first (P0 on top), then the longest-waiting.
@@ -357,6 +398,7 @@ export function createDecisionsFeed(opts = {}) {
     plist.sort((a, b) => a.name.localeCompare(b.name));
     return {
       items: items.slice(0, MAX_ITEMS),
+      unanswerable: bad.slice(0, MAX_ITEMS),
       projects: plist,
       rules_ok: !!rules
     };
@@ -419,6 +461,10 @@ export function createDecisionsFeed(opts = {}) {
         items.push(toStepsItem(bead, p, st));
       }
       p.items = items;
+      p.bad = beads
+        .filter((b) => !items.some((it) => it.id === b?.id))
+        .map((b) => toBad(b, p))
+        .filter((x) => x !== null);
       p.loaded = true;
     } catch (e) {
       // keep the last good list for this project; the others are unaffected
@@ -471,6 +517,7 @@ export function createDecisionsFeed(opts = {}) {
         key,
         name: path.basename(dir.replace(/[\\/]+$/, '')),
         items: [],
+        bad: [],
         loaded: false,
         close
       });
