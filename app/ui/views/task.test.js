@@ -72,6 +72,9 @@ function setup(at) {
   return { el, send, h };
 }
 
+/** @param {HTMLElement} el - @param {number} n */
+const tabBtn = (el, n) => el.querySelectorAll('.u3-ts__j')[n];
+
 describe('task page', () => {
   beforeEach(() => window.localStorage.clear());
 
@@ -123,8 +126,49 @@ describe('task page', () => {
     expect(el.textContent).toContain('عيوب الشاشة');
     expect(el.querySelectorAll('.u3-ts__c').length).toBe(3);
     expect(el.querySelector('.u3-ts__c').textContent).toContain('last one');
+    // flat page: tabs, comments first; description and subtasks are one tap
+    expect(el.querySelector('[data-anchor="description"]')).toBeNull();
+    tabBtn(el, 2).click();
+    await tick();
     expect(el.textContent).toContain('p-2');
+    tabBtn(el, 1).click();
+    await tick();
     expect(el.querySelector('[data-anchor="description"]')).toBeTruthy();
+  });
+
+  test('add-comment box is one line at the top until tapped', async () => {
+    const { el } = setup();
+    await tick();
+    expect(el.querySelector('textarea')).toBeNull();
+    const quick = el.querySelector('.u3-ts__quick');
+    expect(quick).toBeTruthy();
+    // above the newest comment
+    const sec = el.querySelector('[data-anchor="comments"]');
+    expect(sec.firstElementChild).toBe(quick);
+    quick.click();
+    await tick();
+    expect(el.querySelector('textarea')).toBeTruthy();
+    expect(
+      el.querySelector('[data-anchor="comments"]').firstElementChild.className
+    ).toContain('u3-ts__composer');
+  });
+
+  test('the more menu holds Add subtask and closes on Escape', async () => {
+    const { el } = setup();
+    await tick();
+    expect(el.querySelector('.u3-ts__menu')).toBeNull();
+    el.querySelector('.u3-ts__morebtn').click();
+    await tick();
+    expect(el.querySelectorAll('.u3-ts__mi').length).toBe(1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await tick();
+    expect(el.querySelector('.u3-ts__menu')).toBeNull();
+  });
+
+  test('a deep link to the description opens that tab', async () => {
+    const { el } = setup('description.L3');
+    await tick();
+    expect(el.querySelector('.anchor-hit').textContent).toContain('line two');
   });
 
   test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
@@ -229,6 +273,8 @@ describe('task page', () => {
   test('composer posts and the comment appears', async () => {
     const { el, send } = setup();
     await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
     const ta = el.querySelector('textarea');
     ta.value = 'hello مرحبا';
     ta.dispatchEvent(new Event('input'));
@@ -242,6 +288,7 @@ describe('task page', () => {
       text: 'hello مرحبا'
     });
     expect(el.querySelectorAll('.u3-ts__c').length).toBe(4);
-    expect(el.querySelector('textarea').value).toBe('');
+    expect(el.querySelector('textarea')).toBeNull(); // back to the one line
+    expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
   });
 });
