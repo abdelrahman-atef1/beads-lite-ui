@@ -9,19 +9,6 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./css/tokens.css" />
-    <link rel="stylesheet" href="./css/shell.css" />
-    <link rel="stylesheet" href="./css/nav.css" />
-    <link rel="stylesheet" href="./css/priority.css" />
-    <link rel="stylesheet" href="./css/decisions.css" />
-    <link rel="stylesheet" href="./css/board.css" />
-    <link rel="stylesheet" href="./css/list.css" />
-    <link rel="stylesheet" href="./css/detail.css" />
-    <link rel="stylesheet" href="./css/notifications.css" />
-    <link rel="stylesheet" href="./css/report.css" />
-    <link rel="stylesheet" href="./css/outputs.css" />
-    <link rel="stylesheet" href="./css/releases.css" />
     <link rel="stylesheet" href="./css/u3-tokens.css" />
     <link rel="stylesheet" href="./css/u3-base.css" />
     <link rel="stylesheet" href="./css/u3-shell.css" />
@@ -37,102 +24,8 @@
     <link rel="stylesheet" href="./css/u3-mention.css" />
     <link rel="stylesheet" href="./css/u3-panels.css" />
     <link rel="stylesheet" href="./css/u3-stats.css" />
-    <link rel="stylesheet" href="./css/ask.css" />
   </head>
   <body>
-    <div class="shell" id="shell">
-      <aside class="side" id="side">
-        <div class="side__brand">Beads</div>
-        <nav id="top-nav" class="header-nav rail" aria-label="Primary"></nav>
-        <div class="side__drawer" id="side-drawer">
-          <div id="workspace-picker" class="header-workspace"></div>
-          <div class="side__foot">
-            <button
-              type="button"
-              class="hbtn"
-              data-act="lang"
-              aria-label="Language"
-            >
-              عربي
-            </button>
-            <button
-              type="button"
-              class="hbtn"
-              data-act="theme"
-              aria-label="Toggle dark mode"
-            >
-              Theme
-            </button>
-          </div>
-        </div>
-      </aside>
-      <div class="side-scrim" id="side-scrim"></div>
-      <div class="shell__main">
-        <header class="app-header">
-          <div class="header-left">
-            <h1 class="app-crumb" id="app-crumb">
-              <b id="crumb-project">Beads</b><span id="crumb-view"></span>
-            </h1>
-          </div>
-          <div id="top-search" class="top-search" role="search"></div>
-          <div class="header-actions">
-            <div
-              id="header-loading"
-              class="header-loading"
-              role="status"
-              aria-live="polite"
-              aria-label="Loading"
-              hidden
-            >
-              <span class="header-loading__spinner" aria-hidden="true"></span>
-              <span class="visually-hidden">Loading</span>
-            </div>
-            <span data-slot="bell"></span>
-            <span data-slot="outputs-project"></span>
-            <span data-slot="report"></span>
-            <button
-              id="lang-btn"
-              type="button"
-              class="hbtn"
-              data-act="lang"
-              aria-label="Language"
-            >
-              عربي
-            </button>
-            <button
-              id="theme-btn"
-              type="button"
-              class="hbtn"
-              data-act="theme"
-              aria-label="Toggle dark mode"
-              title="Toggle dark mode"
-            >
-              Theme
-            </button>
-            <label
-              class="theme-toggle theme-toggle--hidden"
-              title="Toggle dark mode"
-            >
-              <span>Dark</span>
-              <input
-                id="theme-switch"
-                type="checkbox"
-                aria-label="Toggle dark mode"
-              />
-            </label>
-            <button
-              id="new-issue-btn"
-              type="button"
-              aria-haspopup="dialog"
-              title="Create a new issue (Ctrl/Cmd+N)"
-            >
-              New issue
-            </button>
-          </div>
-        </header>
-        <main id="app" class="app-shell" aria-live="polite"></main>
-      </div>
-    </div>
     <script type="module" src="/main.bundle.js"></script>
   </body>
 </html>

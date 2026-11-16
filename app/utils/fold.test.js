@@ -1,5 +1,4 @@
 import { render } from 'lit-html';
-import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { parseFolded, renderFolded } from './fold.js';
 
@@ -55,15 +54,6 @@ describe('renderFolded markup', () => {
     const fold = /** @type {HTMLElement} */ (el.querySelector('.fold'));
     expect(fold.querySelectorAll('details')).toHaveLength(2);
     expect(fold.firstElementChild?.className).toBe('fold-title');
-  });
-  test('css: chevron, rtl flip, fg name, no tap flash, whitespace-safe comment', () => {
-    const css = readFileSync('app/styles.css', 'utf8');
-    expect(css).toMatch(/\.fold-sec > summary::before/);
-    expect(css).toMatch(/summary:dir\(rtl\)::before/);
-    expect(css).toMatch(/-webkit-tap-highlight-color: transparent/);
-    expect(css).toMatch(/\.fold-sec > summary:active/);
-    const ct = /\.comment-text \{[^}]*\}/.exec(css)?.[0] ?? '';
-    expect(ct).not.toMatch(/pre-wrap/);
   });
   test('summary click/keydown do not reach an edit-on-click parent', () => {
     const el = document.createElement('div');

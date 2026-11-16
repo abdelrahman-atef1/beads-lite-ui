@@ -63,7 +63,6 @@
   },
   "files": [
     "app/index.html",
-    "app/styles.css",
     "app/main.bundle.js",
     "app/main.bundle.js.map",
     "app/chunks",

@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
- * Live-behaviour contract runner (beads-lite-1bo5.6.59.1).
- *   node scripts/live-contract.mjs --ui 2   run every row against the current board
- *   node scripts/live-contract.mjs --ui 3   list every row as pending (v3 shell not built yet)
- * Writes .work/out/<bead>/qa/summary.md (ui 2) or summary-ui3.md, plus a json;
- * exits 1 if a row fails. A full run is about a minute of vitest: when the
- * machine is busy run it through heavy-key.
+ * Live-behaviour contract runner (beads-lite-1bo5.6.59.1, cutover 59.17).
+ *   node scripts/live-contract.mjs --ui 3   run every row against the board (v3 is the only shell)
+ * Writes .work/out/<bead>/qa/summary-ui3.md plus a json; exits 1 if a row fails.
+ * `--ui 2` is gone with the legacy shell. A full run is about a minute of
+ * vitest: when the machine is busy run it through heavy-key.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -17,21 +16,18 @@ import { ROWS } from './live-rows.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BEAD = process.env.LIVE_BEAD || 'beads-lite-1bo5.6.59.1';
 const argv = process.argv.slice(2);
-const ui = argv[argv.indexOf('--ui') + 1] === '3' ? 3 : 2;
+const ui = 3;
+if (argv.includes('--ui') && argv[argv.indexOf('--ui') + 1] !== '3') {
+  console.error('only --ui 3 exists: the legacy shell was removed (59.17)');
+  process.exit(2);
+}
 const outDir = path.join(root, '.work', 'out', BEAD, 'qa');
 fs.mkdirSync(outDir, { recursive: true });
 
 /** @type {Record<string, {status: string, note: string}>} */
 const result = {};
 
-if (ui === 3) {
-  for (const r of ROWS) {
-    result[r.id] = {
-      status: 'pending',
-      note: 'v3 shell not built (runs at cutover, task 17)'
-    };
-  }
-} else {
+{
   const files = [...new Set(ROWS.flatMap((r) => r.files))];
   const json = path.join(os.tmpdir(), `live-contract-${process.pid}.json`);
   const vitest = path.join(root, 'node_modules', 'vitest', 'vitest.mjs');
@@ -112,10 +108,7 @@ lines.push(
   '',
   `${ROWS.length - fail - pend} pass, ${pend} pending, ${fail} fail.`
 );
-fs.writeFileSync(
-  path.join(outDir, ui === 2 ? 'summary.md' : 'summary-ui3.md'),
-  lines.join('\n') + '\n'
-);
+fs.writeFileSync(path.join(outDir, 'summary-ui3.md'), lines.join('\n') + '\n');
 fs.writeFileSync(
   path.join(outDir, `live-contract-ui${ui}.json`),
   JSON.stringify(result, null, 2)

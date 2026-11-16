@@ -1,1316 +1,252 @@
 /**
  * @import { MessageType } from './protocol.js'
- * @import { StatusFilter } from './utils/status.js'
  */
-import { html, render } from 'lit-html';
 import { boardClient } from './board-client.js';
 import { createListSelectors } from './data/list-selectors.js';
 import { createDataLayer } from './data/providers.js';
 import { createSubscriptionIssueStores } from './data/subscription-issue-stores.js';
 import { createSubscriptionStore } from './data/subscriptions-store.js';
-import { matchWorkspace, resolveIssueWorkspace } from './issue-workspace.js';
-import { createHashRouter, parseHash, parseView } from './router.js';
+import { matchWorkspace } from './issue-workspace.js';
+import { createHashRouter } from './router.js';
 import { createStore } from './state.js';
 import { registerServiceWorker } from './sw-register.js';
 import { bootV3 } from './ui/boot.js';
-import { resolveUi } from './ui/flag.js';
-import { createActivityIndicator } from './utils/activity-indicator.js';
-import { setAskProject } from './utils/ask-context.js';
-import { setImgContext } from './utils/att-images.js';
-import { createFilterState } from './utils/board-filter.js';
-import { applyLang, t, toggleLang } from './utils/i18n.js';
+import { applyLang } from './utils/i18n.js';
 import { setKnownIdFilter } from './utils/linkify-ids.js';
 import { debug } from './utils/logging.js';
-import { normalizeStatusFilters } from './utils/status.js';
 import { showToast } from './utils/toast.js';
-import { createDetailView } from './views/detail.js';
-import { createFatalErrorDialog } from './views/fatal-error-dialog.js';
-import { createIssueDialog } from './views/issue-dialog.js';
-import { createTopNav } from './views/nav.js';
-import { createNewIssueDialog } from './views/new-issue-dialog.js';
-import { lazyView, mountSlots } from './views/registry.js';
-import { createTopSearch } from './views/top-search.js';
-import {
-  createWorkspacePicker,
-  getProjectName as projectName
-} from './views/workspace-picker.js';
 import { createWsClient } from './ws.js';
 
 /**
- * Bootstrap the SPA shell with two panels.
+ * Bootstrap the board: the data layer, then the v3 shell (ui/boot.js).
  *
- * @param {HTMLElement} root_element - The container element to render into.
+ * @param {HTMLElement} root_element - Passed to bootV3 (the shell replaces it).
  * @returns {{ ready: Promise<void> }}
  */
 export function bootstrap(root_element) {
-  /** Resolves when the first route's view (a lazy module) has loaded. */
-  let ready = Promise.resolve();
   const log = debug('main');
   log('bootstrap start');
-
-  // Render route shells (nav is mounted in header)
-  const shell = html`
-    <section id="issues-root" class="route issues">
-      <aside id="list-panel" class="panel"></aside>
-    </section>
-    <section id="epics-root" class="route epics" hidden></section>
-    <section id="board-root" class="route board" hidden></section>
-    <section id="decisions-root" class="route decisions" hidden></section>
-    <section id="releases-root" class="route releases" hidden></section>
-    <section id="detail-panel" class="route detail" hidden></section>
-  `;
-  render(shell, root_element);
-
-  /** @type {HTMLElement|null} */
-  const nav_mount = document.getElementById('top-nav');
-  /** @type {HTMLElement|null} */
-  const issues_root = document.getElementById('issues-root');
-  /** @type {HTMLElement|null} */
-  const epics_root = document.getElementById('epics-root');
-  /** @type {HTMLElement|null} */
-  const board_root = document.getElementById('board-root');
-  /** @type {HTMLElement|null} */
-  const decisions_root = document.getElementById('decisions-root');
-  /** @type {HTMLElement|null} */
-  const releases_root = document.getElementById('releases-root');
-
-  /** @type {HTMLElement|null} */
-  const list_mount = document.getElementById('list-panel');
-  /** @type {HTMLElement|null} */
-  const detail_mount = document.getElementById('detail-panel');
-  if (
-    list_mount &&
-    issues_root &&
-    epics_root &&
-    board_root &&
-    decisions_root &&
-    releases_root &&
-    detail_mount
-  ) {
-    /** @type {HTMLElement|null} */
-    const header_loading = document.getElementById('header-loading');
-    const activity = createActivityIndicator(header_loading);
-    const fatal_dialog = createFatalErrorDialog(root_element);
-
-    /**
-     * Show a blocking dialog when a backend command fails.
-     *
-     * @param {unknown} err
-     * @param {string} context
-     */
-    function showFatalFromError(err, context) {
-      /** @type {string} */
-      let message = 'Request failed';
-      /** @type {string} */
-      let detail = '';
-
-      if (err && typeof err === 'object') {
-        const any = /** @type {{ message?: unknown, details?: unknown }} */ (
-          err
-        );
-        if (typeof any.message === 'string' && any.message.length > 0) {
-          message = any.message;
-        }
-        if (typeof any.details === 'string') {
-          detail = any.details;
-        } else if (any.details && typeof any.details === 'object') {
-          try {
-            detail = JSON.stringify(any.details, null, 2);
-          } catch {
-            detail = '';
-          }
-        }
-      } else if (typeof err === 'string' && err.length > 0) {
-        message = err;
-      }
-
-      const title =
-        context && context.length > 0
-          ? `Failed to load ${context}`
-          : 'Request failed';
-
-      fatal_dialog.open(title, message, detail);
-    }
-
-    const client = createWsClient();
-    boardClient(client); // slots (outputs panel) share this socket's project
-    const tracked_send = activity.wrapSend((type, payload) =>
-      client.send(type, payload)
-    );
-    // Subscriptions: wire client events and expose subscribe/unsubscribe helpers
-    const subscriptions = createSubscriptionStore(tracked_send);
-    // Per-subscription stores (source of truth)
-    const sub_issue_stores = createSubscriptionIssueStores();
-    // Route per-subscription push envelopes to the owning store
-    client.on('snapshot', (payload) => {
-      const p = /** @type {any} */ (payload);
-      const id = p && typeof p.id === 'string' ? p.id : '';
-      const store = id ? sub_issue_stores.getStore(id) : null;
-      if (store && p && p.type === 'snapshot') {
-        try {
-          store.applyPush(p);
-        } catch {
-          // ignore
-        }
-      }
-    });
-    client.on('upsert', (payload) => {
-      const p = /** @type {any} */ (payload);
-      const id = p && typeof p.id === 'string' ? p.id : '';
-      const store = id ? sub_issue_stores.getStore(id) : null;
-      if (store && p && p.type === 'upsert') {
-        try {
-          store.applyPush(p);
-        } catch {
-          // ignore
-        }
-      }
-    });
-    client.on('delete', (payload) => {
-      const p = /** @type {any} */ (payload);
-      const id = p && typeof p.id === 'string' ? p.id : '';
-      const store = id ? sub_issue_stores.getStore(id) : null;
-      if (store && p && p.type === 'delete') {
-        try {
-          store.applyPush(p);
-        } catch {
-          // ignore
-        }
-      }
-    });
-    // Derived list selectors: render from per-subscription snapshots
-    const listSelectors = createListSelectors(sub_issue_stores);
-
-    // --- Workspace management ---
-    /**
-     * Clear all subscriptions and stores, then re-establish them.
-     * Called when switching workspaces.
-     */
-    async function clearAndResubscribe() {
-      // v3 returns before the tab state below exists (TDZ throw, 59.25).
-      if (!legacy_mounted) return;
-      log('clearing all subscriptions for workspace switch');
-      // Unsubscribe from server-side subscriptions first
-      if (unsub_issues_tab) {
-        void unsub_issues_tab().catch(() => {});
-        unsub_issues_tab = null;
-      }
-      if (unsub_epics_tab) {
-        void unsub_epics_tab().catch(() => {});
-        unsub_epics_tab = null;
-      }
-      if (unsub_board_ready) {
-        void unsub_board_ready().catch(() => {});
-        unsub_board_ready = null;
-      }
-      if (unsub_all) {
-        void unsub_all().catch(() => {});
-        unsub_all = null;
-      }
-      if (unsub_board_closed) {
-        void unsub_board_closed().catch(() => {});
-        unsub_board_closed = null;
-      }
-      if (unsub_board_blocked) {
-        void unsub_board_blocked().catch(() => {});
-        unsub_board_blocked = null;
-      }
-      // Clear all subscription stores
-      const storeIds = [
-        'tab:issues',
-        'tab:epics',
-        'tab:board:ready',
-        'tab:all',
-        'tab:board:closed',
-        'tab:board:blocked'
-      ];
-      for (const id of storeIds) {
-        // A subscribe still in flight (reload restoring a saved project) keeps
-        // its store: the server drops that reply as stale and the store layer
-        // asks again, so the answer must find the store (1bo5.6.34).
-        if (pending_subscriptions.has(id)) continue;
-        try {
-          sub_issue_stores.unregister(id);
-        } catch {
-          // ignore
-        }
-      }
-      // Also clear any detail stores
-      const s = store.getState();
-      if (s.selected_id) {
-        try {
-          sub_issue_stores.unregister(`detail:${s.selected_id}`);
-        } catch {
-          // ignore
-        }
-      }
-      // Force re-subscribe by resetting last spec key
-      last_issues_spec_key = null;
-      // Re-establish subscriptions for current view
-      ensureTabSubscriptions(store.getState());
-    }
-
-    /**
-     * Handle workspace change request from the picker.
-     *
-     * @param {string} workspace_path
-     */
-    async function handleWorkspaceChange(workspace_path) {
-      log('requesting workspace switch to %s', workspace_path);
+  const client = createWsClient();
+  boardClient(client); // slots (outputs panel) share this socket's project
+  /**
+   * @param {string} type
+   * @param {unknown} payload
+   */
+  const transport = (type, payload) =>
+    // Reject on failure: callers (detail saves, answers, drag) show the
+    // server's reason. Swallowing it here hid every failed save.
+    client.send(/** @type {MessageType} */ (type), payload);
+  const store = createStore({
+    filters: { status: [], search: '', type: '' },
+    view: 'decisions',
+    board: { closed_filter: 'today' }
+  });
+  const router = createHashRouter(store);
+  router.start();
+  // Subscriptions: wire client events and expose subscribe/unsubscribe helpers
+  const subscriptions = createSubscriptionStore(transport);
+  // Per-subscription stores (source of truth)
+  const sub_issue_stores = createSubscriptionIssueStores();
+  // Route per-subscription push envelopes to the owning store
+  client.on('snapshot', (payload) => {
+    const p = /** @type {any} */ (payload);
+    const id = p && typeof p.id === 'string' ? p.id : '';
+    const store = id ? sub_issue_stores.getStore(id) : null;
+    if (store && p && p.type === 'snapshot') {
       try {
-        const result = await client.send('set-workspace', {
-          path: workspace_path
-        });
-        log('workspace switch result: %o', result);
-        if (result && result.workspace) {
-          // Update state with new workspace
-          store.setState({
-            workspace: {
-              current: {
-                path: result.workspace.root_dir,
-                database: result.workspace.db_path
-              }
-            }
-          });
-          // Persist preference
-          window.localStorage.setItem('beads-ui.workspace', workspace_path);
-          // Clear and resubscribe if workspace actually changed
-          if (result.changed) {
-            await clearAndResubscribe();
-            showToast(
-              'Switched to ' + getProjectName(workspace_path),
-              'success',
-              2000
-            );
-          }
-        }
-      } catch (err) {
-        log('workspace switch failed: %o', err);
-        showToast('Failed to switch workspace', 'error', 3000);
-        throw err;
-      }
-    }
-
-    /**
-     * Extract project name from path.
-     *
-     * @param {string} path
-     * @returns {string}
-     */
-    function getProjectName(path) {
-      if (!path) return 'Unknown';
-      const parts = path.split('/').filter(Boolean);
-      return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
-    }
-
-    // Detail load/subscribe waits until the issue's project is the current
-    // workspace; otherwise the first subscribe hits the wrong store and pops
-    // "not found" (company-1bo5.6.33).
-    let legacy_mounted = false;
-    let workspaces_ready = false;
-    /** @type {string | null} */
-    let held_detail_id = null;
-    /** Old id -> new id table, loaded once (company-8ce8.14.3). */
-    /** @type {Record<string, string> | null} */
-    let moved_table = null;
-    const moved_ready = client
-      .send('resolve-moved-id', {})
-      .then((res) => {
-        moved_table = (res && res.all) || {};
-      })
-      .catch(() => {
-        moved_table = {};
-      });
-
-    /**
-     * @param {string} id
-     * @returns {boolean}
-     */
-    function shouldHoldDetail(id) {
-      if (!workspaces_ready || moved_table === null) return true;
-      const ws = store.getState().workspace;
-      if (!ws || !ws.available || ws.available.length === 0) return false;
-      return (
-        resolveIssueWorkspace(id, ws.current, ws.available).action === 'switch'
-      );
-    }
-
-    /**
-     * Re-select a held issue so the detail subscriber runs again.
-     *
-     * @param {string} id
-     */
-    function releaseHeldDetail(id) {
-      // Before list-workspaces answered, shouldHoldDetail() holds again and the
-      // re-select would loop forever; the loader finally releases (14.3).
-      if (!workspaces_ready || held_detail_id !== id) return;
-      held_detail_id = null;
-      if (store.getState().selected_id === id) {
-        store.setState({ selected_id: null });
-        store.setState({ selected_id: id });
-      }
-    }
-
-    /**
-     * Open an issue from another project: switch to the workspace its id
-     * prefix belongs to, then re-select the issue so detail resubscribes.
-     *
-     * @param {string | null} id
-     */
-    async function ensureIssueWorkspace(id) {
-      if (!id) return;
-      // v3 resolves moved ids and switches project itself (59.24).
-      if (!legacy_mounted) return;
-      // An old id of a moved bead still matches its old prefix, so look it up
-      // in the alias table first; a hit replaces the address-bar entry (Back
-      // must not land on the dead old id) and opens the new id. Every open
-      // redirects, not just the first.
-      await moved_ready;
-      const moved_id = moved_table && moved_table[id.toLowerCase()];
-      if (moved_id && moved_id !== id) {
-        if (store.getState().selected_id === id) {
-          router.gotoIssue(moved_id, { replace: true });
-        }
-        return;
-      }
-      const ws = store.getState().workspace;
-      if (!ws || !ws.available || ws.available.length === 0) {
-        releaseHeldDetail(id);
-        return;
-      }
-      const r = resolveIssueWorkspace(id, ws.current, ws.available);
-      if (r.action !== 'switch') releaseHeldDetail(id);
-      if (r.action === 'switch') {
-        try {
-          await handleWorkspaceChange(r.path);
-        } catch {
-          return;
-        }
-        if (store.getState().selected_id === id) {
-          store.setState({ selected_id: null });
-          store.setState({ selected_id: id });
-        }
-      } else if (r.action === 'none') {
-        showToast('No project found for issue ' + id, 'error', 4000);
-      }
-    }
-
-    /**
-     * Load available workspaces from server and update state.
-     */
-    async function loadWorkspaces() {
-      try {
-        const result = await client.send('list-workspaces', {});
-        log('workspaces loaded: %o', result);
-        if (result && Array.isArray(result.workspaces)) {
-          const available = result.workspaces.map((/** @type {any} */ ws) => ({
-            path: ws.path,
-            database: ws.database,
-            pid: ws.pid,
-            version: ws.version,
-            prefix: ws.prefix,
-            // Optional per-project counts (contracts/board-data.md)
-            counts: ws.counts
-          }));
-          const current = result.current
-            ? {
-                path: result.current.root_dir,
-                database: result.current.db_path
-              }
-            : null;
-          store.setState({ workspace: { current, available } });
-          setKnownIdFilter((id) => !!matchWorkspace(id, available));
-          await ensureIssueWorkspace(store.getState().selected_id);
-
-          // Check if we have a saved preference that differs from current
-          const savedWorkspace =
-            window.localStorage.getItem('beads-ui.workspace');
-          if (savedWorkspace && current && savedWorkspace !== current.path) {
-            // Check if saved workspace is in available list
-            const savedExists = available.some(
-              (/** @type {{ path: string }} */ ws) => ws.path === savedWorkspace
-            );
-            if (savedExists) {
-              log('restoring saved workspace preference: %s', savedWorkspace);
-              await handleWorkspaceChange(savedWorkspace);
-            }
-          }
-        }
-      } catch (err) {
-        log('failed to load workspaces: %o', err);
-      } finally {
-        workspaces_ready = true;
-        const held = held_detail_id;
-        if (held) await ensureIssueWorkspace(held);
-      }
-    }
-
-    // Handle workspace-changed events from server (e.g., if another client changes workspace)
-    client.on('workspace-changed', (payload) => {
-      log('workspace-changed event: %o', payload);
-      if (payload && payload.root_dir) {
-        store.setState({
-          workspace: {
-            current: {
-              path: payload.root_dir,
-              database: payload.db_path
-            }
-          }
-        });
-        // Reload workspaces to get fresh list
-        void loadWorkspaces();
-        // Clear and resubscribe
-        void clearAndResubscribe();
-      }
-    });
-
-    // --- End workspace management (mounting happens after store is created) ---
-
-    // Show toasts for WebSocket connectivity changes
-    /** @type {boolean} */
-    let had_disconnect = false;
-    if (typeof client.onConnection === 'function') {
-      /** @type {(s: 'connecting'|'open'|'closed'|'reconnecting') => void} */
-      const onConn = (s) => {
-        log('ws state %s', s);
-        if (s === 'reconnecting' || s === 'closed') {
-          had_disconnect = true;
-          showToast('Connection lost. Reconnecting…', 'error', 4000);
-        } else if (s === 'open' && had_disconnect) {
-          had_disconnect = false;
-          showToast('Reconnected', 'success', 2200);
-        }
-      };
-      client.onConnection(onConn);
-    }
-    // Load persisted filters (status/search/type) from localStorage
-    /** @type {{ status: StatusFilter[], search: string, type: string }} */
-    let persisted_filters = { status: [], search: '', type: '' };
-    try {
-      const raw = window.localStorage.getItem('beads-ui.filters');
-      if (raw) {
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') {
-          const ALLOWED = ['bug', 'feature', 'task', 'epic', 'chore'];
-          let parsed_type = '';
-          if (typeof obj.type === 'string' && ALLOWED.includes(obj.type)) {
-            parsed_type = obj.type;
-          } else if (Array.isArray(obj.types)) {
-            // Backwards compatibility: pick first valid from previous array format
-            let first_valid = '';
-            for (const it of obj.types) {
-              if (ALLOWED.includes(String(it))) {
-                first_valid = /** @type {string} */ (it);
-                break;
-              }
-            }
-            parsed_type = first_valid;
-          }
-          persisted_filters = {
-            // Tolerates the legacy scalar form and drops unknown members; an
-            // entirely invalid value degrades to "all issues".
-            status: normalizeStatusFilters(obj.status),
-            search: typeof obj.search === 'string' ? obj.search : '',
-            type: parsed_type
-          };
-        }
-      }
-    } catch (err) {
-      log('filters parse error: %o', err);
-    }
-    // Load last-view from storage
-    /** @type {'issues'|'epics'|'board'|'decisions'|'releases'} */
-    let last_view = 'decisions';
-    try {
-      const raw_view = window.localStorage.getItem('beads-ui.view');
-      if (
-        raw_view === 'issues' ||
-        raw_view === 'epics' ||
-        raw_view === 'board' ||
-        raw_view === 'decisions' ||
-        raw_view === 'releases'
-      ) {
-        last_view = raw_view;
-      }
-    } catch (err) {
-      log('view parse error: %o', err);
-    }
-    // Load board preferences
-    /** @type {{ closed_filter: 'today'|'3'|'7' }} */
-    let persistedBoard = { closed_filter: 'today' };
-    try {
-      const raw_board = window.localStorage.getItem('beads-ui.board');
-      if (raw_board) {
-        const obj = JSON.parse(raw_board);
-        if (obj && typeof obj === 'object') {
-          const cf = String(obj.closed_filter || 'today');
-          if (cf === 'today' || cf === '3' || cf === '7') {
-            persistedBoard.closed_filter = cf;
-          }
-        }
-      }
-    } catch (err) {
-      log('board prefs parse error: %o', err);
-    }
-
-    const store = createStore({
-      filters: persisted_filters,
-      view: last_view,
-      board: persistedBoard
-    });
-    let persisted_filters_json = JSON.stringify({
-      status: persisted_filters.status,
-      search: persisted_filters.search,
-      type: persisted_filters.type
-    });
-    let persisted_board_json = JSON.stringify({
-      closed_filter: persistedBoard.closed_filter
-    });
-    let persisted_view_value = last_view;
-    const router = createHashRouter(store);
-    router.start();
-    /**
-     * @param {string} type
-     * @param {unknown} payload
-     */
-    const transport = (type, payload) =>
-      // Reject on failure: callers (detail saves, answers, drag) show the
-      // server's reason. Swallowing it here hid every failed save.
-      tracked_send(/** @type {MessageType} */ (type), payload);
-    // Top navigation (optional mount)
-    if (nav_mount) {
-      createTopNav(nav_mount, store, router, sub_issue_stores);
-    }
-
-    // Workspace picker (mount now that store exists)
-    const workspace_mount = document.getElementById('workspace-picker');
-    if (workspace_mount) {
-      const picker = createWorkspacePicker(
-        workspace_mount,
-        store,
-        handleWorkspaceChange,
-        // Current project: count the loaded slice, so the badge is right even
-        // when the server sends no counts.
-        () => {
-          if (!sub_issue_stores.isLoaded('tab:all')) {
-            return null;
-          }
-          const all = sub_issue_stores.snapshotFor('tab:all');
-          return {
-            total: all.length,
-            owner_decision: all.filter((i) => i.status === 'owner_decision')
-              .length
-          };
-        },
-        // Sidebar: always-open project list (popover kept for the tests)
-        { list: true }
-      );
-      sub_issue_stores.subscribeFor('tab:all', () => picker.refresh());
-    }
-
-    // Board chips + top-bar search share one filter state
-    const board_filter = createFilterState();
-    const search_mount = document.getElementById('top-search');
-    if (search_mount) {
-      createTopSearch(search_mount, board_filter, {
-        // Searching from another view lands on the board, where results show.
-        onSearch: () => {
-          if (store.getState().view !== 'board') {
-            router.gotoView('board');
-          }
-        }
-      });
-    }
-    // Load workspaces after WebSocket is connected
-    void loadWorkspaces();
-
-    // Board v3 (?ui=3, stored as bl.ui): same store, client and data layer, no
-    // legacy views. Flag off = this block does nothing.
-    if (resolveUi(window.location.search, window.localStorage) === 3) {
-      ready = bootV3(root_element, {
-        store,
-        client,
-        send: transport,
-        router,
-        data: createDataLayer(transport),
-        subscriptions,
-        sub_issue_stores,
-        listSelectors
-      });
-      return { ready };
-    }
-    legacy_mounted = true;
-
-    // Global New Issue dialog (UI-106) mounted at root so it is always visible
-    const new_issue_dialog = createNewIssueDialog(
-      root_element,
-      (type, payload) => tracked_send(type, payload),
-      router,
-      store
-    );
-    // Header button
-    try {
-      const btn_new = /** @type {HTMLButtonElement|null} */ (
-        document.getElementById('new-issue-btn')
-      );
-      if (btn_new) {
-        btn_new.addEventListener('click', () => new_issue_dialog.open());
-      }
-    } catch {
-      // ignore missing header
-    }
-
-    // Local transport shim: for list-issues, serve from local listSelectors;
-    // otherwise forward to ws transport for mutations/show.
-    /**
-     * @param {MessageType} type
-     * @param {unknown} payload
-     */
-    const listTransport = async (type, payload) => {
-      if (type === 'list-issues') {
-        try {
-          return listSelectors.selectIssuesFor('tab:issues');
-        } catch (err) {
-          log('list selectors failed: %o', err);
-          return [];
-        }
-      }
-      return transport(type, payload);
-    };
-
-    const issues_view = lazyView(
-      'issues',
-      (/** @type {typeof import('./views/list.js')} */ m) =>
-        m.createListView(
-          list_mount,
-          /** @type {any} */ (listTransport),
-          (hash) => {
-            const id = parseHash(hash);
-            if (id) {
-              router.gotoIssue(id);
-            }
-          },
-          store,
-          subscriptions,
-          sub_issue_stores
-        )
-    );
-    // Which project's files local image refs are looked up in first.
-    store.subscribe((s) => {
-      setImgContext({ workspace: s.workspace.current?.path || '' });
-      setAskProject(s.workspace.current?.path || '');
-    });
-    // Persist filter changes to localStorage
-    store.subscribe((s) => {
-      const data = {
-        status: normalizeStatusFilters(s.filters.status),
-        search: s.filters.search,
-        type: typeof s.filters.type === 'string' ? s.filters.type : ''
-      };
-      const next_json = JSON.stringify(data);
-      if (next_json !== persisted_filters_json) {
-        window.localStorage.setItem('beads-ui.filters', next_json);
-        persisted_filters_json = next_json;
-      }
-    });
-    // Persist board preferences
-    store.subscribe((s) => {
-      const next_json = JSON.stringify({
-        closed_filter: s.board.closed_filter
-      });
-      if (next_json !== persisted_board_json) {
-        window.localStorage.setItem('beads-ui.board', next_json);
-        persisted_board_json = next_json;
-      }
-    });
-    // The list loads when its route opens (see onRouteChange).
-
-    // Dialog for issue details (UI-104)
-    const dialog = createIssueDialog(detail_mount, store, () => {
-      // Close: clear selection and return to current view
-      const s = store.getState();
-      // Back-first: if this app opened the issue from something (a list, or
-      // another bead), step back to it; Back then never reopens a closed bead.
-      if (router.canGoBack()) {
-        router.back();
-        return;
-      }
-      store.setState({ selected_id: null });
-      try {
-        /** @type {'issues'|'epics'|'board'|'decisions'|'releases'} */
-        const v = s.view || 'issues';
-        router.gotoView(v);
+        store.applyPush(p);
       } catch {
         // ignore
       }
-    });
-
-    /**
-     * Load comments outside the global activity indicator so a slow comments
-     * request does not keep the entire application in a loading state.
-     *
-     * @param {string} type
-     * @param {unknown} payload
-     */
-    const detail_transport = async (type, payload) => {
-      if (type === 'get-comments') {
-        return client.send(/** @type {MessageType} */ (type), payload);
-      }
-      return transport(type, payload);
-    };
-
-    /** @type {ReturnType<typeof createDetailView> | null} */
-    let detail = null;
-    // Mount details into the dialog body only
-    detail = createDetailView(
-      dialog.getMount(),
-      detail_transport,
-      (hash) => {
-        const id = parseHash(hash);
-        if (id) {
-          router.gotoIssue(id);
-        } else {
-          // No issue ID - navigate to view (closes dialog)
-          const view = parseView(hash);
-          router.gotoView(view);
-        }
-      },
-      sub_issue_stores
-    );
-
-    // If router already set a selected id (deep-link), open dialog now
-    const initial_id = store.getState().selected_id;
-    if (initial_id) {
-      detail_mount.hidden = false;
-      dialog.open(initial_id);
-      if (shouldHoldDetail(initial_id)) {
-        // Wait for list-workspaces; the release re-selects and the
-        // subscriber below loads and subscribes (company-1bo5.6.33).
-        held_detail_id = initial_id;
-      } else {
-        if (detail) {
-          void detail.load(initial_id);
-        }
-        // Ensure detail subscription is active on initial deep-link
-        const client_id = `detail:${initial_id}`;
-        const spec = { type: 'issue-detail', params: { id: initial_id } };
-        // Register store first to avoid dropping the initial snapshot
-        try {
-          sub_issue_stores.register(client_id, spec);
-        } catch (err) {
-          log('register detail store failed: %o', err);
-        }
-        void subscriptions.subscribeList(client_id, spec).catch((err) => {
-          log('detail subscribe failed: %o', err);
-          showFatalFromError(err, 'issue details');
-        });
+    }
+  });
+  client.on('upsert', (payload) => {
+    const p = /** @type {any} */ (payload);
+    const id = p && typeof p.id === 'string' ? p.id : '';
+    const store = id ? sub_issue_stores.getStore(id) : null;
+    if (store && p && p.type === 'upsert') {
+      try {
+        store.applyPush(p);
+      } catch {
+        // ignore
       }
     }
-
-    // Open/close dialog based on selected_id (always dialog; no page variant)
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_detail = null;
-    let last_checked_id = null;
-    store.subscribe((s) => {
-      const id = s.selected_id;
-      if (id && id !== last_checked_id) {
-        void ensureIssueWorkspace(id);
+  });
+  client.on('delete', (payload) => {
+    const p = /** @type {any} */ (payload);
+    const id = p && typeof p.id === 'string' ? p.id : '';
+    const store = id ? sub_issue_stores.getStore(id) : null;
+    if (store && p && p.type === 'delete') {
+      try {
+        store.applyPush(p);
+      } catch {
+        // ignore
       }
-      last_checked_id = id;
-      if (id) {
-        detail_mount.hidden = false;
-        dialog.open(id);
-        if (shouldHoldDetail(id)) {
-          held_detail_id = id;
-          return;
-        }
-        if (held_detail_id === id) held_detail_id = null;
-        if (detail) {
-          void detail.load(id);
-        }
-        // Wire per-issue subscription for detail
-        const client_id = `detail:${id}`;
-        const spec = { type: 'issue-detail', params: { id } };
-        // Ensure per-subscription issue store exists before subscribing
-        try {
-          sub_issue_stores.register(client_id, spec);
-        } catch {
-          // ignore
-        }
-        // Subscribe server-side
-        void subscriptions
-          .subscribeList(client_id, spec)
-          .then((unsub) => {
-            // Unsubscribe previous if any
-            if (unsub_detail) {
-              void unsub_detail().catch(() => {});
+    }
+  });
+  // Derived list selectors: render from per-subscription snapshots
+  const listSelectors = createListSelectors(sub_issue_stores);
+
+  /**
+   * Handle workspace change request from the picker.
+   *
+   * @param {string} workspace_path
+   */
+  async function handleWorkspaceChange(workspace_path) {
+    log('requesting workspace switch to %s', workspace_path);
+    try {
+      const result = await client.send('set-workspace', {
+        path: workspace_path
+      });
+      log('workspace switch result: %o', result);
+      if (result && result.workspace) {
+        // Update state with new workspace
+        store.setState({
+          workspace: {
+            current: {
+              path: result.workspace.root_dir,
+              database: result.workspace.db_path
             }
-            unsub_detail = unsub;
-          })
-          .catch((err) => {
-            log('detail subscribe failed: %o', err);
-            showFatalFromError(err, 'issue details');
-          });
-      } else {
-        try {
-          dialog.close();
-        } catch {
-          // ignore
-        }
-        if (detail) {
-          detail.clear();
-        }
-        detail_mount.hidden = true;
-        if (unsub_detail) {
-          void unsub_detail().catch(() => {});
-          unsub_detail = null;
+          }
+        });
+        // Persist preference
+        window.localStorage.setItem('beads-ui.workspace', workspace_path);
+        if (result.changed) {
+          showToast(
+            'Switched to ' + getProjectName(workspace_path),
+            'success',
+            2000
+          );
         }
       }
-    });
-
-    // Removed: issues-changed handling. All views re-render from
-    // per-subscription stores which are updated by snapshot/upsert/delete.
-
-    // Toggle route shells on view/detail change and persist
-    const data = createDataLayer(transport);
-    const epics_view = lazyView(
-      'epics',
-      (/** @type {typeof import('./views/epics.js')} */ m) =>
-        m.createEpicsView(
-          epics_root,
-          data,
-          (id) => router.gotoIssue(id),
-          subscriptions,
-          sub_issue_stores
-        )
-    );
-    const decisions_view = lazyView(
-      'decisions',
-      (/** @type {typeof import('./views/decisions.js')} */ m) =>
-        m.createDecisionsView(
-          decisions_root,
-          (id) => router.gotoIssue(id),
-          sub_issue_stores,
-          // Raw sender: an answer must fail loudly, not be swallowed as [].
-          (type, payload) =>
-            tracked_send(/** @type {MessageType} */ (type), payload),
-          // All-projects feed (server/features/decisions-feed.js)
-          client
-        )
-    );
-    const releases_view = lazyView(
-      'releases',
-      (/** @type {typeof import('./views/releases.js')} */ m) =>
-        m.createReleasesView(
-          releases_root,
-          client,
-          (id) => router.gotoIssue(id),
-          () => store.getState().workspace?.current?.path || ''
-        )
-    );
-    const board_view = lazyView(
-      'board',
-      (/** @type {typeof import('./views/board.js')} */ m) =>
-        m.createBoardView(
-          board_root,
-          data,
-          (id) => router.gotoIssue(id),
-          store,
-          subscriptions,
-          sub_issue_stores,
-          board_filter
-        )
-    );
-    // Preload epics when switching to view
-    /**
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
-     */
-    // --- Subscriptions: tab-level management and filter-driven updates ---
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_issues_tab = null;
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_epics_tab = null;
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_board_ready = null;
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_all = null;
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_board_closed = null;
-    /** @type {null | (() => Promise<void>)} */
-    let unsub_board_blocked = null;
-
-    // Track in-flight subscriptions to prevent duplicates during rapid view switching
-    /** @type {Set<string>} */
-    const pending_subscriptions = new Set();
-
-    // Expose activity debug info globally for diagnostics
-    // @ts-ignore
-    window.__bdui_debug = {
-      getPendingSubscriptions: () => Array.from(pending_subscriptions),
-      getActivityCount: () => activity.getCount(),
-      getActiveRequests: () => activity.getActiveRequests()
-    };
-
-    /**
-     * Compute subscription spec for Issues tab based on filters.
-     *
-     * A lone selection can be served by a dedicated server-side list; a union
-     * of several statuses cannot, so it falls back to all-issues and lets the
-     * list view narrow the rows client-side.
-     *
-     * @param {{ status?: unknown }} filters
-     * @returns {{ type: string, params?: Record<string, string|number|boolean> }}
-     */
-    function computeIssuesSpec(filters) {
-      const selected = normalizeStatusFilters(filters?.status);
-      if (selected.length === 1) {
-        if (selected[0] === 'ready') {
-          return { type: 'ready-issues' };
-        }
-        if (selected[0] === 'in_progress') {
-          return { type: 'in-progress-issues' };
-        }
-        if (selected[0] === 'closed') {
-          return { type: 'closed-issues' };
-        }
-      }
-      // No selection, a status without a dedicated list (e.g. open), or a
-      // union of several: fetch everything and filter locally.
-      return { type: 'all-issues' };
+    } catch (err) {
+      log('workspace switch failed: %o', err);
+      showToast('Failed to switch workspace', 'error', 3000);
+      throw err;
     }
-
-    /** @type {string|null} */
-    let last_issues_spec_key = null;
-    /**
-     * Ensure only the active tab has subscriptions; clean up previous.
-     *
-     * @param {{ view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
-     */
-    function ensureTabSubscriptions(s) {
-      // Issues tab
-      if (s.view === 'issues') {
-        const spec = computeIssuesSpec(s.filters || {});
-        const key = JSON.stringify(spec);
-        // Register store first to capture the initial snapshot
-        try {
-          sub_issue_stores.register('tab:issues', spec);
-        } catch (err) {
-          log('register issues store failed: %o', err);
-        }
-        // Only (re)subscribe if not yet subscribed, spec changed, and not already in-flight
-        const issues_sub_key = `tab:issues:${key}`;
-        if (
-          (!unsub_issues_tab || key !== last_issues_spec_key) &&
-          !pending_subscriptions.has(issues_sub_key)
-        ) {
-          pending_subscriptions.add(issues_sub_key);
-          void subscriptions
-            .subscribeList('tab:issues', spec)
-            .then((unsub) => {
-              unsub_issues_tab = unsub;
-              last_issues_spec_key = key;
-            })
-            .catch((err) => {
-              log('subscribe issues failed: %o', err);
-              showFatalFromError(err, 'issues list');
-            })
-            .finally(() => {
-              pending_subscriptions.delete(issues_sub_key);
-            });
-        }
-      } else if (unsub_issues_tab) {
-        void unsub_issues_tab().catch(() => {});
-        unsub_issues_tab = null;
-        last_issues_spec_key = null;
-        try {
-          sub_issue_stores.unregister('tab:issues');
-        } catch (err) {
-          log('unregister issues store failed: %o', err);
-        }
-      }
-
-      // Epics tab
-      if (s.view === 'epics') {
-        // Register store first to avoid race with initial snapshot
-        try {
-          sub_issue_stores.register('tab:epics', { type: 'epics' });
-        } catch (err) {
-          log('register epics store failed: %o', err);
-        }
-        // Only subscribe if not already subscribed and not in-flight
-        if (!unsub_epics_tab && !pending_subscriptions.has('tab:epics')) {
-          pending_subscriptions.add('tab:epics');
-          void subscriptions
-            .subscribeList('tab:epics', { type: 'epics' })
-            .then((unsub) => {
-              unsub_epics_tab = unsub;
-            })
-            .catch((err) => {
-              log('subscribe epics failed: %o', err);
-              showFatalFromError(err, 'epics');
-            })
-            .finally(() => {
-              pending_subscriptions.delete('tab:epics');
-            });
-        }
-      } else if (unsub_epics_tab) {
-        void unsub_epics_tab().catch(() => {});
-        unsub_epics_tab = null;
-        try {
-          sub_issue_stores.unregister('tab:epics');
-        } catch (err) {
-          log('unregister epics store failed: %o', err);
-        }
-      }
-
-      // One all-open-issues list feeds the Board columns, the Decisions queue
-      // and the nav badge, so it stays on for every view (one bd call shared
-      // by all of them; contract board-data.md).
-      if (!unsub_all && !pending_subscriptions.has('tab:all')) {
-        try {
-          sub_issue_stores.register('tab:all', { type: 'all-issues' });
-        } catch (err) {
-          log('register all store failed: %o', err);
-        }
-        pending_subscriptions.add('tab:all');
-        void subscriptions
-          .subscribeList('tab:all', { type: 'all-issues' })
-          .then((u) => (unsub_all = u))
-          .catch((err) => {
-            log('subscribe all failed: %o', err);
-            showFatalFromError(err, 'board');
-          })
-          .finally(() => {
-            pending_subscriptions.delete('tab:all');
-          });
-      }
-
-      // Board tab subscribes to lists used by columns
-      if (s.view === 'board') {
-        // Ready column
-        if (
-          !unsub_board_ready &&
-          !pending_subscriptions.has('tab:board:ready')
-        ) {
-          try {
-            sub_issue_stores.register('tab:board:ready', {
-              type: 'ready-issues'
-            });
-          } catch (err) {
-            log('register board:ready store failed: %o', err);
-          }
-          pending_subscriptions.add('tab:board:ready');
-          void subscriptions
-            .subscribeList('tab:board:ready', { type: 'ready-issues' })
-            .then((u) => (unsub_board_ready = u))
-            .catch((err) => {
-              log('subscribe board ready failed: %o', err);
-              showFatalFromError(err, 'board (Ready)');
-            })
-            .finally(() => {
-              pending_subscriptions.delete('tab:board:ready');
-            });
-        }
-        // Closed column
-        if (
-          !unsub_board_closed &&
-          !pending_subscriptions.has('tab:board:closed')
-        ) {
-          try {
-            sub_issue_stores.register('tab:board:closed', {
-              type: 'closed-issues'
-            });
-          } catch (err) {
-            log('register board:closed store failed: %o', err);
-          }
-          pending_subscriptions.add('tab:board:closed');
-          void subscriptions
-            .subscribeList('tab:board:closed', { type: 'closed-issues' })
-            .then((u) => (unsub_board_closed = u))
-            .catch((err) => {
-              log('subscribe board closed failed: %o', err);
-              showFatalFromError(err, 'board (Closed)');
-            })
-            .finally(() => {
-              pending_subscriptions.delete('tab:board:closed');
-            });
-        }
-        // Blocked column
-        if (
-          !unsub_board_blocked &&
-          !pending_subscriptions.has('tab:board:blocked')
-        ) {
-          try {
-            sub_issue_stores.register('tab:board:blocked', {
-              type: 'blocked-issues'
-            });
-          } catch (err) {
-            log('register board:blocked store failed: %o', err);
-          }
-          pending_subscriptions.add('tab:board:blocked');
-          void subscriptions
-            .subscribeList('tab:board:blocked', { type: 'blocked-issues' })
-            .then((u) => (unsub_board_blocked = u))
-            .catch((err) => {
-              log('subscribe board blocked failed: %o', err);
-              showFatalFromError(err, 'board (Blocked)');
-            })
-            .finally(() => {
-              pending_subscriptions.delete('tab:board:blocked');
-            });
-        }
-      } else {
-        // Unsubscribe all board lists when leaving the board view
-        if (unsub_board_ready) {
-          void unsub_board_ready().catch(() => {});
-          unsub_board_ready = null;
-          try {
-            sub_issue_stores.unregister('tab:board:ready');
-          } catch (err) {
-            log('unregister board:ready failed: %o', err);
-          }
-        }
-        if (unsub_board_closed) {
-          void unsub_board_closed().catch(() => {});
-          unsub_board_closed = null;
-          try {
-            sub_issue_stores.unregister('tab:board:closed');
-          } catch (err) {
-            log('unregister board:closed failed: %o', err);
-          }
-        }
-        if (unsub_board_blocked) {
-          void unsub_board_blocked().catch(() => {});
-          unsub_board_blocked = null;
-          try {
-            sub_issue_stores.unregister('tab:board:blocked');
-          } catch (err) {
-            log('unregister board:blocked failed: %o', err);
-          }
-        }
-      }
-    }
-
-    // Header crumb: project / view
-    const crumb_project = document.getElementById('crumb-project');
-    const crumb_view = document.getElementById('crumb-view');
-    function updateCrumb() {
-      const s = store.getState();
-      const cur = s.workspace?.current?.path || '';
-      if (crumb_project) {
-        crumb_project.textContent = cur ? projectName(cur) : t('app_name');
-      }
-      if (crumb_view) {
-        crumb_view.textContent = '/ ' + t(s.view);
-      }
-    }
-    store.subscribe(updateCrumb);
-    window.addEventListener('bdui-lang', updateCrumb);
-    updateCrumb();
-
-    // Phone: project drawer (bottom-nav button, scrim, Esc, picking a project)
-    const shell_el = document.getElementById('shell');
-    const set_drawer = (/** @type {boolean} */ on) => {
-      if (shell_el) {
-        shell_el.classList.toggle('side-open', on);
-      }
-    };
-    window.addEventListener('bdui-side-toggle', () =>
-      set_drawer(!shell_el?.classList.contains('side-open'))
-    );
-    document
-      .getElementById('side-scrim')
-      ?.addEventListener('click', () => set_drawer(false));
-    document
-      .getElementById('workspace-picker')
-      ?.addEventListener('click', () => set_drawer(false));
-    window.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') {
-        set_drawer(false);
-      }
-    });
-    window.addEventListener('hashchange', () => set_drawer(false));
-
-    // Header and detail slots (bell, report; card, outputs): see registry.js
-    void mountSlots(document);
-
-    /**
-     * Manage route visibility and list subscriptions per view.
-     *
-     * @param {{ selected_id: string | null, view: 'issues'|'epics'|'board'|'decisions'|'releases', filters: any }} s
-     */
-    const onRouteChange = (s) => {
-      /** @type {Promise<unknown>[]} */
-      const loads = [];
-      if (
-        issues_root &&
-        epics_root &&
-        board_root &&
-        decisions_root &&
-        releases_root &&
-        detail_mount
-      ) {
-        // Underlying route visibility is controlled only by selected view
-        issues_root.hidden = s.view !== 'issues';
-        epics_root.hidden = s.view !== 'epics';
-        board_root.hidden = s.view !== 'board';
-        decisions_root.hidden = s.view !== 'decisions';
-        releases_root.hidden = s.view !== 'releases';
-        // detail_mount visibility handled in subscription above
-      }
-      // Ensure subscriptions for the active tab before loading the view to
-      // avoid empty initial renders due to racing list-delta.
-      ensureTabSubscriptions(s);
-      if (s.view === 'issues') {
-        loads.push(issues_view.load());
-      }
-      if (!s.selected_id && s.view === 'epics') {
-        loads.push(epics_view.load());
-      }
-      if (!s.selected_id && s.view === 'board') {
-        loads.push(board_view.load());
-      }
-      if (!s.selected_id && s.view === 'decisions') {
-        loads.push(decisions_view.load());
-      }
-      if (!s.selected_id && s.view === 'releases') {
-        loads.push(releases_view.load());
-      }
-      if (s.view !== persisted_view_value) {
-        window.localStorage.setItem('beads-ui.view', s.view);
-        persisted_view_value = s.view;
-      }
-      return Promise.all(loads);
-    };
-    store.subscribe(onRouteChange);
-    // Ensure initial state is reflected (fixes reload on #/epics)
-    ready = onRouteChange(store.getState()).then(() => undefined);
-
-    // Removed redundant filter-change subscription: handled by ensureTabSubscriptions
-
-    // Keyboard shortcuts: Ctrl/Cmd+N opens new issue; Ctrl/Cmd+Enter submits inside dialog
-    window.addEventListener('keydown', (ev) => {
-      const is_modifier = ev.ctrlKey || ev.metaKey;
-      const key = String(ev.key || '').toLowerCase();
-      const target = /** @type {HTMLElement} */ (ev.target);
-      const tag =
-        target && target.tagName ? String(target.tagName).toLowerCase() : '';
-      const is_editable =
-        tag === 'input' ||
-        tag === 'textarea' ||
-        tag === 'select' ||
-        (target &&
-          typeof target.isContentEditable === 'boolean' &&
-          target.isContentEditable);
-      if (is_modifier && key === 'n') {
-        // Do not hijack when typing in inputs; common UX
-        if (!is_editable) {
-          ev.preventDefault();
-          new_issue_dialog.open();
-        }
-      }
-    });
   }
+
+  /**
+   * Extract project name from path.
+   *
+   * @param {string} path
+   * @returns {string}
+   */
+  function getProjectName(path) {
+    if (!path) return 'Unknown';
+    const parts = path.split('/').filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : 'Unknown';
+  }
+
+  /**
+   * Load available workspaces from server and update state.
+   */
+  async function loadWorkspaces() {
+    try {
+      const result = await client.send('list-workspaces', {});
+      log('workspaces loaded: %o', result);
+      if (result && Array.isArray(result.workspaces)) {
+        const available = result.workspaces.map((/** @type {any} */ ws) => ({
+          path: ws.path,
+          database: ws.database,
+          pid: ws.pid,
+          version: ws.version,
+          prefix: ws.prefix,
+          // Optional per-project counts (contracts/board-data.md)
+          counts: ws.counts
+        }));
+        const current = result.current
+          ? {
+              path: result.current.root_dir,
+              database: result.current.db_path
+            }
+          : null;
+        store.setState({ workspace: { current, available } });
+        setKnownIdFilter((id) => !!matchWorkspace(id, available));
+
+        // Check if we have a saved preference that differs from current
+        const savedWorkspace =
+          window.localStorage.getItem('beads-ui.workspace');
+        if (savedWorkspace && current && savedWorkspace !== current.path) {
+          // Check if saved workspace is in available list
+          const savedExists = available.some(
+            (/** @type {{ path: string }} */ ws) => ws.path === savedWorkspace
+          );
+          if (savedExists) {
+            log('restoring saved workspace preference: %s', savedWorkspace);
+            await handleWorkspaceChange(savedWorkspace);
+          }
+        }
+      }
+    } catch (err) {
+      log('failed to load workspaces: %o', err);
+    }
+  }
+
+  // Handle workspace-changed events from server (e.g., if another client changes workspace)
+  client.on('workspace-changed', (payload) => {
+    log('workspace-changed event: %o', payload);
+    if (payload && payload.root_dir) {
+      store.setState({
+        workspace: {
+          current: {
+            path: payload.root_dir,
+            database: payload.db_path
+          }
+        }
+      });
+      // Reload workspaces to get fresh list
+      void loadWorkspaces();
+    }
+  });
+
+  // Show toasts for WebSocket connectivity changes
+  /** @type {boolean} */
+  let had_disconnect = false;
+  if (typeof client.onConnection === 'function') {
+    /** @type {(s: 'connecting'|'open'|'closed'|'reconnecting') => void} */
+    const onConn = (s) => {
+      log('ws state %s', s);
+      if (s === 'reconnecting' || s === 'closed') {
+        had_disconnect = true;
+        showToast('Connection lost. Reconnecting…', 'error', 4000);
+      } else if (s === 'open' && had_disconnect) {
+        had_disconnect = false;
+        showToast('Reconnected', 'success', 2200);
+      }
+    };
+    client.onConnection(onConn);
+  }
+  // Handle workspace-changed events from server (e.g., if another client changes workspace)
+  client.on('workspace-changed', (payload) => {
+    log('workspace-changed event: %o', payload);
+    if (payload && payload.root_dir) {
+      store.setState({
+        workspace: {
+          current: {
+            path: payload.root_dir,
+            database: payload.db_path
+          }
+        }
+      });
+      // Reload workspaces to get fresh list
+      void loadWorkspaces();
+    }
+  });
+
+  // Load workspaces after WebSocket is connected
+  void loadWorkspaces();
+
+  const ready = bootV3(root_element, {
+    store,
+    client,
+    send: transport,
+    router,
+    data: createDataLayer(transport),
+    subscriptions,
+    sub_issue_stores,
+    listSelectors
+  });
   return { ready };
 }
 
@@ -1329,70 +265,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
             ? 'dark'
             : 'light';
       document.documentElement.setAttribute('data-theme', initial);
-      const sw = /** @type {HTMLInputElement|null} */ (
-        document.getElementById('theme-switch')
-      );
-      if (sw) {
-        sw.checked = initial === 'dark';
-      }
     } catch {
       // ignore theme init errors
     }
 
     // Language / direction (en LTR, ar RTL), see utils/i18n.js
     applyLang();
-    // Header and drawer both carry a language and a theme button.
-    const lang_btns = Array.from(
-      document.querySelectorAll('[data-act="lang"]')
-    );
-    const theme_btns = Array.from(
-      document.querySelectorAll('[data-act="theme"]')
-    );
-    const sync_lang_btn = () => {
-      for (const b of lang_btns) {
-        b.textContent = t('lang_btn');
-        b.setAttribute('aria-label', t('language'));
-      }
-      for (const b of theme_btns) {
-        b.textContent = t('theme');
-        b.setAttribute('aria-label', t('theme'));
-      }
-      const nb = document.getElementById('new-issue-btn');
-      if (nb) {
-        nb.textContent = t('new_issue');
-        nb.setAttribute('aria-label', t('new_issue'));
-      }
-    };
-    sync_lang_btn();
-    window.addEventListener('bdui-lang', sync_lang_btn);
-    for (const b of lang_btns) {
-      b.addEventListener('click', () => toggleLang());
-    }
-    for (const b of theme_btns) {
-      b.addEventListener('click', () =>
-        /** @type {HTMLInputElement|null} */ (
-          document.getElementById('theme-switch')
-        )?.click()
-      );
-    }
-
-    // Wire up theme switch in header
-    const themeSwitch = /** @type {HTMLInputElement|null} */ (
-      document.getElementById('theme-switch')
-    );
-    if (themeSwitch) {
-      themeSwitch.addEventListener('change', () => {
-        const mode = themeSwitch.checked ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', mode);
-        window.localStorage.setItem('beads-ui.theme', mode);
-      });
-    }
-
-    /** @type {HTMLElement|null} */
-    const app_root = document.getElementById('app');
-    if (app_root) {
-      bootstrap(app_root);
-      registerServiceWorker();
-    }
+    bootstrap(document.body);
+    registerServiceWorker();
   });
 }

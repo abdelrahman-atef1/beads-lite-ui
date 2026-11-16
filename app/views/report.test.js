@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, test, vi } from 'vitest';
 import { strings } from '../i18n/report.js';
 import {
@@ -118,20 +117,6 @@ describe('report client', () => {
     );
     expect(out).toEqual({ sent: [], dropped: ['unknown_project'], left: 1 });
     expect((await q.all()).map((x) => x.text)).toEqual(['later']);
-  });
-
-  test('scrolling over the sheet preview cannot draw (company-1bo5.6.35)', () => {
-    const css = readFileSync('app/css/report.css', 'utf8');
-    const rule = (/** @type {string} */ sel) => {
-      const i = css.indexOf(sel + ' {');
-      return css.slice(i, css.indexOf('}', i));
-    };
-    expect(rule('.rpt-canvas')).toContain('touch-action: pan-y');
-    expect(rule('.rpt-edcanvas')).toContain('touch-action: none');
-    const js = readFileSync('app/views/report.js', 'utf8');
-    // pointer drawing is wired only on the editor canvas
-    expect(js.split('wireDraw(').length - 1).toBe(2); // definition + one call
-    expect(js).toContain('wireDraw(canvas, () => work, draw)');
   });
 
   test('editor strings exist in English and Arabic', () => {

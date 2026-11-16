@@ -382,3 +382,18 @@
 .u3-kit__tabs {
   padding: var(--u3-sp-2);
 }
+
+/* Placeholders (the legacy stylesheet set them; cutover 59.17). */
+input::placeholder,
+textarea::placeholder {
+  color: var(--u3-text-3);
+}
+
+/* Bead ids linkified inside text (utils/linkify-ids.js); the id is code, so monospace. */
+.u3 .bead-link {
+  color: var(--u3-blue);
+  font-family: var(--u3-mono);
+  font-size: 0.87em;
+  direction: ltr;
+  unicode-bidi: isolate;
+}

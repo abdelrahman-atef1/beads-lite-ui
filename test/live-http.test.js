@@ -81,19 +81,8 @@ describe('LB17 the door refuses strangers', () => {
   });
 });
 
-describe('LB18 frame headers on every response (.62, pending)', () => {
-  // board-v2 a1bf92c has none. The row runs for real the moment .62 lands.
-  const probe = async () => {
-    const r = await fetch(base + '/');
-    return (
-      (r.headers.get('content-security-policy') || '').includes(
-        'frame-ancestors'
-      ) || r.headers.has('x-frame-options')
-    );
-  };
-  test('index and API replies forbid framing', async (ctx) => {
-    if (!(await probe()))
-      return ctx.skip('pending .62: header not on board-v2');
+describe('LB18 frame headers on every response', () => {
+  test('index and API replies forbid framing', async () => {
     for (const p of ['/', '/api/workspaces', '/healthz', '/sw.js']) {
       const r = await fetch(base + p);
       const csp = r.headers.get('content-security-policy') || '';

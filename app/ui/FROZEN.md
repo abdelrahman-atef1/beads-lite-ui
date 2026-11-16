@@ -8,7 +8,7 @@ beads-lite-1bo5.6.59; the cto batches them.
 - app/ui/boot.js, shell.js, routes.js, i18n.js, flag.js, icons.js
 - app/ui/components/\* (button, chip, card, list-row, role-chip, sheet, tab-bar)
 - app/css/u3-tokens.css, u3-base.css, u3-shell.css
-- app/fonts/\*, scripts/legacy-untouched.mjs, scripts/payload-v3.mjs
+- app/fonts/\*, scripts/v3-guard.mjs, scripts/payload-v3.mjs
 
 Stubs each later task owns (view, css, i18n):
 app/ui/views/{desk,task,tasks,releases,projects,settings,time}.js,

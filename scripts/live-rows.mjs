@@ -122,17 +122,17 @@ export const ROWS = [
     id: 'LB18',
     what: 'Frame headers on every response (frame-ancestors / X-Frame-Options)',
     files: ['test/live-http.test.js'],
-    match: /LB18/,
-    pending: '.62 (not on board-v2 a1bf92c)'
+    match: /LB18/
   },
   {
     id: 'LB19',
     what: 'Deep links open the right thing: #/issues?issue=<id>&at=<target>, #/decisions, #/board, #/releases',
     files: [
       'app/router.test.js',
-      'app/main.deep-link.test.js',
+      'app/ui/routes.test.js',
+      'app/ui/boot.test.js',
       'app/utils/anchor.test.js',
-      'app/views/detail.anchor.test.js'
+      'app/ui/views/task.test.js'
     ],
     match: /./
   }

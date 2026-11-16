@@ -41,7 +41,7 @@ function setup(hash, search = '') {
   return /** @type {HTMLElement} */ (document.getElementById('app'));
 }
 
-describe('?ui=3 boot', () => {
+describe('v3 boot', () => {
   test('deep link to a bead of another project switches the workspace and reloads, never sits on loading (59.23)', async () => {
     replies['list-workspaces'] = {
       workspaces: [
@@ -57,7 +57,7 @@ describe('?ui=3 boot', () => {
     sent.length = 0;
     window.sessionStorage.clear();
     const reload = (gate.reload = vi.fn());
-    const root = setup('#/issues?issue=rayeh-3.1', '?ui=3');
+    const root = setup('#/issues?issue=rayeh-3.1');
     void bootstrap(root).ready;
     await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(sent).toContain('set-workspace');
@@ -71,7 +71,7 @@ describe('?ui=3 boot', () => {
   test('old id of a moved bead opens the new bead, address bar replaced, says it moved (59.24)', async () => {
     replies['resolve-moved-id'] = { moved: { id: 'x-9.1', repo: 'x' } };
     window.sessionStorage.clear();
-    const root = setup('#/issues?issue=company-9.1', '?ui=3');
+    const root = setup('#/issues?issue=company-9.1');
     await bootstrap(root).ready;
     await vi.waitFor(() =>
       expect(document.querySelector('[data-view="task"]')).not.toBeNull()
@@ -84,8 +84,8 @@ describe('?ui=3 boot', () => {
     document.getElementById('u3')?.remove();
   });
 
-  test('flag on: v3 shell replaces the legacy shell, Arabic RTL, same hash opens the task', async () => {
-    const root = setup('#/issues?issue=x-1&at=c-last', '?ui=3');
+  test('v3 shell is the page with no flag, Arabic RTL, same hash opens the task', async () => {
+    const root = setup('#/issues?issue=x-1&at=c-last');
     await bootstrap(root).ready;
     expect(document.documentElement.getAttribute('data-ui')).toBe('3');
     expect(document.getElementById('shell')).toBeNull();
@@ -99,8 +99,8 @@ describe('?ui=3 boot', () => {
     document.getElementById('u3')?.remove();
   });
 
-  test('flag on: routes switch with the hash', async () => {
-    const root = setup('#/decisions', '?ui=3');
+  test('routes switch with the hash', async () => {
+    const root = setup('#/decisions');
     await bootstrap(root).ready;
     expect(document.querySelector('.dk3')).not.toBeNull();
     window.location.hash = '#/releases';
@@ -125,7 +125,7 @@ describe('?ui=3 boot', () => {
   });
 
   test('screens are lazy: a route opens once its chunk has loaded, a stale one never mounts', async () => {
-    const root = setup('#/', '?ui=3');
+    const root = setup('#/');
     await bootstrap(root).ready;
     window.location.hash = '#/releases';
     window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -139,7 +139,7 @@ describe('?ui=3 boot', () => {
   });
 
   test('each screen gets a fresh host, and a skeleton shows while a lazy chunk loads (.59.19/.59.22)', async () => {
-    const root = setup('#/', '?ui=3');
+    const root = setup('#/');
     await bootstrap(root).ready;
     const first = document.querySelector('#u3-view > .u3-screen');
     expect(first).not.toBeNull();
@@ -156,14 +156,15 @@ describe('?ui=3 boot', () => {
   });
 });
 
-describe('flag off = legacy DOM', () => {
-  test('?ui=2 clears the flag and renders the legacy sections only', async () => {
-    window.localStorage.setItem('bl.ui', '3');
-    const root = setup('#/epics', '?ui=2');
-    await bootstrap(root).ready;
-    expect(document.getElementById('u3')).toBeNull();
-    expect(document.documentElement.getAttribute('data-ui')).toBeNull();
-    expect(window.localStorage.getItem('bl.ui')).toBeNull();
-    expect(document.getElementById('epics-root')).not.toBeNull();
+describe('old links and stored flags', () => {
+  test('?ui=3 and ?ui=2 links open v3 and a stored bl.ui is dropped', async () => {
+    for (const q of ['?ui=3', '?ui=2']) {
+      const root = setup('#/decisions', q);
+      window.localStorage.setItem('bl.ui', '2');
+      await bootstrap(root).ready;
+      expect(document.documentElement.getAttribute('data-ui')).toBe('3');
+      expect(window.localStorage.getItem('bl.ui')).toBeNull();
+      document.getElementById('u3')?.remove();
+    }
   });
 });

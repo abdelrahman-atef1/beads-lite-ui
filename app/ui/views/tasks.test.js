@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createListSelectors } from '../../data/list-selectors.js';
 import { createSubscriptionIssueStores } from '../../data/subscription-issue-stores.js';
-import { createFilterState } from '../../utils/board-filter.js';
-import { createBoardView } from '../../views/board.js';
 import { mount as mountTasks } from './tasks.js';
 
 const IDS = {
@@ -92,24 +90,12 @@ function setup(n = 200) {
   }
   const subs = { subscribeList: async () => async () => {} };
   const a = /** @type {HTMLElement} */ (document.getElementById('a'));
-  const b = /** @type {HTMLElement} */ (document.getElementById('b'));
-  const legacy_filter = createFilterState();
-  const legacy = createBoardView(
-    b,
-    null,
-    () => {},
-    undefined,
-    undefined,
-    /** @type {any} */ (stores),
-    legacy_filter
-  );
-  void legacy.load();
   const h = mountTasks(a, {
     sub_issue_stores: stores,
     subscriptions: subs,
     listSelectors: createListSelectors(/** @type {any} */ (stores))
   });
-  return { a, b, h, legacy_filter };
+  return { a, h };
 }
 
 /**
@@ -133,33 +119,28 @@ const MAP = {
 };
 
 describe('ui/views/tasks (v3)', () => {
-  test('column contents equal the legacy board for the same stores', async () => {
-    const { a, b } = setup(200);
+  test('every issue lands in exactly one lane', async () => {
+    const { a } = setup(200);
     await until(a, 200);
     await flush();
-    for (const [id, leg] of Object.entries(MAP)) {
-      const mine = col(a, `#u3t-${id} .u3t-card`);
-      const old = col(b, `#${leg}-col .card`);
-      expect(mine, id).toEqual(old);
+    const seen = [];
+    for (const id of Object.keys(MAP)) {
+      seen.push(...col(a, `#u3t-${id} .u3t-card`));
     }
-    const total = a.querySelectorAll('.u3t-board .u3t-card').length;
-    expect(total).toBe(200);
+    expect(seen.length).toBe(200);
+    expect(new Set(seen).size).toBe(200);
+    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBe(200);
   });
 
-  test('filters and search narrow the same way as legacy', async () => {
-    const { a, b, legacy_filter } = setup(120);
+  test('filters and search narrow the board', async () => {
+    const { a } = setup(120);
     await flush();
     const sel = /** @type {HTMLElement} */ (a.querySelector('.u3t-menu'));
     expect(sel).toBeTruthy();
-    // type filter through the shared persisted state of createFilterState
     const mineBtn = /** @type {HTMLElement} */ (a.querySelector('.u3t-fchip'));
     mineBtn.click(); // Mine: nothing is assigned to the owner
     await flush();
-    legacy_filter.set({ chip: 'mine' });
-    await flush();
-    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBe(
-      b.querySelectorAll('.col:not(.col--closed) .card').length
-    );
+    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBe(0);
     const input = /** @type {HTMLInputElement} */ (
       a.querySelector('.u3t-search')
     );

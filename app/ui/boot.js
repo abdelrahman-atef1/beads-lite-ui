@@ -95,6 +95,11 @@ export function bootV3(_legacy_root, base) {
   } catch {
     // ignore storage errors
   }
+  try {
+    window.localStorage.removeItem('bl.ui'); // the retired ?ui flag
+  } catch {
+    // ignore storage errors
+  }
   applyLang();
   document.getElementById('shell')?.remove();
   const root = document.createElement('div');

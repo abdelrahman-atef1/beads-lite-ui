@@ -1,5 +1,4 @@
 import { render } from 'lit-html';
-import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { attifyHtml, bindAttClicks, setImgContext } from './att-images.js';
 import { linkifyText } from './linkify-ids.js';
@@ -39,11 +38,6 @@ text ${P} end
     expect(d.querySelectorAll('a.att-thumb > img.att-img').length).toBe(2);
     expect(d.querySelectorAll('img').length).toBe(2);
     expect(d.querySelector('code')?.textContent).toBe(P);
-  });
-  test('detail.css keeps long text as block flow (1bo5.6.28.1)', () => {
-    const css = readFileSync('app/css/detail.css', 'utf8');
-    const rule = css.match(/#issue-dialog \.md\.editable\s*\{([^}]*)\}/);
-    expect(rule?.[1]).toMatch(/display:\s*block/);
   });
   test('other links and traversal paths are untouched', () => {
     const h =
