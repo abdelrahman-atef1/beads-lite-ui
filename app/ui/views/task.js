@@ -20,11 +20,13 @@ import {
 } from '../../utils/decision-comment.js';
 import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
-import { ageText } from '../card/common.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
+import { parseOutputRecord } from '../../utils/output-record.js';
 import { splitReactions } from '../../utils/reactions.js';
+import { safeHref } from '../../views/outputs-panel.js';
 import { renderAskHead } from '../ask/head-slot.js';
+import { ageText } from '../card/common.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button, chip } from '../components/index.js';
 import { priorityVal, statusVal, typeVal } from '../components/vicon.js';
@@ -342,6 +344,47 @@ export function mount(el, ctx) {
       : nothing;
 
   /**
+   * What blocks this task: open blocking dependencies, or a note when none is recorded.
+   *
+   * @param {any} i
+   */
+  function blockersBlock(i) {
+    const deps = Array.isArray(i.dependencies) ? i.dependencies : [];
+    const open = deps.filter(
+      (/** @type {any} */ d) =>
+        d.dependency_type === 'blocks' && d.status !== 'closed'
+    );
+    if (!open.length && i.status !== 'blocked') return nothing;
+    return html`<section class="u3-ts__sec u3-ts__blockers" data-blockers>
+      <h3 class="u3-ts__h">${t3('u3_ts_blocked_by')}</h3>
+      ${open.length
+        ? html`<ul class="u3-ts__rel">
+            ${open.map(
+              (/** @type {any} */ d) =>
+                html`<li>
+                  <a class="u3-ts__rl" href=${href(d.id)}>
+                    <span class="u3-mono u3-ts__rid">${d.id}</span>
+                    <span class="u3-ts__rt" dir="auto">${d.title || ''}</span>
+                    ${d.status
+                      ? chip({
+                          label: statusVal(d.status),
+                          tone: TONE[d.status] || 'neutral'
+                        })
+                      : nothing}
+                    ${d.assignee
+                      ? html`<span class="u3-muted"
+                          >${t3('u3_ts_held_by')} ${d.assignee}</span
+                        >`
+                      : nothing}
+                  </a>
+                </li>`
+            )}
+          </ul>`
+        : html`<p class="u3-muted">${t3('u3_ts_blocked_none')}</p>`}
+    </section>`;
+  }
+
+  /**
    * The comment's own decision (question, options, state) for a bead that has
    * no card record, so its answer buttons still show here.
    *
@@ -382,6 +425,20 @@ export function mount(el, ctx) {
       const st = renderStepsComment(c, { issueId: id, client: ctx.client });
       body =
         st === nothing ? renderFolded(body_text, renderMarkdown, flat) : st;
+    } else if (parseOutputRecord(body_text)) {
+      const o = /** @type {any} */ (parseOutputRecord(body_text));
+      const link = o.ref ? safeHref(o.ref) : null;
+      body = html`<div dir="auto" class="u3-ts__rel-line" data-release>
+        <span class="u3-muted">${t3('u3_ts_release')} · ${o.kind}</span>
+        ${link
+          ? html`<a href=${link} target="_blank" rel="noopener noreferrer"
+              >${o.label}</a
+            >`
+          : html`<span>${o.label}</span>`}
+        ${o.commit
+          ? html`<code class="u3-mono">${o.commit.slice(0, 8)}</code>`
+          : nothing}
+      </div>`;
     } else {
       body = html`<div dir="auto">
         ${renderFolded(body_text, renderMarkdown, flat)}
@@ -560,11 +617,16 @@ export function mount(el, ctx) {
       [
         'subtasks',
         t3('u3_ts_children'),
-        children.length + deps.length + others.length
+        children.length +
+          deps.filter((/** @type {any} */ d) => d !== parent).length +
+          others.length
       ]
     ];
     const hot = Number(i.priority) <= 1;
-    const facts = html`${row(t3('u3_ts_status'), statusVal(i.status, { size: 18 }))}
+    const facts = html`${row(
+      t3('u3_ts_status'),
+      statusVal(i.status, { size: 18 })
+    )}
     ${row(
       t3('u3_ts_assignee'),
       i.assignee ? personChip({ role: String(i.assignee) }) : t3('u3_ts_none')
@@ -593,6 +655,7 @@ export function mount(el, ctx) {
         )
       : nothing}
     ${i.close_reason ? row(t3('u3_ts_close_reason'), i.close_reason) : nothing}`;
+    const blockers = blockersBlock(i);
     const panel =
       tab === 'description'
         ? html`${editing
@@ -703,7 +766,7 @@ export function mount(el, ctx) {
             )}
           </nav>
           <div class="u3-ts__cols">
-            <div class="u3-ts__main">${panel}</div>
+            <div class="u3-ts__main">${blockers}${panel}</div>
             <aside class="u3-ts__side${editing ? ' is-editing' : ''}">
               <div class="u3-ts__acts">
                 ${button({

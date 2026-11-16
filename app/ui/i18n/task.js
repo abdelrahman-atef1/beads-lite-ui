@@ -21,6 +21,13 @@ export const strings = {
   u3_ts_acceptance: { en: 'Acceptance', ar: 'معايير القبول' },
   u3_ts_comments: { en: 'Comments', ar: 'التعليقات' },
   u3_ts_children: { en: 'Subtasks', ar: 'المهام الفرعية' },
+  u3_ts_blocked_by: { en: 'Blocked by', ar: 'متبلوكة بسبب' },
+  u3_ts_held_by: { en: 'held by', ar: 'عند' },
+  u3_ts_blocked_none: {
+    en: 'Marked blocked, but no blocking task is recorded',
+    ar: 'متعلّمة بلوكد، بس مفيش مهمة مسجّلة بتبلوكها'
+  },
+  u3_ts_release: { en: 'Release', ar: 'إصدار' },
   u3_ts_deps: { en: 'Depends on', ar: 'بتعتمد على' },
   u3_ts_dependents: { en: 'Related', ar: 'مرتبطة بيها' },
   u3_ts_no_comments: { en: 'No comments yet', ar: 'لسه مفيش تعليقات' },

@@ -70,7 +70,7 @@ describe('task Time section', () => {
   test('stages that never happened say unknown; tokens without a tie say unknown', () => {
     const t = text(show(fx1));
     expect(t).toContain('unknown');
-    expect(t).toContain('Not tied to this task, not zero');
+    expect(t).toContain('No token data recorded for this task yet');
   });
   test('a running bead shows "running" and counts up to now', () => {
     const run = {

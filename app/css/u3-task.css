@@ -613,3 +613,13 @@ html[dir='rtl'] .u3 .u3-ts__timebtn::after {
 .u3 .u3-ts__time:not([data-open]) u3-time-slot {
   overflow: hidden;
 }
+.u3 .u3-ts__rel-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--u3-sp-2);
+}
+.u3 .u3-ts__blockers {
+  border-inline-start: 3px solid var(--u3-red, #c0392b);
+  padding-inline-start: var(--u3-sp-3, 12px);
+}
