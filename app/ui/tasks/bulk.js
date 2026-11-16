@@ -33,7 +33,8 @@ const MOVE_TO = [
   ['in_progress', 'u3_tk_col_progress'],
   ['blocked', 'u3_tk_col_blocked'],
   ['waiting_for_test', 'u3_tk_col_test'],
-  ['waiting_for_merge', 'u3_tk_col_merge']
+  ['waiting_for_merge', 'u3_tk_col_merge'],
+  ['deferred', 'u3_tk_col_deferred']
 ];
 
 /**

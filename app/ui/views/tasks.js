@@ -7,6 +7,9 @@
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import {
+  COL_STATUS,
+  DIMS,
+  STATUS_COL,
   createFilterState,
   currentUser,
   facets,
@@ -15,7 +18,6 @@ import {
 import {
   CLOSED_COLUMN,
   COLUMNS,
-  OTHER_COLUMN,
   ageLabel,
   displayTitle
 } from '../../utils/board-model.js';
@@ -32,7 +34,9 @@ import { t3 } from '../i18n.js';
 import { icon } from '../icons.js';
 import { personChip } from '../people/person-chip.js';
 import { createBulk, renderBulkBar } from '../tasks/bulk.js';
+import { dimCounts, statusMap } from '../tasks/filter-counts.js';
 import { filterMenu } from '../tasks/filter-menu.js';
+import { filterSheet } from '../tasks/filter-sheet.js';
 import {
   GROUPS,
   groupIssues,
@@ -42,7 +46,12 @@ import {
   saveCollapsed,
   saveGroup
 } from '../tasks/lanes.js';
-import { CLOSED_PAGE, FIRST_PAINT_CARDS, buildBoard } from '../tasks/model.js';
+import {
+  CLOSED_PAGE,
+  FIRST_PAINT_CARDS,
+  buildBoard,
+  filterCtx
+} from '../tasks/model.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
 import { openNewTask } from './new-task.js';
 
@@ -71,7 +80,7 @@ const TONE = {
   merge: 'green',
   ready: 'neutral',
   blocked: 'red',
-  other: 'neutral',
+  deferred: 'neutral',
   closed: 'neutral'
 };
 
@@ -83,45 +92,28 @@ export function mount(el, ctx) {
   const stores = ctx.sub_issue_stores;
   const subs = ctx.subscriptions;
   const selectors = ctx.listSelectors;
-  const filter = createFilterState();
+  // The saved device copy seeds the filters; a URL with filter keys wins as a
+  // whole (no per-key merge), so a cleared filter never comes back.
+  const filter = createFilterState(loadSaved());
   const me = currentUser();
-  // Project filter (several allowed) and the open filter popover live here;
-  // the last chosen filters come back from this device's saved copy.
-  /** @type {string[]} */
-  let projects = [];
   /** @type {import('../tasks/filter-menu.js').Open | null} */
   let open_menu = null;
-  /** @type {'' | 'opt' | string} focus target after the next paint: 'opt' or a menu name */
+  /** @type {'' | 'opt' | 'sheet' | 'filters' | string} focus target after the next paint */
   let focus_to = '';
-  {
-    const sv = loadSaved();
-    const f0 = filter.get();
-    projects = sv.projects;
-    filter.set({
-      chip: f0.chip === 'all' ? /** @type {any} */ (sv.chip) : f0.chip,
-      type: f0.type || sv.type,
-      label: f0.label || sv.label,
-      assignee: f0.assignee || sv.assignee,
-      prio: f0.prio || sv.prio
-    });
-  }
+  /** The Filters sheet: where it opens on a wide screen, null = closed. @type {{ left: number, top: number } | null} */
+  let sheet = null;
+  /** @type {Set<string>} */
+  const sheet_open = new Set();
+  /** @type {Record<string, string>} */
+  const sheet_find = {};
   function remember() {
-    const f = filter.get();
-    save({
-      chip: f.chip,
-      type: f.type,
-      label: f.label,
-      assignee: f.assignee,
-      prio: f.prio,
-      projects
-    });
+    save(filter.get());
   }
   /** @type {Array<() => Promise<void>>} */
   const unsubs = [];
   let alive = true;
   let model = /** @type {ReturnType<typeof buildBoard>|null} */ (null);
   let loaded = false;
-  let focus = ''; // '' = every column, else a column id
   let closed_open = false;
   let closed_shown = CLOSED_PAGE;
   /** @type {'none'|'project'|'assignee'|'epic'} */
@@ -256,8 +248,7 @@ export function mount(el, ctx) {
         blocked: snap('tab:board:blocked'),
         closed: snap('tab:board:closed')
       },
-      { ...filter.get(), projects },
-      me
+      filter.get()
     );
     draw();
   }
@@ -271,9 +262,32 @@ export function mount(el, ctx) {
    * hard to scan): the picked chip, else the first column that has cards.
    */
   function effFocus() {
-    if (focus || !phone() || !model) return focus;
+    if (selCols().length || !phone() || !model) return '';
     const first = COLUMNS.find((c) => (model?.columns[c.id] || []).length);
     return first ? first.id : '';
+  }
+  /** Board columns picked in the status filter (empty = no status filter). */
+  const selCols = () =>
+    filter
+      .get()
+      .status.map((v) => STATUS_COL[v])
+      .filter(Boolean);
+  /** Columns drawn now: the picked ones, else the phone's one column, else all ([]). */
+  function visibleCols() {
+    const sel = selCols();
+    if (sel.length) return sel;
+    const fx = effFocus();
+    return fx ? [fx] : [];
+  }
+  /** Cards on the board after every filter, closed list not counted. */
+  function visibleTotal() {
+    if (!model) return 0;
+    const v = visibleCols();
+    const cols = COLUMNS.filter((c) => !v.length || v.includes(c.id)).reduce(
+      (n, c) => n + (model?.columns[c.id] || []).length,
+      0
+    );
+    return cols + model.unknown.length;
   }
 
   /**
@@ -286,8 +300,8 @@ export function mount(el, ctx) {
   const visibleIds = () => shown.slice();
   /** Phone only: the column the single-column view shows, for the label. */
   function scopeLabel() {
-    const fx = phone() && !closed_open ? effFocus() : '';
-    return fx ? t3('u3_tk_col_' + fx) : '';
+    const v = phone() && !closed_open ? visibleCols() : [];
+    return v.length === 1 ? t3('u3_tk_col_' + v[0]) : '';
   }
 
   const colLabel = (/** @type {{id:string}} */ c) => t3('u3_tk_col_' + c.id);
@@ -395,17 +409,41 @@ export function mount(el, ctx) {
 
   /**
    * @param {Record<string, any[]>} cols
-   * @param {any[]} other
+   * @param {any[]} unknown
    */
-  function board(cols, other) {
-    const fx = effFocus();
-    const list = COLUMNS.filter((c) => !fx || fx === c.id).map((c) =>
-      column(c, cols[c.id] || [])
+  function board(cols, unknown) {
+    const fx = visibleCols();
+    const list = COLUMNS.filter((c) => !fx.length || fx.includes(c.id)).map(
+      (c) => column(c, cols[c.id] || [])
     );
-    if (other.length && (!fx || fx === 'other')) {
-      list.push(column(OTHER_COLUMN, other));
-    }
-    return html`<div class="u3t-board">${list}</div>`;
+    return html`${unknownRows(unknown)}
+      <div class="u3t-board">${list}</div>`;
+  }
+
+  /**
+   * A status outside the 8 is an error, never a silent bucket: one visible row
+   * per task, naming the task and its status.
+   *
+   * @param {any[]} unknown
+   */
+  function unknownRows(unknown) {
+    if (!unknown.length) return '';
+    return html`<ul
+      class="u3t-unknown"
+      role="alert"
+      data-testid="unknown-status"
+    >
+      ${unknown.map(
+        (it) =>
+          html`<li class="u3-chip u3-chip--red">
+            <a href=${'#/issues?issue=' + encodeURIComponent(it.id)}
+              >${t3('u3_tk_unknown_status')
+                .replace('{s}', String(it.status || ''))
+                .replace('{id}', it.id)}</a
+            >
+          </li>`
+      )}
+    </ul>`;
   }
 
   function laneName(/** @type {any} */ g) {
@@ -415,7 +453,13 @@ export function mount(el, ctx) {
 
   function lanes() {
     const m = /** @type {NonNullable<typeof model>} */ (model);
-    const everything = [...Object.values(m.columns).flat(), ...m.other];
+    const sel = selCols();
+    const everything = [
+      ...COLUMNS.filter((c) => !sel.length || sel.includes(c.id)).flatMap(
+        (c) => m.columns[c.id] || []
+      ),
+      ...m.unknown
+    ];
     const ready_ids = new Set(
       snap('tab:board:ready').map((/** @type {any} */ i) => i.id)
     );
@@ -428,7 +472,7 @@ export function mount(el, ctx) {
       blocked_ids
     });
     if (group_by === 'none') {
-      return board(m.columns, m.other);
+      return board(m.columns, m.unknown);
     }
     return html`${groups.map((g) => {
       const id = group_by + ':' + g.key;
@@ -463,19 +507,34 @@ export function mount(el, ctx) {
           </button>
           <span class="u3t-lane__counts">
             ${g.owner
-              ? html`<span class="u3-chip u3-chip--amber"
-                  >${t3('u3_tk_col_owner')} ${g.owner}</span
-                >`
+              ? html`<button
+                  type="button"
+                  class="u3-chip u3-chip--amber u3t-lane__stat"
+                  data-lane-status="owner_decision"
+                  @click=${() => laneStatus('owner_decision', id, g.key)}
+                >
+                  ${t3('u3_tk_col_owner')} ${g.owner}
+                </button>`
               : ''}
             ${g.blocked
-              ? html`<span class="u3-chip u3-chip--red"
-                  >${t3('u3_tk_col_blocked')} ${g.blocked}</span
-                >`
+              ? html`<button
+                  type="button"
+                  class="u3-chip u3-chip--red u3t-lane__stat"
+                  data-lane-status="blocked"
+                  @click=${() => laneStatus('blocked', id, g.key)}
+                >
+                  ${t3('u3_tk_col_blocked')} ${g.blocked}
+                </button>`
               : ''}
             ${g.progress
-              ? html`<span class="u3-chip u3-chip--blue"
-                  >${t3('u3_tk_col_progress')} ${g.progress}</span
-                >`
+              ? html`<button
+                  type="button"
+                  class="u3-chip u3-chip--blue u3t-lane__stat"
+                  data-lane-status="in_progress"
+                  @click=${() => laneStatus('in_progress', id, g.key)}
+                >
+                  ${t3('u3_tk_col_progress')} ${g.progress}
+                </button>`
               : ''}
           </span>
           ${bulk.isMode()
@@ -490,9 +549,30 @@ export function mount(el, ctx) {
               </button>`
             : ''}
         </h2>
-        ${shut ? '' : board(s.columns, s.other)}
+        ${shut ? '' : board(s.columns, s.unknown)}
       </section>`;
     })}`;
+  }
+
+  /**
+   * A count chip on a lane header: open that lane, filtered to that status
+   * (beads-lite-1bo5.13.18).
+   *
+   * @param {string} status
+   * @param {string} lane_id
+   * @param {string} key
+   */
+  function laneStatus(status, lane_id, key) {
+    collapsed.delete(lane_id);
+    saveCollapsed(collapsed);
+    filter.set({ status: [status] });
+    setTimeout(() => {
+      /** @type {HTMLElement | null} */ (
+        [...el.querySelectorAll('.u3t-lane')].find(
+          (n) => n.getAttribute('data-lane') === key
+        ) || null
+      )?.scrollIntoView?.({ block: 'start' });
+    }, 0);
   }
 
   function groupBar() {
@@ -579,95 +659,223 @@ export function mount(el, ctx) {
     </section>`;
   }
 
+  /** Add or remove one value of one dimension. */
+  function toggleValue(/** @type {string} */ dim, /** @type {string} */ v) {
+    const cur = /** @type {string[]} */ (
+      /** @type {any} */ (filter.get())[dim]
+    );
+    filter.set({
+      [dim]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]
+    });
+  }
+  const clearDim = (/** @type {string} */ dim) => filter.set({ [dim]: [] });
+  function clearAll() {
+    open_menu = null;
+    filter.set({
+      ...Object.fromEntries(DIMS.map((d) => [d, []])),
+      search: ''
+    });
+  }
+
+  /** Open issues of the loaded slice (the facets and the counts read these). */
+  const openItems = () =>
+    (model ? model.facetItems : []).filter((i) => i.status !== 'closed');
+
+  /** Every sheet section: its options with labels, icons and counts. */
+  function sheetSections() {
+    const all = model ? model.facetItems : [];
+    const items = openItems();
+    const f = filter.get();
+    const ready_ids = new Set(
+      snap('tab:board:ready').map((/** @type {any} */ i) => i.id)
+    );
+    const blocked_ids = new Set(
+      snap('tab:board:blocked').map((/** @type {any} */ i) => i.id)
+    );
+    const st = statusMap(items, ready_ids, blocked_ids);
+    const ctx = {
+      ...filterCtx(all),
+      status: (/** @type {any} */ it) => st.get(it.id) || ''
+    };
+    const by_id = new Map(all.map((/** @type {any} */ i) => [i.id, i]));
+    const names = new Map(
+      facets(items).assignees.map((a) => [a.toLowerCase(), a])
+    );
+    /** @type {Record<string, string>} */
+    const status_icon = {
+      owner: 's_decide',
+      progress: 's_prog',
+      test: 's_test',
+      merge: 's_merge',
+      ready: 's_open',
+      blocked: 's_block',
+      deferred: 's_defer'
+    };
+    /** @type {Record<string, (v: string) => { label: string, icon?: string, project?: string }>} */
+    const look = {
+      status: (v) => ({
+        label: t3('u3_tk_col_' + STATUS_COL[v]),
+        icon: status_icon[STATUS_COL[v]]
+      }),
+      assignee: (v) =>
+        v === '-'
+          ? { label: t3('u3_tk_unassigned'), icon: 'nobody' }
+          : { label: personLabel(names.get(v) || v).full, icon: 'mine' },
+      prio: (v) => ({
+        label: priorityName(Number(v)),
+        icon: priorityIconName(Number(v))
+      }),
+      type: (v) => ({ label: v, icon: typeIconName(v) }),
+      label: (v) => ({ label: v, icon: 'label' }),
+      epic: (v) =>
+        v === '-'
+          ? { label: t3('u3_tk_lane_noepic'), icon: 'epic' }
+          : { label: String(by_id.get(v)?.title || v), icon: 'epic' },
+      project: (v) => ({ label: v, icon: 'project', project: v })
+    };
+    return DIMS.map((dim) => ({
+      dim,
+      title: t3('u3_tk_' + dim),
+      options: dimCounts(items, f, dim, ctx).map((o) => ({
+        ...look[dim](o.value),
+        value: o.value,
+        count: o.count
+      }))
+    }));
+  }
+
+  /** Display text of one value, for the removable chips. */
+  function valueLabel(/** @type {string} */ dim, /** @type {string} */ v) {
+    if (dim === 'status') return t3('u3_tk_col_' + STATUS_COL[v]);
+    if (dim === 'assignee') {
+      return v === '-' ? t3('u3_tk_unassigned') : personLabel(v).name;
+    }
+    if (dim === 'prio') return priorityName(Number(v));
+    if (dim === 'epic') {
+      if (v === '-') return t3('u3_tk_lane_noepic');
+      const e = (model ? model.facetItems : []).find(
+        (/** @type {any} */ i) => i.id === v
+      );
+      return String(e?.title || v);
+    }
+    return v;
+  }
+
+  function openSheet(
+    /** @type {string} */ dim,
+    /** @type {HTMLElement} */ btn
+  ) {
+    const r = btn.getBoundingClientRect();
+    sheet = { left: Math.round(r.left), top: Math.round(r.bottom) };
+    open_menu = null;
+    if (dim) sheet_open.add(dim);
+    focus_to = 'sheet';
+    draw();
+  }
+  function closeSheet() {
+    if (!sheet) return;
+    sheet = null;
+    focus_to = 'filters';
+    draw();
+  }
+
+  /** One removable chip per active dimension: body opens it, the x clears it. */
+  function activeChips() {
+    const f = filter.get();
+    const chips = DIMS.filter((d) => /** @type {any} */ (f)[d].length).map(
+      (d) => {
+        const vals = /** @type {string[]} */ (/** @type {any} */ (f)[d]);
+        const text =
+          t3('u3_tk_' + d) +
+          ': ' +
+          valueLabel(d, vals[0]) +
+          (vals.length > 1 ? ` +${vals.length - 1}` : '');
+        return html`<span class="u3t-ac" data-dim=${d}>
+          <button
+            type="button"
+            class="u3t-ac__b"
+            @click=${(/** @type {Event} */ e) =>
+              openSheet(d, /** @type {HTMLElement} */ (e.currentTarget))}
+          >
+            ${text}
+          </button>
+          <button
+            type="button"
+            class="u3t-ac__x"
+            data-remove=${d}
+            aria-label=${t3('u3_tk_remove') + ': ' + t3('u3_tk_' + d)}
+            @click=${() => clearDim(d)}
+          >
+            ${icon('a_close', { size: 14 })}
+          </button>
+        </span>`;
+      }
+    );
+    if (!chips.length) return '';
+    return html`<div
+      class="u3t-active"
+      role="toolbar"
+      aria-label=${t3('u3_tk_filters')}
+    >
+      ${chips}
+      <button
+        type="button"
+        class="u3t-fchip u3t-fchip--clear"
+        data-testid="chips-clear-all"
+        @click=${clearAll}
+      >
+        ${t3('u3_tk_clear_all')}
+      </button>
+    </div>`;
+  }
+
   function toolbar() {
     const f = filter.get();
-    const fc = facets(model ? model.facetItems : []);
+    const mine = me.toLowerCase();
+    const urgent = f.prio.includes('0') && f.prio.includes('1');
+    const n_active = DIMS.filter(
+      (d) => /** @type {any} */ (f)[d].length
+    ).length;
     /**
      * @param {string} key
-     * @param {string} v
+     * @param {boolean} on
+     * @param {() => void} fn
+     * @param {string} ic
      */
-    const quick = (key, v, ic = v) =>
+    const quick = (key, on, fn, ic) =>
       html`<button
         type="button"
         class="u3t-fchip"
-        aria-pressed=${f.chip === v ? 'true' : 'false'}
-        @click=${() =>
-          filter.set({ chip: f.chip === v ? 'all' : /** @type {any} */ (v) })}
+        data-quick=${key}
+        aria-pressed=${on ? 'true' : 'false'}
+        @click=${fn}
       >
         ${icon(ic, { size: 16 })}${t3(key)}
       </button>`;
-    /**
-     * @param {'type'|'label'|'assignee'|'prio'|'project'} name
-     * @param {import('../tasks/filter-menu.js').Opt[]} options
-     */
-    const menu = (name, options) =>
-      filterMenu({
-        name,
-        icon: name,
-        title: t3('u3_tk_' + name),
-        any: name === 'project' ? t3('u3_tk_all') : t3('u3_tk_any'),
-        options,
-        selected: name === 'project' ? projects : f[name] ? [f[name]] : [],
-        multi: name === 'project',
-        open: open_menu,
-        setOpen: (o) => {
-          open_menu = o;
-          focus_to = o ? 'opt' : name;
-          draw();
-        },
-        pick: (v) => {
-          if (name === 'project') {
-            projects = !v
-              ? []
-              : projects.includes(v)
-                ? projects.filter((x) => x !== v)
-                : [...projects, v];
-            remember();
-            refresh();
-            return;
-          }
-          open_menu = null;
-          focus_to = name;
-          filter.set({ [name]: f[name] === v ? '' : v });
-        }
-      });
-    const pris = ['0', '1', '2', '3', '4'];
-    const menus = html`${menu(
-      'type',
-      fc.types.map((v) => ({ value: v, label: v, icon: typeIconName(v) }))
-    )}
-    ${menu(
-      'label',
-      fc.labels.map((v) => ({ value: v, label: v, icon: 'label' }))
-    )}
-    ${menu('assignee', [
-      { value: '-', label: t3('u3_tk_unassigned'), icon: 'nobody' },
-      ...fc.assignees.map((v) => ({
-        value: v,
-        label: personLabel(v).full,
-        icon: 'mine'
-      }))
-    ])}
-    ${menu(
-      'prio',
-      pris.map((v) => ({
-        value: v,
-        label: priorityName(Number(v)),
-        icon: priorityIconName(Number(v))
-      }))
-    )}
-    ${menu(
-      'project',
-      [
+    const projectMenu = filterMenu({
+      name: 'project',
+      icon: 'project',
+      title: t3('u3_tk_project'),
+      any: t3('u3_tk_all'),
+      options: [
         ...new Set([
           ...registered().map((/** @type {{key:string}} */ w) => w.key),
           ...(model ? model.facetItems : []).map((i) => projectOf(i.id)),
-          ...projects
+          ...f.project
         ])
       ]
         .sort()
-        .map((v) => ({ value: v, label: v, icon: 'project', project: v }))
-    )}`;
+        .map((v) => ({ value: v, label: v, icon: 'project', project: v })),
+      selected: f.project,
+      multi: true,
+      open: open_menu,
+      setOpen: (o) => {
+        open_menu = o;
+        focus_to = o ? 'opt' : 'project';
+        draw();
+      },
+      pick: (v) => (v ? toggleValue('project', v) : clearDim('project'))
+    });
     return html`<div class="u3t-bar">
         ${groupBar()}
         <button
@@ -692,35 +900,46 @@ export function mount(el, ctx) {
             q_timer = setTimeout(() => filter.set({ search: v }), 120);
           }}
         />
-        <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
-          ${bulk.enterButton()} ${quick('u3_tk_mine', 'mine')}
-          ${quick('u3_tk_p01', 'p01', 'urgent')}
-          ${quick('u3_tk_decision', 'decision')}
-          ${quick('u3_tk_blocked', 'blocked')} ${menus}
-          ${isFiltering(f) || projects.length
-            ? html`<button
-                type="button"
-                class="u3t-fchip u3t-fchip--clear"
-                @click=${() => {
-                  projects = [];
-                  open_menu = null;
-                  filter.set({
-                    chip: 'all',
-                    type: '',
-                    label: '',
-                    assignee: '',
-                    prio: '',
-                    search: ''
-                  });
-                  remember();
-                  refresh();
-                }}
-              >
-                ${t3('u3_tk_clear')}
-              </button>`
+        <button
+          type="button"
+          class="u3t-fbtn"
+          data-testid="filters-btn"
+          aria-haspopup="dialog"
+          aria-expanded=${sheet ? 'true' : 'false'}
+          data-on=${n_active ? '1' : '0'}
+          @click=${(/** @type {Event} */ e) =>
+            sheet
+              ? closeSheet()
+              : openSheet('', /** @type {HTMLElement} */ (e.currentTarget))}
+        >
+          ${icon('f_filter', { size: 16 })}<span>${t3(
+            'u3_tk_filters'
+          )}</span>${n_active
+            ? html`<b class="u3t-fbtn__n">${n_active}</b>`
             : ''}
+        </button>
+        <div class="u3t-filters" role="group" aria-label=${t3('u3_tk_filters')}>
+          ${quick(
+            'u3_tk_mine',
+            f.assignee.includes(mine),
+            () => toggleValue('assignee', mine),
+            'mine'
+          )}
+          ${quick(
+            'u3_tk_p01',
+            urgent,
+            () =>
+              filter.set({
+                prio: urgent
+                  ? f.prio.filter((p) => p !== '0' && p !== '1')
+                  : [...new Set([...f.prio, '0', '1'])]
+              }),
+            'urgent'
+          )}
+          ${projectMenu} ${bulk.enterButton()}
         </div>
       </div>
+      ${activeChips()}
       ${skipped.length
         ? html`<p class="u3t-note u3-muted" role="status">
             ${t3('u3_tk_skipped')} ${skipped.join(', ')}
@@ -729,34 +948,57 @@ export function mount(el, ctx) {
       <div class="u3t-stat" role="group" aria-label=${t3('u3_tasks')}>
         ${COLUMNS.map((c) => {
           const n = model ? (model.columns[c.id] || []).length : 0;
+          const on = f.status.includes(COL_STATUS[c.id]);
           return html`<button
             type="button"
             class="u3t-stat__chip u3t-stat__chip--${c.id}"
-            aria-pressed=${effFocus() === c.id ? 'true' : 'false'}
-            @click=${() => {
-              focus = focus === c.id ? '' : c.id;
-              draw();
-            }}
+            aria-pressed=${on ? 'true' : 'false'}
+            data-shown=${!on && effFocus() === c.id ? '1' : '0'}
+            @click=${() => toggleValue('status', COL_STATUS[c.id])}
           >
             <span class="u3t-stat__n">${loaded ? n : ''}</span>
             <span class="u3t-stat__l">${colLabel(c)}</span>
           </button>`;
         })}
-        ${phone() && model && model.other.length
-          ? html`<button
-              type="button"
-              class="u3t-stat__chip u3t-stat__chip--other"
-              aria-pressed=${effFocus() === 'other' ? 'true' : 'false'}
-              @click=${() => {
-                focus = focus === 'other' ? '' : 'other';
-                draw();
-              }}
-            >
-              <span class="u3t-stat__n">${model.other.length}</span>
-              <span class="u3t-stat__l">${colLabel(OTHER_COLUMN)}</span>
-            </button>`
-          : ''}
-      </div>`;
+      </div>
+      ${sheet
+        ? filterSheet({
+            sections: sheetSections(),
+            selected: /** @type {any} */ (f),
+            expanded: sheet_open,
+            find: sheet_find,
+            anchor: sheet,
+            toggle: toggleValue,
+            clearDim,
+            clearAll,
+            toggleSection: (d) => {
+              if (sheet_open.has(d)) sheet_open.delete(d);
+              else sheet_open.add(d);
+              draw();
+            },
+            setFind: (d, q) => {
+              sheet_find[d] = q;
+              draw();
+            },
+            close: closeSheet
+          })
+        : ''}`;
+  }
+
+  /** No card matches: say so, show what is on, one tap to clear. */
+  function emptyState() {
+    return html`<div class="u3t-nomatch" role="status" data-testid="no-match">
+      <h2 class="u3t-nomatch__h">${t3('u3_tk_no_match')}</h2>
+      ${activeChips()}
+      <button
+        type="button"
+        class="u3-btn u3-btn--primary"
+        data-testid="no-match-clear"
+        @click=${clearAll}
+      >
+        ${t3('u3_tk_no_match_btn')}
+      </button>
+    </div>`;
   }
 
   function paint() {
@@ -765,7 +1007,9 @@ export function mount(el, ctx) {
       html`<section class="u3t" data-view="tasks" data-group=${group_by}>
         ${toolbar()}
         ${loaded && model
-          ? html`${lanes()}${closedBlock()}`
+          ? html`${visibleTotal() === 0 && isFiltering(filter.get())
+              ? emptyState()
+              : lanes()}${closedBlock()}`
           : html`<div
               class="u3t-skel"
               aria-label=${t3('u3_tk_loading')}
@@ -790,14 +1034,25 @@ export function mount(el, ctx) {
       );
       pop.style.left = left + 'px';
     }
+    const sh = /** @type {HTMLElement | null} */ (el.querySelector('.u3t-sh'));
+    if (sh && sheet && !phone()) {
+      const w = sh.getBoundingClientRect().width;
+      sh.style.left =
+        Math.max(8, Math.min(sheet.left, window.innerWidth - w - 8)) + 'px';
+    }
     if (!focus_to) return;
     const t = focus_to;
     focus_to = '';
     const target =
-      t === 'opt'
-        ? el.querySelector('.u3t-opt[aria-selected="true"]:not([data-v=""])') ||
-          el.querySelector('.u3t-opt')
-        : el.querySelector(`.u3t-menu[data-name="${t}"]`);
+      t === 'sheet'
+        ? el.querySelector('.u3t-sh__hb')
+        : t === 'filters'
+          ? el.querySelector('[data-testid="filters-btn"]')
+          : t === 'opt'
+            ? el.querySelector(
+                '.u3t-opt[aria-selected="true"]:not([data-v=""])'
+              ) || el.querySelector('.u3t-opt')
+            : el.querySelector(`.u3t-menu[data-name="${t}"]`);
     /** @type {HTMLElement | null} */ (target)?.focus();
   }
 
@@ -809,7 +1064,7 @@ export function mount(el, ctx) {
     }
     const total = model
       ? Object.values(model.columns).reduce((n, c) => n + c.length, 0) +
-        model.other.length
+        model.unknown.length
       : 0;
     const trim = !first_paint_done;
     budget = trim ? FIRST_PAINT_CARDS : Infinity;
@@ -835,6 +1090,35 @@ export function mount(el, ctx) {
   });
   // a tap outside or Escape closes the open filter popover
   const onDoc = (/** @type {Event} */ ev) => {
+    if (sheet && ev.type === 'keydown') {
+      const k = /** @type {KeyboardEvent} */ (ev);
+      if (k.key === 'Escape') {
+        closeSheet();
+        return;
+      }
+      if (k.key === 'Tab') {
+        // focus trap: Tab cycles inside the dialog
+        const box = el.querySelector('.u3t-sh');
+        const list = /** @type {HTMLElement[]} */ ([
+          ...(box ? box.querySelectorAll('button, input') : [])
+        ]);
+        if (list.length) {
+          const at = list.indexOf(
+            /** @type {HTMLElement} */ (document.activeElement)
+          );
+          const next = k.shiftKey
+            ? at <= 0
+              ? list.length - 1
+              : at - 1
+            : at < 0 || at === list.length - 1
+              ? 0
+              : at + 1;
+          k.preventDefault();
+          list[next].focus();
+        }
+        return;
+      }
+    }
     if (!open_menu) return;
     if (
       ev.type === 'keydown'

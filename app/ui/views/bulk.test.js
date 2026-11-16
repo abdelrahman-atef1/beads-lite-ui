@@ -262,7 +262,7 @@ describe('select all takes exactly what is shown', () => {
     ];
     const { h } = setup(all);
     await tick(10);
-    const other = /** @type {HTMLElement} */ (q('.u3t-stat__chip--other'));
+    const other = /** @type {HTMLElement} */ (q('.u3t-stat__chip--deferred'));
     expect(other).not.toBeNull();
     tid('bulk-enter').click();
     await tick(10);

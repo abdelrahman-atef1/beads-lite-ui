@@ -16,7 +16,12 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const root = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..'
+);
 const proj = path.resolve(process.argv[2] || '');
 const out = path.resolve(process.argv[3] || '');
 const need = [

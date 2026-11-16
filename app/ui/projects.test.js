@@ -141,7 +141,7 @@ describe('projects screen All row', () => {
     expect(window.location.hash).toBe('#/issues');
     expect(
       JSON.parse(window.localStorage.getItem('u3.tasks.filters') || '{}')
-        .projects
+        .project
     ).toEqual([]);
   });
 });

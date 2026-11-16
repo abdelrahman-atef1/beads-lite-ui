@@ -78,7 +78,7 @@ export function projectOf(id) {
  * @param {Map<string, any>} by_id
  * @returns {any|null}
  */
-function epicOf(it, by_id) {
+export function epicOf(it, by_id) {
   let cur = it;
   for (let d = 0; cur && d < 8; d++) {
     if (cur.issue_type === 'epic') return cur;

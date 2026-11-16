@@ -89,7 +89,19 @@ export function mount(el, ctx) {
 
   /** All: open Tasks with no project filter (remembered like the other filters). */
   function showAll() {
-    save({ ...loadSaved(), projects: [] });
+    save({ ...loadSaved(), project: [] });
+    try {
+      const q = new URLSearchParams(window.location.search);
+      q.delete('project'); // a project in the URL would win over the saved copy
+      const qs = q.toString();
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname + (qs ? '?' + qs : '') + window.location.hash
+      );
+    } catch {
+      // no window (tests)
+    }
     window.location.hash = '#/issues';
   }
 
