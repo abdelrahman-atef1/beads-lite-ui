@@ -55,6 +55,26 @@ function wakeBin() {
   );
 }
 
+/**
+ * Projects whose own store nobody reads: a report picked for them is filed in
+ * the store that holds the board's real beads, under an inbox epic, and
+ * assigned to cos (beads-lite-1bo5.6.59.34). Override with BDUI_REPORT_ROUTES
+ * (JSON, same shape) for tests.
+ *
+ * @returns {Record<string, { store: string, parent: string }>}
+ */
+export function reportRoutes() {
+  try {
+    if (process.env.BDUI_REPORT_ROUTES)
+      return JSON.parse(process.env.BDUI_REPORT_ROUTES);
+  } catch {
+    // fall through to the default
+  }
+  return {
+    'beads-lite-ui': { store: 'beads-lite', parent: 'beads-lite-1bo5.13' }
+  };
+}
+
 /** @param {string} p */
 export function projectKey(p) {
   return path.basename(p.replace(/[\\/]+$/, '')).toLowerCase();
@@ -444,8 +464,16 @@ async function fileReport(req, res, host) {
   if (!msg || Array.from(msg).length > MAX_TEXT || /\u0000/.test(msg))
     return fail(res, 400, 'bad_text');
   if (hasSecret(msg) || hasSecret(ver)) return fail(res, 400, 'secret_refused');
-  const root = projects().get(project);
-  if (!root) return fail(res, 400, 'unknown_project');
+  const known = projects();
+  if (!known.get(project)) return fail(res, 400, 'unknown_project');
+  const route = Object.prototype.hasOwnProperty.call(reportRoutes(), project)
+    ? reportRoutes()[project]
+    : null;
+  const target = route ? route.store : project;
+  const root = known.get(target);
+  // A redirected report with no store to land in is refused, never dropped
+  // back into the old store.
+  if (!root) return fail(res, 500, 'not_filed');
 
   const imgBytes = body.subarray(4 + metaLen);
   if (imgBytes.length > MAX_IMAGE) return fail(res, 413, 'too_large');
@@ -488,6 +516,7 @@ async function fileReport(req, res, host) {
   const title = `[v${ver}] ${firstLine}`;
   const desc =
     `${msg}\n\nVersion: ${ver}` +
+    (route ? `\nReported on: ${project}` : '') +
     (rel ? `\nScreenshot: [${rel}](/att/${rel})` : '');
   const metadata = {
     created_via: 'board-report',
@@ -506,6 +535,7 @@ async function fileReport(req, res, host) {
       desc,
       '--metadata',
       JSON.stringify(metadata),
+      ...(route ? ['--parent', route.parent, '--assignee', 'cos'] : []),
       '--actor',
       'owner-board',
       '--silent'
@@ -526,7 +556,7 @@ async function fileReport(req, res, host) {
   res.locals.filed = true;
   const wake = await emitWake({
     kind: 'report',
-    repo: project,
+    repo: target,
     bead: id,
     via: viaFromHost(host)
   });
