@@ -118,6 +118,31 @@ describe('decision card flow', () => {
     });
   });
 
+  test('offline Confirm: after 3 s says it is waiting, keeps the pick', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let release;
+      const { el } = mount(AR, () => new Promise((r) => (release = r)));
+      await vi.advanceTimersByTimeAsync(30);
+      el.querySelector('[data-opt="1"]').click();
+      await vi.advanceTimersByTimeAsync(30);
+      el.querySelector('[data-act="confirm"]').click();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(el.querySelector('.u3-cd__err')).toBeNull();
+      await vi.advanceTimersByTimeAsync(2500);
+      const msg = el.querySelector('.u3-cd__err');
+      expect(msg?.textContent).toMatch(
+        /في انتظار الاتصال|Waiting for the connection/
+      );
+      expect(el.querySelector('[data-act="confirm"]')).not.toBeNull();
+      release({ code: 'ok', wake: 'queued' });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(el.querySelector('.u3-cd__err')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test('back leaves the pick without writing', async () => {
     const { el, send } = mount(AR);
     await tick();

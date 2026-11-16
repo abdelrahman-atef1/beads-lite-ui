@@ -16,8 +16,8 @@ export const NAV = [
   { name: 'desk', hash: '#/decisions' },
   { name: 'tasks', hash: '#/issues' },
   { name: 'releases', hash: '#/releases' },
-  { name: 'projects', hash: '#/projects' },
-  { name: 'settings', hash: '#/settings' }
+  { name: 'projects', hash: '#/projects' }
+  // Settings has no content yet: no nav entry (route kept), 1bo5.6.59.33
 ];
 
 /**

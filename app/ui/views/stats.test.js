@@ -66,9 +66,9 @@ describe('stats home', () => {
       'machine'
     ])
       expect(el.querySelector(`[data-block="${k}"]`), k).not.toBeNull();
-    expect(el.querySelector('[data-block="stuck"]')?.textContent).toContain(
-      'Chief Technology Officer - '
-    );
+    // same order as the task page: name first, then the title
+    const who = el.querySelector('[data-block="stuck"] .u3-sh__muted');
+    expect(who?.textContent).toMatch(/ - Chief Technology Officer$/);
     expect(el.querySelector('[data-block="quality"]')?.textContent).toMatch(
       /عدد قليل|too few/
     );
