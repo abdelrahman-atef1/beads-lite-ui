@@ -315,3 +315,31 @@
     display: none;
   }
 }
+
+/* server changes: quiet, collapsed, no buttons (beads-lite-1bo5.13.26) */
+.rl3-quiet {
+  margin-top: var(--u3-sp-4);
+  color: var(--u3-muted, inherit);
+  font-size: var(--u3-fs-s);
+}
+.rl3-quiet summary {
+  cursor: pointer;
+}
+.rl3-quiet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rl3-quiet-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--u3-sp-3);
+  width: 100%;
+  padding: var(--u3-sp-2) 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}

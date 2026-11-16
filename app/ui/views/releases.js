@@ -262,25 +262,54 @@ export function mount(el, ctx) {
     </li>`;
   }
 
+  /** @param {any} r */
+  function quietRow(r) {
+    return html`<li>
+      <button
+        type="button"
+        class="rl3-quiet-row"
+        data-release=${r.id}
+        aria-pressed=${selected === r.id ? 'true' : 'false'}
+        @click=${() => void openDetail(r)}
+      >
+        <span dir="auto">${r.label}</span>
+        <span class="u3-muted">${dayLabel(r.at)}</span>
+      </button>
+    </li>`;
+  }
+
   function list() {
-    return html`<ol class="rl3-list">
-        ${releases.map(card)}
-      </ol>
-      ${has_more && pages < MAX_PAGE
-        ? html`<div class="rl3-more">
-            ${button({
-              label: tr('rl_older'),
-              variant: 'ghost',
-              block: true,
-              onClick: () => {
-                pages += 1;
-                void fetchList();
-              }
-            })}
-          </div>`
-        : has_more
-          ? html`<p class="rl3-note" role="status">${tr('u3_rl_cap')}</p>`
-          : nothing}`;
+    const apps = releases.filter((r) => !r.server);
+    const servers = releases.filter((r) => r.server);
+    return html`${apps.length
+      ? html`<ol class="rl3-list">
+          ${apps.map(card)}
+        </ol>`
+      : nothing}
+    ${servers.length
+      ? html`<details class="rl3-quiet" data-section="server">
+          <summary>${tr('rl_server_title')} (${servers.length})</summary>
+          <p class="u3-muted">${tr('rl_server_note')}</p>
+          <ul class="rl3-quiet-list">
+            ${servers.map(quietRow)}
+          </ul>
+        </details>`
+      : nothing}
+    ${has_more && pages < MAX_PAGE
+      ? html`<div class="rl3-more">
+          ${button({
+            label: tr('rl_older'),
+            variant: 'ghost',
+            block: true,
+            onClick: () => {
+              pages += 1;
+              void fetchList();
+            }
+          })}
+        </div>`
+      : has_more
+        ? html`<p class="rl3-note" role="status">${tr('u3_rl_cap')}</p>`
+        : nothing}`;
   }
 
   /**
@@ -410,7 +439,7 @@ export function mount(el, ctx) {
   function detailPanel() {
     const r = releases.find((x) => x.id === selected);
     if (!r || !detail) return nothing;
-    const href = safeHref(r.href);
+    const href = r.server ? '' : safeHref(r.href);
     const close = () => {
       closeDetail();
       draw();
@@ -445,7 +474,7 @@ export function mount(el, ctx) {
         <dt>${tr('rl_by_on')}</dt>
         <dd>${r.by} · <span class="u3-mono">${r.bead}</span></dd>
       </dl>
-      ${where(r, href || '')}
+      ${r.server ? nothing : where(r, href || '')}
       ${detail.state === 'error'
         ? html`<p class="rl3-note" role="alert">${tr('rl_detail_error')}</p>`
         : detail.state === 'loading'
