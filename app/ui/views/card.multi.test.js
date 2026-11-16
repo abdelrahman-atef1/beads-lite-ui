@@ -112,10 +112,12 @@ describe('multi-question card', () => {
   test('typed question needs text', async () => {
     const { el, send } = mount(() => state(2));
     await tick();
+    expect(el.querySelector('[data-q="3"] [data-act="send"]').disabled).toBe(
+      true
+    );
     el.querySelector('[data-q="3"] [data-act="send"]').click();
     await tick();
     expect(send.mock.calls.some((c) => c[0] === 'card-answer')).toBe(false);
-    expect(el.querySelector('[data-qerr]')).not.toBeNull();
     el.querySelector('[data-q="3"] [data-type]').value = 'صفحة';
     el.querySelector('[data-q="3"] [data-type]').dispatchEvent(
       new Event('input')
@@ -128,6 +130,17 @@ describe('multi-question card', () => {
       q: 3,
       text: 'صفحة'
     });
+  });
+
+  test('picking an option scrolls Confirm into view', async () => {
+    const { el } = mount(() => state(0));
+    await tick();
+    const spy = vi.fn();
+    Element.prototype.scrollIntoView = spy;
+    el.querySelector('[data-q="1"] [data-opt="1"]').click();
+    await tick();
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.contexts.at(-1).dataset.act).toBe('confirm');
   });
 
   test('send error keeps the pick and offers Try again', async () => {

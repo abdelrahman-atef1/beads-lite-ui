@@ -230,14 +230,16 @@ function controls(o, q, st) {
         placeholder=${tc('u3_card_type_ph', lang)}
         .value=${st.typed}
         @input=${(/** @type {Event} */ ev) => {
+          const was = !st.typed.trim();
           st.typed = /** @type {HTMLTextAreaElement} */ (ev.target).value;
+          if (was !== !st.typed.trim()) o.paint(el, p);
         }}
       ></textarea>
       <button
         type="button"
         class="u3-btn u3-btn--primary u3-btn--block"
         data-act="send"
-        ?disabled=${p.busy}
+        ?disabled=${p.busy || !st.typed.trim()}
         @click=${() => {
           const text = st.typed.trim();
           if (!text) {
@@ -271,6 +273,13 @@ function controls(o, q, st) {
             st.error = '';
             st.stale = false;
             o.paint(el, p);
+            // phone: Confirm sits below the fold, bring it into view
+            const go = el.querySelector(
+              `[data-q="${q.n}"] [data-act="confirm"]`
+            );
+            if (go && typeof go.scrollIntoView === 'function') {
+              go.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
           }}
         >
           ${st.pick === i ? CHECK : nothing}
