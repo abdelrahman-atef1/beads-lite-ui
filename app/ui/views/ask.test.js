@@ -270,6 +270,23 @@ describe('ask head and sheet', () => {
     expect(q('[data-act=file-report]')).toBeNull();
   });
 
+  test('stats with no numbers yet: plain no-numbers message, not "task not found"', async () => {
+    const { q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : reply({ ok: false, error: 'no_stats' }, 404)
+    );
+    host.dataset.scope = 'stats';
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'what is slow?');
+    await tick();
+    await tick();
+    const t = q('.u3-ask__banner').textContent;
+    expect(t).toMatch(/no numbers for this period/);
+    expect(t).not.toMatch(/task/i);
+  });
+
   test('every server error code has its own text', async () => {
     const codes = [
       'timeout',

@@ -104,6 +104,10 @@ export const strings = {
     en: 'Not allowed. Reload the page and try again.',
     ar: 'مش مسموح. أعد تحميل الصفحة وحاول تاني.'
   },
+  u3_ask_e_nostats: {
+    en: 'There are no numbers for this period yet, so there is nothing to ask about.',
+    ar: 'مفيش أرقام للفترة دي لسه، فمفيش حاجة تتسأل عنها.'
+  },
   u3_ask_e_notfound: {
     en: 'This task was not found.',
     ar: 'المهمة دي مش موجودة.'

@@ -839,6 +839,7 @@ describe('stats scope (beads-lite-1bo5.6.59.37.2)', () => {
     fs.rmSync(path.join(flowHome, 'rollup.json'));
     const r = await post('pc', stats);
     expect(r.status).toBe(404);
+    expect(r.json.error).toBe('no_stats');
     expect(spawnCalls.length).toBe(0);
   });
   test('shares the rate cap with task questions; history works', async () => {

@@ -713,7 +713,7 @@ async function handleAsk(req, res) {
     const task = stats
       ? await buildStatsText(/** @type {number} */ (nDays), door)
       : await buildTaskText(root ?? '', /** @type {string} */ (id));
-    if (task === null) return fail(res, 404, 'not_found');
+    if (task === null) return fail(res, 404, stats ? 'no_stats' : 'not_found');
     if (signal.aborted) return;
 
     // B12: server-random run id, own empty folder under the fixed cache.

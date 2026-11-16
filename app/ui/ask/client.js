@@ -19,6 +19,7 @@ export function errorKey(code) {
     claude_failed: 'u3_ask_e_failed',
     forbidden: 'u3_ask_e_forbidden',
     not_found: 'u3_ask_e_notfound',
+    no_stats: 'u3_ask_e_nostats',
     bad_request: 'u3_ask_e_bad',
     too_large: 'u3_ask_e_bad',
     bad_type: 'u3_ask_e_forbidden',
