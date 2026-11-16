@@ -409,7 +409,7 @@ function answerArea(el, p, d, lang) {
         dir="auto"
         rows="3"
         maxlength=${TYPED_MAX}
-        placeholder=${tc('u3_card_note_ph', lang)}
+        placeholder=${tc(need ? 'u3_card_note_req_ph' : 'u3_card_note_ph', lang)}
         .value=${p.typed}
         @input=${(/** @type {Event} */ ev) => {
           p.typed = /** @type {HTMLTextAreaElement} */ (ev.target).value;

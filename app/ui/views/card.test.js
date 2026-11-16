@@ -392,6 +392,7 @@ describe('pick shows the note box at once (beads-lite-1bo5.13.5)', () => {
     el.querySelector('[data-opt="2"]').click();
     await tick();
     expect(el.querySelector('[data-note]')).not.toBeNull();
+    expect(el.querySelector('[data-note]').placeholder).toMatch(/required/);
     el.querySelector('[data-act="confirm"]').click();
     await tick();
     expect(send.mock.calls.some((c) => c[0] === 'card-answer')).toBe(false);
@@ -413,6 +414,7 @@ describe('pick shows the note box at once (beads-lite-1bo5.13.5)', () => {
     await tick();
     el.querySelector('[data-opt="1"]').click();
     await tick();
+    expect(el.querySelector('[data-note]').placeholder).toMatch(/optional/);
     el.querySelector('[data-act="confirm"]').click();
     await tick();
     const call = send.mock.calls.find((c) => c[0] === 'card-answer');
