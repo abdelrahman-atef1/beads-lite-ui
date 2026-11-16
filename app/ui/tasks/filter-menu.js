@@ -5,10 +5,11 @@
  * lives in the caller so a redraw keeps the popover open.
  */
 import { html } from 'lit-html';
-import { chipIcon } from './chip-icons.js';
+import { projectIcon } from '../data/project-icons.js';
+import { icon } from '../icons.js';
 
 /**
- * @typedef {{ value: string, label: string, icon: string, tone?: string }} Opt
+ * @typedef {{ value: string, label: string, icon: string, tone?: string, project?: string }} Opt
  * @typedef {{ name: string, left: number, top: number }} Open
  */
 
@@ -80,8 +81,10 @@ export function filterMenu(p) {
       aria-selected=${sel ? 'true' : 'false'}
       @click=${() => p.pick(o.value)}
     >
-      ${chipIcon(o.icon, o.tone || '')}<span class="u3t-opt__t">${o.label}</span
-      >${sel ? chipIcon('check', 'u3t-opt__ok') : ''}
+      ${o.project ? projectIcon(o.project) : icon(o.icon, { size: 16 })}<span
+        class="u3t-opt__t"
+        >${o.label}</span
+      >${sel ? icon('check', { size: 16 }) : ''}
     </button>`;
   };
   return html`<span class="u3t-menu-w">
@@ -94,9 +97,9 @@ export function filterMenu(p) {
       aria-expanded=${isOpen ? 'true' : 'false'}
       @click=${toggle}
     >
-      ${chipIcon(p.icon)}<span>${p.title}</span>${on
+      ${icon(p.icon, { size: 16 })}<span>${p.title}</span>${on
         ? html`<b class="u3t-menu__v">${shown}</b>`
-        : ''}${chipIcon('caret', 'u3t-menu__c')}
+        : ''}${icon('caret', { size: 14 })}
     </button>
     ${isOpen
       ? html`<div

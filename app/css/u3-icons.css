@@ -1,0 +1,101 @@
+/* Icon set C (colour-coded), beads-lite-1bo5.6.59.32. Tones come from tokens. */
+.u3 .u3-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  line-height: 0;
+  vertical-align: middle;
+}
+.u3 .u3-ic svg {
+  display: block;
+}
+.u3 .u3-ic--tile {
+  background: var(--u3-ic-soft, var(--u3-surface-2));
+}
+.u3 .u3-ic--blue {
+  color: var(--u3-blue);
+  --u3-ic-soft: var(--u3-blue-soft);
+}
+.u3 .u3-ic--amber {
+  color: var(--u3-amber);
+  --u3-ic-soft: var(--u3-amber-soft);
+}
+.u3 .u3-ic--teal {
+  color: var(--u3-teal);
+  --u3-ic-soft: var(--u3-teal-soft);
+}
+.u3 .u3-ic--red {
+  color: var(--u3-red);
+  --u3-ic-soft: var(--u3-red-soft);
+}
+.u3 .u3-ic--green {
+  color: var(--u3-green);
+  --u3-ic-soft: var(--u3-green-soft);
+}
+.u3 .u3-ic--purple {
+  color: var(--u3-purple);
+  --u3-ic-soft: var(--u3-purple-soft);
+}
+.u3 .u3-ic--grey {
+  color: var(--u3-grey);
+  --u3-ic-soft: var(--u3-grey-soft);
+}
+/* "next" is drawn pointing at the end edge of RTL; flip it in LTR */
+html[dir='ltr'] .u3 .u3-ic--dir svg {
+  transform: scaleX(-1);
+}
+
+/* value = icon first, name second (status, priority, type; 1bo5.13.9) */
+.u3 .u3-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.u3 .u3-val__t {
+  color: var(--u3-text-2);
+  font-size: var(--u3-fs-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* icon-only form: the text stays for screen readers and the tooltip */
+.u3 .u3-val--icon .u3-val__t {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* project app icon beside its name (1bo5.13.6) */
+.u3 .u3-proj {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.u3 .u3-proj__img {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex: none;
+  object-fit: cover;
+}
+
+.u3 .u3-dot--blue {
+  background: var(--u3-blue);
+}
+.u3 .u3-dot--teal {
+  background: var(--u3-teal);
+}
+.u3 .u3t-card__ics {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.u3 .u3-proj > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

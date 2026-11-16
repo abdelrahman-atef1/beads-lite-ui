@@ -23,6 +23,9 @@
   --u3-green: #3fb950;
   --u3-green-soft: #14341b;
   --u3-purple: #a371f7;
+  --u3-purple-soft: #2c2147;
+  --u3-grey: #aab1c2;
+  --u3-grey-soft: #262d3d;
   --u3-focus: #7d93ff;
   --u3-radius-s: 8px;
   --u3-radius-m: 14px;
@@ -66,5 +69,8 @@ html[data-theme='light'] .u3 {
   --u3-green: #1f8a35;
   --u3-green-soft: #e0f3e4;
   --u3-purple: #7a45d6;
+  --u3-purple-soft: #ece1fc;
+  --u3-grey: #5f6778;
+  --u3-grey-soft: #e6e9f1;
   --u3-focus: #3a56f0;
 }

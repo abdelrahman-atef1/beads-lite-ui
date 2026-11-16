@@ -27,8 +27,8 @@ import {
   normalizeItem
 } from '../../views/notifications.js';
 import { openSheet } from '../components/index.js';
+import { icon } from '../icons.js';
 import { tp } from '../panels/i18n.js';
-import { pIcon } from '../panels/icons.js';
 
 const MUTE_MS = 3600000;
 
@@ -361,7 +361,7 @@ export function mountBell(el, opts) {
         (unreadN ? ` (${tp('nt_unread', { n: unreadN })})` : '')}
         @click=${() => (sheet ? close() : open())}
       >
-        ${pIcon('bell')}${unreadN
+        ${icon('bell', { size: 22 })}${unreadN
           ? html`<i class="u3-pn-dot" data-unread=${unreadN}></i>`
           : ''}
       </button>`,

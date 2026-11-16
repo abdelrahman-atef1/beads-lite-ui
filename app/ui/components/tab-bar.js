@@ -10,7 +10,8 @@ export function tabBar(o) {
   return html`<nav class="u3-tabs" aria-label=${o.label ?? ''}>
     ${o.items.map((i) => {
       const cur = i.name === o.active;
-      const body = html`<span class="u3-tabs__ico">${icon(i.name)}</span
+      const body = html`<span class="u3-tabs__ico"
+          >${icon(i.name, { size: 17, tile: true })}</span
         ><span class="u3-tabs__lbl">${i.label}</span>`;
       return i.hash
         ? html`<a
