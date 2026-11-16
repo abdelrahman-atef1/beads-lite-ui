@@ -72,6 +72,9 @@ function setup(at) {
   return { el, send, h };
 }
 
+/** @param {HTMLElement} el - @param {number} n */
+const tabBtn = (el, n) => el.querySelectorAll('.u3-ts__j')[n];
+
 describe('task page', () => {
   beforeEach(() => window.localStorage.clear());
 
@@ -150,15 +153,14 @@ describe('task page', () => {
     }
   });
 
-  test('the Time and Details sections start collapsed (.59.36)', async () => {
+  test('the Time section starts closed; details are plain facts (.59.36 + .13.2)', async () => {
     const { el } = setup();
     await tick();
     await tick();
-    const folds = el.querySelectorAll(
-      'details.u3-ts__fold, details.u3-tm__fold'
+    expect(el.querySelector('.u3-ts__time')?.hasAttribute('data-open')).toBe(
+      false
     );
-    expect(folds.length).toBe(2);
-    for (const d of folds) expect(d.open).toBe(false);
+    expect(el.querySelector('details.u3-ts__fold')).toBeNull();
   });
 
   test('renders fields and comments, newest first', async () => {
@@ -167,8 +169,71 @@ describe('task page', () => {
     expect(el.textContent).toContain('عيوب الشاشة');
     expect(el.querySelectorAll('.u3-ts__c').length).toBe(3);
     expect(el.querySelector('.u3-ts__c').textContent).toContain('last one');
+    // flat page: tabs, comments first; description and subtasks are one tap
+    expect(el.querySelector('[data-anchor="description"]')).toBeNull();
+    tabBtn(el, 2).click();
+    await tick();
     expect(el.textContent).toContain('p-2');
+    tabBtn(el, 1).click();
+    await tick();
     expect(el.querySelector('[data-anchor="description"]')).toBeTruthy();
+  });
+
+  test('add-comment box is one line at the top until tapped', async () => {
+    const { el } = setup();
+    await tick();
+    expect(el.querySelector('textarea')).toBeNull();
+    const quick = el.querySelector('.u3-ts__quick');
+    expect(quick).toBeTruthy();
+    // above the newest comment
+    const sec = el.querySelector('[data-anchor="comments"]');
+    expect(sec.firstElementChild).toBe(quick);
+    quick.click();
+    await tick();
+    expect(el.querySelector('textarea')).toBeTruthy();
+    expect(
+      el.querySelector('[data-anchor="comments"]').firstElementChild.className
+    ).toContain('u3-ts__composer');
+  });
+
+  test('the more menu holds Add subtask and closes on Escape', async () => {
+    const { el } = setup();
+    await tick();
+    expect(el.querySelector('.u3-ts__menu')).toBeNull();
+    el.querySelector('.u3-ts__morebtn').click();
+    await tick();
+    expect(el.querySelectorAll('.u3-ts__mi').length).toBe(1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await tick();
+    expect(el.querySelector('.u3-ts__menu')).toBeNull();
+  });
+
+  test('a deep link to the description opens that tab', async () => {
+    const { el } = setup('description.L3');
+    await tick();
+    expect(el.querySelector('.anchor-hit').textContent).toContain('line two');
+  });
+
+  test('reactions fold under their comment and leave the thread/count (13.3)', async () => {
+    COMMENTS.push(
+      { id: 'f1', author: 'swe', text: 'REACT: 👀 re: c-aaaaaaaa' },
+      { id: 'f2', author: 'qa', text: 'REACT: 👀 re: c-aaaaaaaa' }
+    );
+    try {
+      const { el } = setup();
+      await tick();
+      expect(el.querySelectorAll('.u3-ts__c').length).toBe(3);
+      const chips = el.querySelectorAll(
+        '[data-anchor="c-aaaaaaaa"] .u3-ts__rxc'
+      );
+      expect(chips.length).toBe(1);
+      expect(chips[0].textContent).toContain('👀');
+      expect(chips[0].textContent).toContain('swe, qa');
+      expect(el.textContent).not.toContain('REACT:');
+    } finally {
+      COMMENTS.pop();
+      COMMENTS.pop();
+    }
   });
 
   test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
@@ -273,6 +338,8 @@ describe('task page', () => {
   test('composer posts and the comment appears', async () => {
     const { el, send } = setup();
     await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
     const ta = el.querySelector('textarea');
     ta.value = 'hello مرحبا';
     ta.dispatchEvent(new Event('input'));
@@ -286,6 +353,59 @@ describe('task page', () => {
       text: 'hello مرحبا'
     });
     expect(el.querySelectorAll('.u3-ts__c').length).toBe(4);
-    expect(el.querySelector('textarea').value).toBe('');
+    expect(el.querySelector('textarea')).toBeNull(); // back to the one line
+    expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
+  });
+  test('offline post shows queued after a few seconds; a refused post offers Retry', async () => {
+    const { el, send } = setup();
+    await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
+    const ta = el.querySelector('textarea');
+    ta.value = 'offline note';
+    ta.dispatchEvent(new Event('input'));
+    await tick();
+    let fail = false;
+    const base = send.getMockImplementation();
+    send.mockImplementation((type, p) => {
+      if (type !== 'add-comment') return base(type, p);
+      return fail
+        ? Promise.reject(new Error('x'))
+        : new Promise(() => {}); // socket holds it until back online
+    });
+    vi.useFakeTimers();
+    try {
+      [...el.querySelectorAll('.u3-ts__act button')].pop().click();
+      await vi.advanceTimersByTimeAsync(4500);
+      expect(el.querySelector('[role="status"]')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('a refused post shows failed with a Retry that posts again', async () => {
+    const { el, send } = setup();
+    await tick();
+    el.querySelector('.u3-ts__quick').click();
+    await tick();
+    const ta = el.querySelector('textarea');
+    ta.value = 'will fail';
+    ta.dispatchEvent(new Event('input'));
+    await tick();
+    const base = send.getMockImplementation();
+    let n = 0;
+    send.mockImplementation((type, p) =>
+      type === 'add-comment' && n++ === 0
+        ? Promise.reject(new Error('x'))
+        : base(type, p)
+    );
+    [...el.querySelectorAll('.u3-ts__act button')].pop().click();
+    await tick();
+    const err = el.querySelector('.u3-ts__err');
+    expect(err).toBeTruthy();
+    err.querySelector('button').click();
+    await tick();
+    expect(el.querySelector('textarea')).toBeNull();
+    expect(el.querySelector('.u3-ts__quick')).toBeTruthy();
   });
 });

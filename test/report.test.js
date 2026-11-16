@@ -20,10 +20,16 @@ const attach = path.join(tmp, 'attachments');
 const wakeRoot = path.join(tmp, 'wake');
 const list = path.join(tmp, 'projects.list');
 fs.mkdirSync(attach);
-fs.writeFileSync(list, '/e/Projects/demo\n');
+fs.writeFileSync(
+  list,
+  '/e/Projects/demo\n/e/Projects/store\n/e/Projects/oldui\n'
+);
 process.env.BDUI_ATTACH_ROOT = attach;
 process.env.WAKE_ROOT = wakeRoot;
 process.env.WAKE_PROJECTS_LIST = list;
+process.env.BDUI_REPORT_ROUTES = JSON.stringify({
+  oldui: { store: 'store', parent: 'store-inbox' }
+});
 
 /** @type {Array<{args: string[], cwd?: string}>} */
 const bdCalls = [];
@@ -46,7 +52,9 @@ vi.mock('../server/bd.js', async (orig) => ({
 vi.mock('../server/registry-watcher.js', async (orig) => ({
   ...(await orig()),
   getAvailableWorkspaces: () => [
-    { path: path.join(tmp, 'demo'), database: 'x', pid: 1, version: '1' }
+    { path: path.join(tmp, 'demo'), database: 'x', pid: 1, version: '1' },
+    { path: path.join(tmp, 'store'), database: 'x', pid: 1, version: '1' },
+    { path: path.join(tmp, 'oldui'), database: 'x', pid: 1, version: '1' }
   ]
 }));
 
@@ -264,6 +272,38 @@ describe('POST /api/report', () => {
       "default-src 'none'; frame-ancestors 'none'"
     );
     expect(a.body.includes('SECRETMETA')).toBe(false);
+  });
+
+  test('a report for a redirected project lands in the real store, for cos, and wakes cos', async () => {
+    const r = await post(frame({ ...GOOD, project: 'oldui' }));
+    expect(r.status).toBe(200);
+    const call = bdCalls[0];
+    expect(call.cwd).toBe(path.join(tmp, 'store'));
+    expect(call.args[call.args.indexOf('--parent') + 1]).toBe('store-inbox');
+    expect(call.args[call.args.indexOf('--assignee') + 1]).toBe('cos');
+    expect(call.args).toContain('owner-report');
+    expect(call.args[call.args.indexOf('-d') + 1]).toContain(
+      'Reported on: oldui'
+    );
+    const ev = JSON.parse(
+      fs.readFileSync(path.join(wakeRoot, 'pending', pending()[0]), 'utf8')
+    );
+    expect(ev).toMatchObject({ kind: 'report', repo: 'store', role: 'cos' });
+  });
+
+  test('a redirected report with no target store is refused, not filed in the old one', async () => {
+    process.env.BDUI_REPORT_ROUTES = JSON.stringify({
+      oldui: { store: 'nowhere', parent: 'x' }
+    });
+    try {
+      const r = await post(frame({ ...GOOD, project: 'oldui' }));
+      expect(r.status).toBe(500);
+      expect(bdCalls).toHaveLength(0);
+    } finally {
+      process.env.BDUI_REPORT_ROUTES = JSON.stringify({
+        oldui: { store: 'store', parent: 'store-inbox' }
+      });
+    }
   });
 
   test('text-only report is allowed', async () => {

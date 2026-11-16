@@ -3,7 +3,7 @@
 .u3 .u3-ts {
   display: flex;
   flex-direction: column;
-  gap: var(--u3-sp-4);
+  gap: var(--u3-sp-3);
   min-width: 0;
   /* clear the floating ask button so it never covers the composer's Send */
   padding-block-end: calc(56px + var(--u3-sp-4));
@@ -20,10 +20,15 @@
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
-  border-radius: 50%;
-  background: var(--u3-surface-2);
+  margin-inline-start: calc(var(--u3-sp-3) * -1);
   color: var(--u3-text-2);
   font-size: 20px;
+}
+.u3 .u3-ts__id {
+  color: var(--u3-text-3);
+  font-size: var(--u3-fs-s);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 html[dir='rtl'] .u3 .u3-ts__back {
   transform: scaleX(-1);
@@ -42,17 +47,27 @@ html[dir='rtl'] .u3 .u3-ts__back {
 }
 .u3 .u3-ts__jump {
   display: flex;
-  gap: var(--u3-sp-2);
+  gap: var(--u3-sp-4);
   overflow-x: auto;
   border-block-end: 1px solid var(--u3-border);
   scrollbar-width: none;
 }
 .u3 .u3-ts__j {
   flex: none;
-  padding: var(--u3-sp-3) var(--u3-sp-3);
+  padding: var(--u3-sp-3) 0;
   min-height: 44px;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: none;
   color: var(--u3-text-2);
+  font: inherit;
   white-space: nowrap;
+  cursor: pointer;
+}
+.u3 .u3-ts__j.is-on {
+  color: var(--u3-text);
+  font-weight: 700;
+  border-block-end-color: var(--u3-blue);
 }
 .u3 .u3-ts__j:hover {
   color: var(--u3-blue);
@@ -73,17 +88,17 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .u3-ts__side {
   order: 1;
   min-width: 0;
-  padding: var(--u3-sp-4);
-  background: var(--u3-surface);
-  border: 1px solid var(--u3-border);
-  border-radius: var(--u3-radius-m);
+  display: none;
+}
+.u3 .u3-ts__side.is-editing {
+  display: block;
+  padding-block-end: var(--u3-sp-3);
+  border-block-end: 1px solid var(--u3-border);
 }
 .u3 .u3-ts__sec {
   min-width: 0;
-  padding: var(--u3-sp-4);
-  background: var(--u3-surface);
-  border: 1px solid var(--u3-border);
-  border-radius: var(--u3-radius-m);
+  padding-block: var(--u3-sp-3);
+  border-block-end: 1px solid var(--u3-border);
   scroll-margin-block-start: 72px;
 }
 .u3 .u3-ts__h {
@@ -174,11 +189,8 @@ html[dir='rtl'] .u3 .u3-ts__back {
   white-space: nowrap;
 }
 .u3 .u3-ts__c {
-  margin-block-end: var(--u3-sp-3);
-  padding: var(--u3-sp-3);
-  background: var(--u3-surface-2);
-  border: 1px solid var(--u3-border);
-  border-radius: var(--u3-radius-m);
+  padding-block: var(--u3-sp-3);
+  border-block-end: 1px solid var(--u3-border);
   min-width: 0;
   scroll-margin-block-start: 72px;
 }
@@ -199,13 +211,67 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .u3-ts__cb {
   min-width: 0;
   overflow-wrap: anywhere;
-  line-height: 1.7;
+  font-size: 17px;
+  line-height: 1.75;
+}
+/* owner decision: amber edge only, no fill */
+.u3 .u3-ts__c--decision {
+  padding-inline-start: var(--u3-sp-3);
+  border-inline-start: 3px solid var(--u3-amber);
+}
+/* Decision comment is flat (design A): the amber edge only, no inner boxes. */
+.u3 .u3-ts__c--decision {
+  border-block-end: 0;
+}
+.u3 .u3-ts__c--decision .u3-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.u3 .u3-ts__c--decision .u3-card::before {
+  display: none;
+}
+.u3 .u3-ts__c--decision .u3-cd__field,
+.u3 .u3-ts__c--decision .u3-cd__blk {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+.u3 .u3-ts__c--decision .u3-cd__thread {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+.u3 .u3-ts__c--decision .u3-cd__fv,
+.u3 .u3-ts__c--decision .u3-cd__blk .u3-cd__fv {
+  color: var(--u3-text);
 }
 .u3 .u3-ts__composer {
   display: flex;
   flex-direction: column;
   gap: var(--u3-sp-2);
-  margin-block-start: var(--u3-sp-3);
+  padding-block-end: var(--u3-sp-3);
+  border-block-end: 1px solid var(--u3-border);
+}
+/* the collapsed add-comment box: one line, tap opens the full box */
+.u3 .u3-ts__quick {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-block-end: var(--u3-sp-2);
+  padding: 0 var(--u3-sp-3);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+  background: transparent;
+  color: var(--u3-text-3);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.u3 .u3-ts__quick:hover {
+  border-color: var(--u3-blue);
 }
 .u3 .u3-ts__lbl {
   color: var(--u3-text-3);
@@ -260,13 +326,21 @@ html[dir='rtl'] .u3 .u3-ts__back {
   .u3 .u3-ts__main {
     order: 1;
     flex: 1;
+    max-width: 720px;
   }
   .u3 .u3-ts__side {
     order: 2;
+    display: block;
     flex: none;
-    width: 320px;
+    width: 250px;
+    padding-inline-start: var(--u3-sp-4);
+    border-inline-start: 1px solid var(--u3-border);
     position: sticky;
     top: var(--u3-sp-4);
+  }
+  .u3 .u3-ts__side.is-editing {
+    padding-block-end: 0;
+    border-block-end: 0;
   }
 }
 
@@ -371,14 +445,168 @@ html[dir='rtl'] .u3 .u3-ts__back {
   justify-content: flex-start;
 }
 
-/* Details fold: collapsed by default (beads-lite-1bo5.6.59.36). */
-.u3 .u3-ts__fold > summary {
-  cursor: pointer;
-  min-height: 44px;
+/* Flat page (beads-lite-1bo5.13.2, design A): facts as plain text, one-line
+   time, Edit + ⋯ on the top row, actions in the side column on a PC. */
+.u3 .u3-ts__facts {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2) var(--u3-sp-4);
   margin: 0;
+  font-size: var(--u3-fs-s);
+  color: var(--u3-text-2);
 }
-.u3 .u3-ts__fold[open] > summary {
-  margin-block-end: var(--u3-sp-3);
+.u3 .u3-ts__st::before {
+  content: '';
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--u3-text-3);
+}
+.u3 .u3-ts__st--amber::before {
+  background: var(--u3-amber);
+}
+.u3 .u3-ts__st--blue::before {
+  background: var(--u3-blue);
+}
+.u3 .u3-ts__st--red::before {
+  background: var(--u3-red);
+}
+.u3 .u3-ts__st--teal::before {
+  background: var(--u3-teal, var(--u3-blue));
+}
+.u3 .u3-ts__st--green::before {
+  background: var(--u3-green, var(--u3-blue));
+}
+.u3 .u3-ts__pr--hot {
+  color: var(--u3-red);
+}
+.u3 .u3-ts__pj {
+  color: var(--u3-blue);
+}
+.u3 .u3-ts__acts {
+  display: none;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin-block-end: var(--u3-sp-4);
+}
+.u3 .u3-ts__more {
+  position: relative;
+}
+.u3 .u3-ts__morebtn {
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--u3-text-2);
+  font-size: 22px;
+  cursor: pointer;
+}
+.u3 .u3-ts__menu {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  z-index: 5;
+  min-width: 180px;
+  background: var(--u3-surface);
+  border: 1px solid var(--u3-border);
+  border-radius: var(--u3-radius-s);
+}
+.u3 .u3-ts__mi {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--u3-sp-3);
+  border: 0;
+  background: none;
+  color: var(--u3-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+/* Time and quality: one line (the total and the four counters); the stage
+   bars and lists open with the Details button. */
+.u3 .u3-ts__time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--u3-sp-2);
+  padding-block: var(--u3-sp-1);
+}
+.u3 .u3-ts__time u3-time-slot {
+  flex: 1;
+  min-width: 0;
+}
+.u3 .u3-ts__time .u3-tm {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.u3 .u3-ts__time:not([data-open]) .u3-tm > :not(.u3-tm__head):not(.u3-tm__unk),
+.u3 .u3-ts__time:not([data-open]) .u3-tm__title {
+  display: none;
+}
+.u3 .u3-ts__timebtn {
+  flex: none;
+  min-height: 44px;
+  margin-block: calc(var(--u3-sp-2) * -1);
+  border: 0;
+  background: none;
+  color: var(--u3-text-3);
+  font: inherit;
+  font-size: var(--u3-fs-s);
+  cursor: pointer;
+}
+.u3 .u3-ts__time .u3-chip {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--u3-text-2);
+}
+.u3 .u3-ts__timebtn::after {
+  content: ' \203A';
+}
+html[dir='rtl'] .u3 .u3-ts__timebtn::after {
+  content: ' \2039';
+}
+.u3 .u3-ts__time[data-open] .u3-ts__timebtn::after {
+  content: ' \2304';
+}
+@media (min-width: 1024px) {
+  .u3 .u3-ts__acts {
+    display: flex;
+  }
+  .u3 .u3-ts__tools,
+  .u3 .u3-ts__phone-facts {
+    display: none;
+  }
+}
+
+.u3 .u3-ts__rx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-2);
+}
+.u3 .u3-ts__rxc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--u3-sp-2);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  font-size: var(--u3-fs-s);
+}
+
+/* Time row closed: one plain line, long notes are cut with an ellipsis. */
+.u3 .u3-ts__time:not([data-open]) .u3-tm__unk {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.u3 .u3-ts__time:not([data-open]) u3-time-slot {
+  overflow: hidden;
 }
