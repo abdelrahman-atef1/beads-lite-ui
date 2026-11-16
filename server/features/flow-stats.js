@@ -1,7 +1,7 @@
 /**
  * Stats home data (beads-lite-1bo5.6.68.4). One read-only handler:
  *
- *   flow-stats {days?} -> one small object the Stats screen draws (about 3 KB)
+ *   flow-stats {days?, project?} -> one small object the Stats screen draws (about 3 KB)
  *
  * Reads ~/.codesters/flow/rollup.json and tokens.json (FLOW_HOME overrides the folder),
  * both written by scripts in the company repo. Nothing here writes, spawns or polls:
@@ -122,13 +122,19 @@ function projectOfId(doc, id) {
  * @param {any} tok - tokens.json or null
  * @param {number} days
  * @param {number} now
+ * @param {string} [project] - only this project's beads ('' = all); the project list stays complete
  */
-export function aggregate(doc, tok, days, now) {
-  const all = /** @type {any[]} */ (
+export function aggregate(doc, tok, days, now, project = '') {
+  const every = /** @type {any[]} */ (
     Object.values(doc.beads || {}).filter(
       (/** @type {any} */ b) => b && typeof b.id === 'string'
     )
   );
+  const projects = [...new Set(every.map((b) => String(b.project || '')))]
+    .filter(Boolean)
+    .sort()
+    .slice(0, 50);
+  const all = project ? every.filter((b) => b.project === project) : every;
   const work = all.filter((b) => b.kind !== 'epic');
   const from = now - days * DAY;
   const closed = (/** @type {any} */ b) => num(b.closed);
@@ -326,6 +332,8 @@ export function aggregate(doc, tok, days, now) {
     built_at: doc.built_at ?? null,
     now,
     days,
+    project,
+    projects,
     counts,
     stuck,
     weeks,
@@ -345,8 +353,11 @@ export function aggregate(doc, tok, days, now) {
   };
 }
 
-/** @type {{ key: string, at: number, out: any } | null} */
-let cache = null;
+/** One entry per (days, project, file versions), a few at most. @type {Map<string, { at: number, out: any }>} */
+const cache = new Map();
+const CACHE_MAX = 12;
+/** A project key as the rollup writes it: bounded, no path characters. */
+const PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
 
 /**
  * @param {any} payload
@@ -360,15 +371,21 @@ export async function flowStats(payload, ctx = {}) {
     return { present: false };
   }
   const t = readJson('tokens.json');
-  const key = [days, r.mtime, t ? t.mtime : 0].join(':');
+  const project =
+    typeof payload?.project === 'string' && PROJECT_RE.test(payload.project)
+      ? payload.project
+      : '';
+  const key = [days, project, r.mtime, t ? t.mtime : 0].join(':');
   const now = Date.now();
   let out;
-  if (cache && cache.key === key && now - cache.at < TTL) {
-    out = cache.out;
+  const hit = cache.get(key);
+  if (hit && now - hit.at < TTL) {
+    out = hit.out;
   } else {
-    out = aggregate(r.doc, t ? t.doc : null, days, now);
+    out = aggregate(r.doc, t ? t.doc : null, days, now, project);
     out.stuck = out.stuck.slice(0, 8);
-    cache = { key, at: now, out };
+    if (cache.size >= CACHE_MAX) cache.delete(String(cache.keys().next().value));
+    cache.set(key, { at: now, out });
   }
   const phone = ctx.ws?.door === 'phone';
   const rows = out.stuck
