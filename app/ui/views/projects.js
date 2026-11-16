@@ -8,12 +8,12 @@
 import { html, render } from 'lit-html';
 import { chip } from '../components/index.js';
 import { allIssues } from '../data/all.js';
+import { projectIcon } from '../data/project-icons.js';
 import { tp } from '../i18n/projects-t.js';
 import { attachSearch } from '../search.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
 
 const WS_KEY = 'beads-ui.workspace';
-const DOTS = ['blue', 'teal', 'amber', 'purple', 'green', 'red'];
 
 /** @param {string} p */
 export function projectName(p) {
@@ -21,13 +21,6 @@ export function projectName(p) {
     .split(/[\\/]/)
     .filter(Boolean);
   return parts.length ? parts[parts.length - 1] : 'Unknown';
-}
-
-/** @param {string} name */
-function tone(name) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return DOTS[h % DOTS.length];
 }
 
 /**
@@ -146,7 +139,7 @@ export function mount(el, ctx) {
         title=${ws.path}
         @click=${() => void choose(ws.path)}
       >
-        <i class="u3-dot u3-dot--${tone(name)}" aria-hidden="true"></i>
+        ${projectIcon(name, 22)}
         <span class="u3p-row__name">${name}</span>
         ${is_cur ? chip({ label: tp('u3p_current'), tone: 'blue' }) : ''}
         <span class="u3p-row__count"

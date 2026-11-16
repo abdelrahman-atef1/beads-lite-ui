@@ -19,13 +19,14 @@ import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
-import { priorityName } from '../../utils/priority.js';
 import { splitReactions } from '../../utils/reactions.js';
-import { statusLabel } from '../../utils/status.js';
 import { renderAskHead } from '../ask/head-slot.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button, chip } from '../components/index.js';
+import { priorityVal, statusVal, typeVal } from '../components/vicon.js';
+import { projectLabel } from '../data/project-icons.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 import { personChip } from '../people/person-chip.js';
 import { renderComposerExtras } from '../task/composer-ext.js';
 import { renderTimeSlot } from '../task/time-slot.js';
@@ -234,7 +235,7 @@ export function mount(el, ctx) {
                     <span class="u3-ts__rt" dir="auto">${d.title || ''}</span>
                     ${d.status
                       ? chip({
-                          label: statusLabel(d.status),
+                          label: statusVal(d.status),
                           tone: TONE[d.status] || 'neutral'
                         })
                       : nothing}
@@ -408,16 +409,16 @@ export function mount(el, ctx) {
               class="u3-ts__back"
               href="#/issues"
               aria-label=${t3('u3_ts_back')}
-              >&larr;</a
+              >${icon('a_back', { size: 20 })}</a
             >
             <div class="u3-ts__chips">
-              ${chip({ label: projectOf(i.id), tone: 'blue' })}
+              ${chip({ label: projectLabel(projectOf(i.id)), tone: 'blue' })}
               ${chip({ label: i.id, mono: true })}
               ${chip({
-                label: statusLabel(i.status),
+                label: statusVal(i.status),
                 tone: TONE[i.status] || 'neutral'
               })}
-              ${chip({ label: priorityName(i.priority) })}
+              ${chip({ label: priorityVal(i.priority) })}
             </div>
             <span class="u3-ts__tools">
               ${button({
@@ -457,15 +458,17 @@ export function mount(el, ctx) {
               <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
               ${edit.isEditing()
                 ? edit.rows(i)
-                : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+                : html`${row(t3('u3_ts_status'), statusVal(i.status))}
                   ${row(
                     t3('u3_ts_assignee'),
                     i.assignee
                       ? personChip({ role: String(i.assignee) })
                       : t3('u3_ts_none')
                   )}
-                  ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
-              ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
+                  ${row(t3('u3_ts_priority'), priorityVal(i.priority))}`}
+              ${i.issue_type
+                ? row(t3('u3_ts_type'), typeVal(String(i.issue_type)))
+                : nothing}
               ${parent
                 ? row(
                     t3('u3_ts_parent'),

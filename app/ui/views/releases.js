@@ -11,7 +11,9 @@ import { getLang } from '../../utils/i18n.js';
 import { safeHref } from '../../views/outputs-panel.js';
 import { button } from '../components/button.js';
 import { chip } from '../components/chip.js';
+import { projectLabel } from '../data/project-icons.js';
 import { t3 } from '../i18n.js';
+import { icon } from '../icons.js';
 
 export const T_LIST = 'releases-list';
 export const T_GET = 'releases-get';
@@ -191,7 +193,7 @@ export function mount(el, ctx) {
 
   function filters() {
     const pill = (
-      /** @type {string} */ label,
+      /** @type {any} */ label,
       /** @type {boolean} */ on,
       /** @type {() => void} */ fn
     ) =>
@@ -211,7 +213,7 @@ export function mount(el, ctx) {
       <div class="rl3-pills" data-row="projects">
         ${pill(tr('rl_all_projects'), !project, () => setFilter('', kind))}
         ${[...known].map(([key, name]) =>
-          pill(name, project === key, () => setFilter(key, kind))
+          pill(projectLabel(name), project === key, () => setFilter(key, kind))
         )}
       </div>
       <div class="rl3-pills" data-row="kinds">
@@ -245,7 +247,9 @@ export function mount(el, ctx) {
                   >${shortRef(r.commit)}</span
                 >`
               : nothing}
-            ${chip({ label: r.name || r.project, mono: true })}
+            ${chip({
+              label: projectLabel(r.name || r.project, { mono: true })
+            })}
           </span>
         </span>
         <span class="rl3-title" dir="auto">${r.label}</span>
@@ -348,7 +352,8 @@ export function mount(el, ctx) {
         <span class="rl3-ttl" dir="auto">${task.title}</span>
         <span class="u3-muted rl3-st"
           >${done
-            ? '✓ ' + tr('rl_closed_on', { d: shortDay(task.closed_at) })
+            ? html`${icon('a_approve', { size: 14 })}
+              ${tr('rl_closed_on', { d: shortDay(task.closed_at) })}`
             : tr('rl_open')}</span
         >
       </a>
@@ -421,12 +426,14 @@ export function mount(el, ctx) {
           aria-label=${tr('rl_close')}
           @click=${close}
         >
-          ×
+          ${icon('a_close', { size: 16 })}
         </button>
       </div>
       <h3 class="rl3-dtitle" dir="auto">${r.label}</h3>
       <div class="rl3-badges">
-        ${chip({ label: r.name || r.project, mono: true })}${kindChip(r.kind)}
+        ${chip({
+          label: projectLabel(r.name || r.project, { mono: true })
+        })}${kindChip(r.kind)}
       </div>
       <dl class="rl3-meta">
         <dt>${tr('rl_date')}</dt>

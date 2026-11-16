@@ -18,6 +18,7 @@ import { renderStepsComment } from '../card/steps.js';
 import { button } from '../components/button.js';
 import { card as frame } from '../components/card.js';
 import { chip } from '../components/chip.js';
+import { projectLabel } from '../data/project-icons.js';
 
 export { setCardClient } from '../card/common.js';
 export { renderStepsComment };
@@ -183,7 +184,7 @@ function headRow(p, lang) {
   const it = p.item;
   return html`<div class="u3-cd__head">
     ${it.project?.name
-      ? chip({ label: it.project.name, tone: 'neutral' })
+      ? chip({ label: projectLabel(it.project.name), tone: 'neutral' })
       : nothing}
     <span class="u3-cd__id u3-mono" dir="ltr">${it.id}</span>
     <span class="u3-cd__age">${ageText(it.updated_at, lang, p.ctx.now)}</span>
@@ -564,7 +565,7 @@ export function stepsCard(item, ctx = {}) {
       head: html`<div class="u3-cd__head">
         ${chip({ label: tc('u3_steps_badge', lang), tone: 'teal' })}
         ${item.project?.name
-          ? chip({ label: item.project.name, tone: 'neutral' })
+          ? chip({ label: projectLabel(item.project.name), tone: 'neutral' })
           : nothing}
         <span class="u3-cd__age"
           >${ageText(s.at ? Date.parse(s.at) : 0, lang, ctx.now)}</span

@@ -16,6 +16,7 @@ import { getLang } from '../../utils/i18n.js';
 import { chip } from '../components/chip.js';
 import { listRow } from '../components/list-row.js';
 import { allIssues } from '../data/all.js';
+import { projectLabel } from '../data/project-icons.js';
 import { t3 } from '../i18n.js';
 import { personChip } from '../people/person-chip.js';
 import { renderCard } from './card.js';
@@ -188,7 +189,7 @@ export function mount(el, ctx) {
                   meta: html`${it.assignee
                     ? personChip({ role: it.assignee, short: true })
                     : nothing}${chip({
-                    label: projectOf(it.id),
+                    label: projectLabel(projectOf(it.id)),
                     tone: 'neutral'
                   })}`,
                   end: fmt.format(Number(it.updated_at))

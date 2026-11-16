@@ -115,15 +115,16 @@ try {
     ['ui-kit', '#/ui-kit', '[data-view="kit"]']
   ];
   const SIZES = [
-    ['phone390', { width: 390, height: 844 }],
-    ['pc1440', { width: 1440, height: 900 }]
+    ['phone390', { width: 390, height: 844 }, 'dark'],
+    ['pc1440', { width: 1440, height: 900 }, 'dark'],
+    ['pc1440-light', { width: 1440, height: 900 }, 'light']
   ];
   /** @type {string[]} */
   let deskJs = [];
-  for (const [sname, vp] of SIZES) {
+  for (const [sname, vp, scheme] of SIZES) {
     const ctx = await browser.newContext({
       viewport: vp,
-      colorScheme: 'dark'
+      colorScheme: /** @type {'dark'|'light'} */ (scheme)
     });
     await ctx.addInitScript(() => {
       localStorage.setItem('beads-ui.lang', 'ar');
@@ -172,7 +173,33 @@ try {
           `${extra.length} more js file(s), ${extra.reduce((x, j) => x + j.gz, 0)} bytes on the wire`
         );
       }
-      if (sname === 'phone390') {
+      // icon set C (1bo5.6.59.32 / 13.9 / 13.6): icons drawn on every screen, none broken
+      const ic = await p.evaluate(() => ({
+        icons: document.querySelectorAll('.u3 .u3-ic svg').length,
+        emptyIcons: [...document.querySelectorAll('.u3 .u3-ic')].filter(
+          (e) => !e.querySelector('svg path, svg circle, svg rect')
+        ).length,
+        brokenProj: [...document.querySelectorAll('img.u3-proj__img')].filter(
+          (i) =>
+            i instanceof HTMLImageElement && i.complete && i.naturalWidth === 0
+        ).length,
+        projImgs: document.querySelectorAll('img.u3-proj__img').length,
+        priIcons: document.querySelectorAll('.u3-val [data-icon^="p_"]').length,
+        stIcons: document.querySelectorAll('.u3-val [data-icon^="s_"]').length
+      }));
+      check(
+        `${sname} ${name} icons drawn, none empty or broken`,
+        ic.icons > 0 && ic.emptyIcons === 0 && ic.brokenProj === 0,
+        JSON.stringify(ic)
+      );
+      if (name === 'task') {
+        check(
+          `${sname} task shows status and priority as icons`,
+          ic.priIcons > 0 && ic.stIcons > 0,
+          JSON.stringify(ic)
+        );
+      }
+      {
         await p.screenshot({
           path: path.join(out, `${sname}-${name}.png`),
           fullPage: false
