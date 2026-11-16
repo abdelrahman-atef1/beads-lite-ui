@@ -100,6 +100,25 @@ export function createTaskEdit(o) {
 
   return {
     isEditing: () => editing,
+    busy: () => busy,
+    /** Last error text of one save key ('' when none). */
+    error: (/** @type {string} */ key) => errors[key] || '',
+    /** Names the assign sheet lists (role codes, sorted). */
+    assignees: knownAssignees,
+    /**
+     * Instant reassign for the header holder row: same optimistic save and
+     * rollback as the select in edit mode. Resolves to true when saved.
+     *
+     * @param {string} v role code, '' = unassigned
+     */
+    assign: (v) =>
+      save(
+        'assignee',
+        'update-assignee',
+        { assignee: v },
+        { assignee: v },
+        'u3_ed_fail_assignee'
+      ),
     toggle() {
       editing = !editing;
       if (!editing) this.reset();
