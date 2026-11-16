@@ -275,8 +275,8 @@ export class TimeSlot extends HTMLElement {
         aria-labelledby="u3-tm-h"
         data-status=${st.status}
       >
-        <details class="u3-tm__fold">
-          <summary class="u3-tm__title" id="u3-tm-h">${t3('u3_time')}</summary>
+        <div class="u3-tm__fold">
+          <h3 class="u3-tm__title" id="u3-tm-h">${t3('u3_time')}</h3>
           <div class="u3-tm__body">
             ${st.status === 'loading'
               ? html`<p class="u3-tm__unk">${t3('u3_tm_loading')}</p>`
@@ -284,7 +284,7 @@ export class TimeSlot extends HTMLElement {
                 ? html`<p class="u3-tm__unk">${t3('u3_tm_empty')}</p>`
                 : html`${timeBody(st.row, { now: Date.now() })}${footer(st.r)}`}
           </div>
-        </details>
+        </div>
       </section>`,
       this
     );

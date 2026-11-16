@@ -544,7 +544,7 @@ html[dir='rtl'] .u3 .u3-ts__back {
   border-radius: 0;
   background: none;
 }
-.u3 .u3-ts__time:not([data-open]) .u3-tm > :not(.u3-tm__head):not(.u3-tm__unk),
+.u3 .u3-ts__time:not([data-open]) .u3-tm__body > :not(.u3-tm__head):not(.u3-tm__unk),
 .u3 .u3-ts__time:not([data-open]) .u3-tm__title {
   display: none;
 }
