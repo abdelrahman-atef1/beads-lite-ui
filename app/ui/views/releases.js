@@ -48,7 +48,8 @@ const fmt = (at, o) => new Intl.DateTimeFormat(locale(), o).format(at);
  */
 export const shortRef = (c) => (/^[0-9a-f]{12,}$/i.test(c) ? c.slice(0, 7) : c);
 /** @param {number} at */
-export const dayLabel = (at) => fmt(at, { day: 'numeric', month: 'long' });
+export const dayLabel = (at) =>
+  relIfToday(at, getLang(), () => fmt(at, { day: 'numeric', month: 'long' }));
 /** @param {number} at */
 export const dayTime = (at) =>
   relIfToday(at, getLang(), () =>
