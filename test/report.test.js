@@ -33,13 +33,19 @@ process.env.BDUI_REPORT_ROUTES = JSON.stringify({
 
 /** @type {Array<{args: string[], cwd?: string}>} */
 const bdCalls = [];
+const creates = () => bdCalls.filter((c) => c.args[0] === 'create');
 let bdFail = false;
 let bdBusyTimes = 0;
 let bdBusyMsg = 'database is locked';
+/** existing inbox epic rows returned by bd list (scratch mock, no real store) */
+const DEFAULT_INBOX =
+  '[{"id":"demo-inbox","title":"Owner reports from the board (inbox)"}]';
+let inboxRows = DEFAULT_INBOX;
 vi.mock('../server/bd.js', async (orig) => ({
   ...(await orig()),
   runBd: async (/** @type {string[]} */ args, /** @type {any} */ o) => {
     bdCalls.push({ args, cwd: o?.cwd });
+    if (args[0] === 'list') return { code: 0, stdout: inboxRows, stderr: '' };
     if (bdBusyTimes > 0) {
       bdBusyTimes--;
       return { code: 1, stdout: '', stderr: bdBusyMsg };
@@ -60,7 +66,7 @@ vi.mock('../server/registry-watcher.js', async (orig) => ({
 
 const { createApp } = await import('../server/app.js');
 const { getBoardToken } = await import('../server/guard.js');
-const { resetReportRate, sanitizeImage, afterBoardTask } =
+const { resetReportRate, resetInboxCache, sanitizeImage, afterBoardTask } =
   await import('../server/features/report.js');
 
 const chunk = (/** @type {string} */ t, /** @type {Buffer} */ d) => {
@@ -123,6 +129,8 @@ beforeEach(() => {
   bdCalls.length = 0;
   bdFail = false;
   bdBusyTimes = 0;
+  inboxRows = DEFAULT_INBOX;
+  resetInboxCache();
   resetReportRate();
   fs.rmSync(wakeRoot, { recursive: true, force: true });
   fs.rmSync(attach, { recursive: true, force: true });
@@ -236,7 +244,7 @@ describe('POST /api/report', () => {
     expect(r.status).toBe(200);
     expect(r.json.id).toBe('demo-ab1');
     expect(r.json.wake).toBe('queued');
-    const call = bdCalls[0];
+    const call = creates()[0];
     expect(call.cwd).toBe(path.join(tmp, 'demo'));
     expect(call.args).toContain('bug');
     expect(call.args).toContain('owner-report');
@@ -279,7 +287,7 @@ describe('POST /api/report', () => {
     process.env.BDUI_REPORT_ASSIGNEES = JSON.stringify({ demo: 'swe' });
     try {
       expect((await post(frame(GOOD))).status).toBe(200);
-      const a = bdCalls[bdCalls.length - 1].args;
+      const a = creates()[creates().length - 1].args;
       expect(a[a.indexOf('--assignee') + 1]).toBe('swe');
     } finally {
       delete process.env.BDUI_REPORT_ASSIGNEES;
@@ -288,7 +296,7 @@ describe('POST /api/report', () => {
     try {
       resetReportRate();
       expect((await post(frame(GOOD))).status).toBe(200);
-      expect(bdCalls[bdCalls.length - 1].args).not.toContain('--assignee');
+      expect(creates()[creates().length - 1].args).not.toContain('--assignee');
     } finally {
       delete process.env.BDUI_REPORT_ASSIGNEE;
     }
@@ -297,7 +305,7 @@ describe('POST /api/report', () => {
   test('a report for a redirected project lands in the real store, for cos, and wakes cos', async () => {
     const r = await post(frame({ ...GOOD, project: 'oldui' }));
     expect(r.status).toBe(200);
-    const call = bdCalls[0];
+    const call = creates()[0];
     expect(call.cwd).toBe(path.join(tmp, 'store'));
     expect(call.args[call.args.indexOf('--parent') + 1]).toBe('store-inbox');
     expect(call.args[call.args.indexOf('--assignee') + 1]).toBe('cos');
@@ -311,6 +319,40 @@ describe('POST /api/report', () => {
     expect(ev).toMatchObject({ kind: 'report', repo: 'store', role: 'cos' });
   });
 
+  test('a store with no route files under its inbox epic, with a parent', async () => {
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(200);
+    const a = creates()[0].args;
+    expect(a[a.indexOf('--parent') + 1]).toBe('demo-inbox');
+    expect(creates()).toHaveLength(1);
+  });
+
+  test('no inbox epic yet: created once (cos), then reused', async () => {
+    inboxRows = '[]';
+    expect((await post(frame(GOOD))).status).toBe(200);
+    const made = creates().filter(
+      (c) => c.args[1] === 'Owner reports from the board (inbox)'
+    );
+    expect(made).toHaveLength(1);
+    expect(made[0].args).toContain('epic');
+    expect(made[0].cwd).toBe(path.join(tmp, 'demo'));
+    resetReportRate();
+    expect((await post(frame(GOOD))).status).toBe(200);
+    expect(
+      creates().filter(
+        (c) => c.args[1] === 'Owner reports from the board (inbox)'
+      )
+    ).toHaveLength(1);
+    expect(bdCalls.filter((c) => c.args[0] === 'list')).toHaveLength(1);
+  });
+
+  test('inbox lookup failing refuses the report instead of filing an orphan', async () => {
+    inboxRows = 'not json';
+    const r = await post(frame(GOOD));
+    expect(r.status).toBe(500);
+    expect(creates()).toHaveLength(0);
+  });
+
   test('a redirected report with no target store is refused, not filed in the old one', async () => {
     process.env.BDUI_REPORT_ROUTES = JSON.stringify({
       oldui: { store: 'nowhere', parent: 'x' }
@@ -318,7 +360,7 @@ describe('POST /api/report', () => {
     try {
       const r = await post(frame({ ...GOOD, project: 'oldui' }));
       expect(r.status).toBe(500);
-      expect(bdCalls).toHaveLength(0);
+      expect(creates()).toHaveLength(0);
     } finally {
       process.env.BDUI_REPORT_ROUTES = JSON.stringify({
         oldui: { store: 'store', parent: 'store-inbox' }
@@ -342,7 +384,7 @@ describe('POST /api/report', () => {
     expect(
       (await post(frame({ ...GOOD, version: '1; rm -rf' }))).json.error
     ).toBe('bad_version');
-    expect(bdCalls).toHaveLength(0);
+    expect(creates()).toHaveLength(0);
   });
 
   test('foreign or missing Origin, missing token or header are refused', async () => {
@@ -353,7 +395,7 @@ describe('POST /api/report', () => {
     expect((await post(b, { 'x-board-token': null })).status).toBe(403);
     expect((await post(b, { 'x-bdui-report': null })).status).toBe(403);
     expect((await post(b, { 'content-type': 'text/plain' })).status).toBe(415);
-    expect(bdCalls).toHaveLength(0);
+    expect(creates()).toHaveLength(0);
     expect(pending()).toHaveLength(0);
   });
 
@@ -375,7 +417,7 @@ describe('POST /api/report', () => {
     expect(
       (await post(frame({ ...GOOD, text: 'a'.repeat(2001) }))).json.error
     ).toBe('bad_text');
-    expect(bdCalls).toHaveLength(0);
+    expect(creates()).toHaveLength(0);
     expect(fs.readdirSync(attach)).toHaveLength(0);
   });
 
@@ -464,14 +506,14 @@ describe('company-1bo5.6.8 QA fixes', () => {
       bdCalls.length = 0;
       const r = await post(frame({ ...GOOD, version: v }));
       expect(r.status).toBe(200);
-      const a = bdCalls[0].args;
+      const a = creates()[0].args;
       const meta = JSON.parse(a[a.indexOf('--metadata') + 1]);
       expect(meta.version).toMatch(/^[0-9.+]+$/);
     }
     resetReportRate();
     bdCalls.length = 0;
     await post(frame({ ...GOOD, version: '١٫٢٫٣' }));
-    const a = bdCalls[0].args;
+    const a = creates()[0].args;
     expect(JSON.parse(a[a.indexOf('--metadata') + 1]).version).toBe('1.2.3');
     expect(a[1]).toMatch(/^\[v1\.2\.3\]/);
     resetReportRate();
@@ -481,7 +523,7 @@ describe('company-1bo5.6.8 QA fixes', () => {
   test('screenshot is a clickable markdown link to /att in the description', async () => {
     const r = await post(frame(GOOD, PNG));
     expect(r.status).toBe(200);
-    const a = bdCalls[0].args;
+    const a = creates()[0].args;
     const d = a[a.indexOf('-d') + 1];
     const m = /\[([^\]]+)\]\((\/att\/[^)]+)\)/.exec(d);
     expect(m).not.toBeNull();
@@ -508,7 +550,7 @@ describe('company-1bo5.6.8 QA fixes', () => {
     bdBusyTimes = 2;
     const r = await post(frame(GOOD));
     expect(r.status).toBe(200);
-    expect(bdCalls).toHaveLength(3);
+    expect(creates()).toHaveLength(3);
   });
 
   test('bd create is retried on the transient historical-workspace error', async () => {
@@ -518,13 +560,13 @@ describe('company-1bo5.6.8 QA fixes', () => {
     const r = await post(frame(GOOD));
     bdBusyMsg = 'database is locked';
     expect(r.status).toBe(200);
-    expect(bdCalls).toHaveLength(2);
+    expect(creates()).toHaveLength(2);
   });
 
   test('a non-busy bd failure is not retried', async () => {
     bdFail = true;
     const r = await post(frame(GOOD));
     expect(r.status).toBe(500);
-    expect(bdCalls).toHaveLength(1);
+    expect(creates()).toHaveLength(1);
   });
 });
