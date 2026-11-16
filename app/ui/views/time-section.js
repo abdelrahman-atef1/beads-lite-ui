@@ -77,7 +77,9 @@ const unknownNote = (/** @type {string} */ key) =>
 /** @param {any} tokens */
 function tokensBlock(tokens) {
   if (!tokens || tokens.confidence === 'unknown') {
-    return html`<p class="u3-tm__unk u3-muted">${t3('u3_tm_tok_unknown')}</p>`;
+    return html`<p class="u3-tm__unk u3-tm__tokunk u3-muted">
+      ${t3('u3_tm_tok_unknown')}
+    </p>`;
   }
   const known = ['high', 'mixed', 'medium'].includes(tokens.confidence);
   return html`<p class="u3-tm__tok">
