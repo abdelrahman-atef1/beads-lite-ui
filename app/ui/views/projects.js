@@ -1,19 +1,17 @@
 /**
- * Projects screen (task .59.14): one row per project with its task count and
- * how many wait for the owner, as in the legacy workspace picker (same
- * store.workspace and the same `set-workspace` call, same saved key
- * beads-ui.workspace). Switching reloads the page so every list loads for the
- * new project (legacy restores the saved project on boot).
+ * Projects screen (task .59.14, read-only since beads-lite-1bo5.13.24.1): one
+ * row per project with its task count and how many wait for the owner. There
+ * is no project switch: a row opens Tasks with the Project filter set to that
+ * project (the saved device copy), so every screen keeps covering all projects.
  */
 import { html, render } from 'lit-html';
 import { chip } from '../components/index.js';
 import { allIssues } from '../data/all.js';
 import { projectIcon } from '../data/project-icons.js';
+import { registeredProjects } from '../data/registered.js';
 import { tp } from '../i18n/projects-t.js';
 import { attachSearch } from '../search.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
-
-const WS_KEY = 'beads-ui.workspace';
 
 /** @param {string} p */
 export function projectName(p) {
@@ -52,108 +50,62 @@ export function countsFor(ws, is_cur, live) {
 }
 
 /**
+ * Open Tasks filtered to one project. The URL's project (if any) is dropped so
+ * the saved device copy, set here, is what Tasks reads.
+ *
+ * @param {string} key - project filter value
+ */
+export function openProject(key) {
+  save({ ...loadSaved(), project: [key] });
+  try {
+    const q = new URLSearchParams(window.location.search);
+    q.delete('project');
+    const qs = q.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      window.location.pathname + (qs ? '?' + qs : '') + window.location.hash
+    );
+  } catch {
+    // no window (tests)
+  }
+  window.location.hash = '#/issues';
+}
+
+/**
  * @param {HTMLElement} el
  * @param {any} ctx
  */
 export function mount(el, ctx) {
   const store = ctx.store;
   const all = allIssues(ctx);
-  let switching = '';
-  let failed = false;
   attachSearch(ctx);
 
   const live = () => (all.loaded() ? all.items() : null);
 
-  /** @param {string} path */
-  async function choose(path) {
-    const cur = store.getState().workspace?.current?.path || '';
-    if (!path || path === cur || switching) return;
-    switching = path;
-    failed = false;
-    draw();
-    try {
-      const r = await ctx.client.send('set-workspace', { path });
-      if (r && r.workspace) {
-        window.localStorage.setItem(WS_KEY, path);
-        if (r.changed) {
-          window.location.reload();
-          return;
-        }
-      }
-    } catch {
-      failed = true;
-    }
-    switching = '';
-    draw();
-  }
-
-  /** All: open Tasks with no project filter (remembered like the other filters). */
-  function showAll() {
-    save({ ...loadSaved(), project: [] });
-    try {
-      const q = new URLSearchParams(window.location.search);
-      q.delete('project'); // a project in the URL would win over the saved copy
-      const qs = q.toString();
-      window.history.replaceState(
-        window.history.state,
-        '',
-        window.location.pathname + (qs ? '?' + qs : '') + window.location.hash
-      );
-    } catch {
-      // no window (tests)
-    }
-    window.location.hash = '#/issues';
-  }
-
-  /** @param {any[]} list */
-  function allRow(list) {
-    const known = list
-      .map((/** @type {any} */ w) => w.counts && w.counts.total)
-      .filter((/** @type {unknown} */ n) => typeof n === 'number');
-    const total = known.length
-      ? known.reduce(
-          (/** @type {number} */ a, /** @type {number} */ b) => a + b,
-          0
-        )
-      : null;
-    return html`<li>
-      <button
-        type="button"
-        class="u3p-row"
-        data-all="1"
-        ?disabled=${!!switching}
-        @click=${showAll}
-      >
-        <i class="u3-dot u3-dot--blue" aria-hidden="true"></i>
-        <span class="u3p-row__name">${tp('u3p_all')}</span>
-        <span class="u3p-row__count"
-          >${total ?? '-'} <small>${tp('u3p_beads')}</small></span
-        >
-      </button>
-    </li>`;
-  }
-
   /**
    * @param {any} ws
-   * @param {string} cur_path
+   * @param {string} cur_path - the connection's project, whose live list is loaded
    */
   function row(ws, cur_path) {
     const name = projectName(ws.path);
-    const is_cur = ws.path === cur_path;
-    const c = countsFor(ws, is_cur, live);
+    const key = (
+      registeredProjects(store).find((w) => w.path === ws.path) || {
+        key: name.toLowerCase()
+      }
+    ).key;
+    const c = countsFor(ws, ws.path === cur_path, live);
     return html`<li>
       <button
         type="button"
         class="u3p-row"
-        aria-current=${is_cur ? 'true' : 'false'}
-        ?disabled=${!!switching}
         data-path=${ws.path}
+        data-project=${key}
         title=${ws.path}
-        @click=${() => void choose(ws.path)}
+        @click=${() => openProject(key)}
       >
         ${projectIcon(name, 22)}
         <span class="u3p-row__name">${name}</span>
-        ${is_cur ? chip({ label: tp('u3p_current'), tone: 'blue' }) : ''}
         <span class="u3p-row__count"
           >${c ? c.total : '-'} <small>${tp('u3p_beads')}</small></span
         >
@@ -176,16 +128,9 @@ export function mount(el, ctx) {
       html`<section class="u3p" data-view="projects">
         ${list.length
           ? html`<ul class="u3p-list">
-              ${list.length > 1 ? allRow(list) : ''}
               ${list.map((/** @type {any} */ w) => row(w, cur_path))}
             </ul>`
           : html`<p class="u3-muted">${tp('u3p_empty')}</p>`}
-        ${switching
-          ? html`<p class="u3-muted" role="status">${tp('u3p_switching')}</p>`
-          : ''}
-        ${failed
-          ? html`<p class="u3p-err" role="alert">${tp('u3p_failed')}</p>`
-          : ''}
       </section>`,
       el
     );

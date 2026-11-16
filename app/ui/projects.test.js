@@ -75,21 +75,30 @@ describe('projects screen', () => {
     expect(countsFor({}, false, () => null)).toBeNull();
   });
 
-  test('rows render with counts; click switches via set-workspace and saves the choice', async () => {
+  test('rows render with counts; a row opens Tasks filtered to that project, no workspace switch', () => {
     window.localStorage.clear();
+    window.localStorage.setItem(
+      'u3.tasks.filters',
+      JSON.stringify({ project: ['x'], assignee: ['swe'] })
+    );
     const state = {
       workspace: {
         current: { path: '/p/one' },
         available: [
-          { path: '/p/one', counts: { total: 4, owner_decision: 1 } },
-          { path: '/p/two', counts: { total: 7, owner_decision: 0 } }
+          {
+            path: '/p/one',
+            prefix: 'one',
+            counts: { total: 4, owner_decision: 1 }
+          },
+          {
+            path: '/p/two',
+            prefix: 'two',
+            counts: { total: 7, owner_decision: 0 }
+          }
         ]
       }
     };
-    const send = vi.fn(async () => ({
-      workspace: { root_dir: '/p/two' },
-      changed: false
-    }));
+    const send = vi.fn(async () => ({}));
     const el = document.createElement('div');
     mount(el, {
       ...fakeBase().base,
@@ -98,50 +107,16 @@ describe('projects screen', () => {
     });
     const rows = el.querySelectorAll('.u3p-row[data-path]');
     expect(rows.length).toBe(2);
+    expect(el.querySelector('[data-all]')).toBeNull();
     expect(rows[1].textContent).toContain('7');
     /** @type {HTMLElement} */ (rows[1]).click();
-    await vi.waitFor(() =>
-      expect(send).toHaveBeenCalledWith('set-workspace', { path: '/p/two' })
-    );
-    await vi.waitFor(() =>
-      expect(window.localStorage.getItem('beads-ui.workspace')).toBe('/p/two')
-    );
-  });
-});
-
-describe('projects screen All row', () => {
-  test('All clears the saved project filter and opens Tasks', () => {
-    window.localStorage.clear();
-    const el = document.createElement('div');
-    document.body.appendChild(el);
-    const ws = {
-      current: { path: 'E:/p/a' },
-      available: [
-        { path: 'E:/p/a', counts: { total: 3 } },
-        { path: 'E:/p/b', counts: { total: 4 } }
-      ]
-    };
-    const store = {
-      getState: () => ({ workspace: ws }),
-      subscribe: () => () => {}
-    };
-    const ctx = {
-      store,
-      client: { send: async () => ({}) },
-      ...fakeBase().base
-    };
-    mount(el, /** @type {any} */ (ctx));
-    const all = /** @type {HTMLElement} */ (el.querySelector('[data-all]'));
-    expect(all.textContent).toContain('7');
-    window.localStorage.setItem(
-      'u3.tasks.filters',
-      JSON.stringify({ projects: ['b'] })
-    );
-    all.click();
     expect(window.location.hash).toBe('#/issues');
-    expect(
-      JSON.parse(window.localStorage.getItem('u3.tasks.filters') || '{}')
-        .project
-    ).toEqual([]);
+    const saved = JSON.parse(
+      window.localStorage.getItem('u3.tasks.filters') || '{}'
+    );
+    expect(saved.project).toEqual(['two']);
+    expect(saved.assignee).toEqual(['swe']);
+    expect(send).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('beads-ui.workspace')).toBeNull();
   });
 });

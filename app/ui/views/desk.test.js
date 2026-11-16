@@ -105,3 +105,80 @@ describe('desk view', () => {
     expect(handlers.size).toBe(0);
   });
 });
+
+describe('desk filters', () => {
+  test('Project filter narrows the cards; Status is ignored; own saved set', async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      'u3.desk.filters',
+      JSON.stringify({ project: ['p'], status: ['blocked'] })
+    );
+    // a Tasks filter never reaches the Desk
+    window.localStorage.setItem(
+      'u3.tasks.filters',
+      JSON.stringify({ project: ['q'] })
+    );
+    const client = {
+      /** @param {string} type */
+      async send(type) {
+        if (type === 'list-decisions-all') {
+          return {
+            items: [
+              {
+                id: 'p-1',
+                kind: 'decision',
+                title: 'A',
+                metadata: {},
+                priority: 1,
+                project: { key: 'p' }
+              },
+              {
+                id: 'q-1',
+                kind: 'decision',
+                title: 'B',
+                metadata: {},
+                priority: 2,
+                project: { key: 'q' }
+              }
+            ]
+          };
+        }
+        return { state: 'waiting', card: { q: 'Q?', opts: [] }, thread: [] };
+      },
+      on: () => () => {}
+    };
+    setCardClient(client);
+    const el = /** @type {any} */ (document.createElement('div'));
+    document.body.appendChild(el);
+    const h = mount(el, {
+      client,
+      subscriptions: null,
+      sub_issue_stores: null
+    });
+    await tick();
+    expect(el.querySelectorAll('.u3-cd').length).toBe(1);
+    expect(el.querySelector('.u3t-ac[data-dim=project]')).toBeTruthy();
+    expect(el.querySelector('.u3t-ac[data-dim=status]')).toBeNull();
+    // remove the chip: both cards, and the saved copy is empty
+    el.querySelector('[data-remove=project]').click();
+    await tick();
+    expect(el.querySelectorAll('.u3-cd').length).toBe(2);
+    expect(
+      JSON.parse(window.localStorage.getItem('u3.desk.filters') || '{}').project
+    ).toEqual([]);
+    expect(window.location.search).not.toContain('project');
+    // urgent chip: only priority 0/1
+    el.querySelector('[data-quick="u3_tk_p01"]').click();
+    await tick();
+    expect(el.querySelectorAll('.u3-cd').length).toBe(1);
+    // nothing matches: say so, one tap to clear
+    el.querySelector('.u3t-search').value = 'zzz';
+    el.querySelector('.u3t-search').dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(el.querySelector('[data-testid=no-match]')).toBeTruthy();
+    el.querySelector('[data-testid=no-match-clear]').click();
+    await tick();
+    expect(el.querySelectorAll('.u3-cd').length).toBe(2);
+    h.unmount();
+  });
+});

@@ -15,6 +15,26 @@ import { projectLabel } from '../data/project-icons.js';
 import { PERIODS, loadStats } from '../data/stats.js';
 import { fmtDur } from '../data/time-math.js';
 import { mountAsk } from './ask.js';
+import { t3 } from '../i18n.js';
+import { filterMenu } from '../tasks/filter-menu.js';
+
+/** The Project chip's choice, remembered per device. */
+const PROJECT_KEY = 'u3.stats.project';
+const loadProject = () => {
+  try {
+    return window.localStorage.getItem(PROJECT_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+const saveProject = (/** @type {string} */ v) => {
+  try {
+    if (v) window.localStorage.setItem(PROJECT_KEY, v);
+    else window.localStorage.removeItem(PROJECT_KEY);
+  } catch {
+    // not remembered
+  }
+};
 
 const DAY = 86_400_000;
 const STALE_MS = 36 * 3_600_000;
@@ -543,10 +563,28 @@ export function summaryLine(d) {
 }
 
 /**
- * @param {{ days: number, d: any, loading: boolean, pick: (n: number) => void }} s
+ * @param {{ days: number, d: any, loading: boolean, project: string, menu: import('../tasks/filter-menu.js').Open | null, setMenu: (o: import('../tasks/filter-menu.js').Open | null) => void, setProject: (v: string) => void, pick: (n: number) => void }} s
  */
 function view(s) {
   const d = s.d;
+  // one Project chip; off while loading, and when there is only one project
+  const keys = d && d.present && Array.isArray(d.projects) ? d.projects : [];
+  const chipEl =
+    d && d.present && (keys.length > 1 || s.project)
+      ? filterMenu({
+          name: 'project',
+          icon: 'project',
+          title: t3('u3_tk_project'),
+          any: t3('u3_tk_all'),
+          options: [
+            ...new Set([...keys, ...(s.project ? [s.project] : [])])
+          ].map((v) => ({ value: v, label: v, icon: 'project', project: v })),
+          selected: s.project ? [s.project] : [],
+          open: s.menu,
+          setOpen: s.setMenu,
+          pick: s.setProject
+        })
+      : nothing;
   const pills = html`<div
     class="u3-sh__periods"
     role="group"
@@ -582,7 +620,7 @@ function view(s) {
     data-screen="stats"
     aria-busy=${s.loading ? 'true' : 'false'}
   >
-    ${pills}
+    <div class="u3-sh__bar">${pills}${chipEl}</div>
     <section class="u3-sh__sum" data-block="summary">
       <span class="u3-chip u3-chip--amber">${tr('sum')}</span>
       <p>${summaryLine(d)}</p>
@@ -597,9 +635,9 @@ function view(s) {
         ${stuckBlock(d)}${splitBlock(d)}${qualityBlock(d)}
       </div>
       <div class="u3-sh__col">
-        ${weeksBlock(d)}${rolesTokensBlock(d)}${projectsTokensBlock(
-          d
-        )}${machineBlock(d)}
+        ${weeksBlock(d)}${rolesTokensBlock(d)}${s.project
+          ? nothing
+          : projectsTokensBlock(d)}${machineBlock(d)}
       </div>
     </div>
   </div>`;
@@ -611,11 +649,39 @@ function view(s) {
  */
 export function mount(el, ctx) {
   let days = 7;
+  let project = loadProject();
+  /** @type {import('../tasks/filter-menu.js').Open | null} */
+  let menu = null;
   /** @type {any} */
   let d = null;
   let loading = true;
   let seq = 0;
-  const draw = () => render(view({ days, d, loading, pick }), el);
+  const draw = () => {
+    render(
+      view({ days, d, loading, project, menu, setMenu, setProject, pick }),
+      el
+    );
+    const pop = /** @type {HTMLElement | null} */ (
+      el.querySelector('.u3t-pop')
+    );
+    if (pop && menu) {
+      const w = pop.getBoundingClientRect().width;
+      pop.style.left =
+        Math.max(8, Math.min(menu.left, window.innerWidth - w - 8)) + 'px';
+    }
+  };
+  /** @param {import('../tasks/filter-menu.js').Open | null} o */
+  function setMenu(o) {
+    menu = o;
+    draw();
+  }
+  /** @param {string} v - '' = all projects */
+  function setProject(v) {
+    project = v;
+    menu = null;
+    saveProject(v);
+    void load();
+  }
   /** @param {number} n */
   function pick(n) {
     days = n;
@@ -626,7 +692,7 @@ export function mount(el, ctx) {
     const mine = ++seq;
     loading = true;
     draw();
-    const r = await loadStats(ctx.client, days);
+    const r = await loadStats(ctx.client, days, project);
     if (mine !== seq) return;
     d = r;
     loading = false;
@@ -661,6 +727,21 @@ export function mount(el, ctx) {
     tip_timer = window.setTimeout(hideTip, 3000);
   };
   el.addEventListener('click', onTap);
+  // a tap outside or Escape closes the project menu
+  const onDoc = (/** @type {Event} */ ev) => {
+    if (!menu) return;
+    if (
+      ev.type === 'keydown'
+        ? /** @type {KeyboardEvent} */ (ev).key !== 'Escape'
+        : /** @type {HTMLElement} */ (ev.target).closest?.('.u3t-menu-w')
+    ) {
+      return;
+    }
+    menu = null;
+    draw();
+  };
+  document.addEventListener('click', onDoc);
+  document.addEventListener('keydown', onDoc);
   window.addEventListener('bdui-lang', draw);
   // The assistant on this screen: same sheet, scope stats (beads-lite-1bo5.6.59.37.2).
   // Its host lives beside the screen (the screen's own markup is redrawn on every draw).
@@ -678,6 +759,8 @@ export function mount(el, ctx) {
       askHost.remove();
       hideTip();
       el.removeEventListener('click', onTap);
+      document.removeEventListener('click', onDoc);
+      document.removeEventListener('keydown', onDoc);
       window.removeEventListener('bdui-lang', draw);
     }
   };

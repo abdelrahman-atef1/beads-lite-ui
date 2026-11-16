@@ -148,4 +148,43 @@ describe('stats home', () => {
     );
     h.unmount();
   });
+
+  test('Project chip asks for one project, hides tokens per project, All brings it back', async () => {
+    window.localStorage.clear();
+    const send = vi.fn(async (_t, /** @type {any} */ p) => ({
+      ...data,
+      project: p.project || '',
+      projects: ['a', 'b']
+    }));
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const h = mount(el, { client: { send } });
+    await vi.waitFor(() =>
+      expect(el.querySelector('.u3t-menu[data-name="project"]')).not.toBeNull()
+    );
+    expect(el.querySelector('[data-block="tokens-project"]')).not.toBeNull();
+    /** @type {HTMLElement} */ (el.querySelector('.u3t-menu')).click();
+    /** @type {HTMLElement} */ (
+      el.querySelector('.u3t-opt[data-v="b"]')
+    ).click();
+    await vi.waitFor(() =>
+      expect(send).toHaveBeenLastCalledWith('flow-stats', {
+        days: 7,
+        project: 'b'
+      })
+    );
+    await vi.waitFor(() =>
+      expect(el.querySelector('[data-block="tokens-project"]')).toBeNull()
+    );
+    expect(window.localStorage.getItem('u3.stats.project')).toBe('b');
+    /** @type {HTMLElement} */ (el.querySelector('.u3t-menu')).click();
+    /** @type {HTMLElement} */ (
+      el.querySelector('.u3t-opt[data-v=""]')
+    ).click();
+    await vi.waitFor(() =>
+      expect(send).toHaveBeenLastCalledWith('flow-stats', { days: 7 })
+    );
+    expect(window.localStorage.getItem('u3.stats.project')).toBeNull();
+    h.unmount();
+  });
 });

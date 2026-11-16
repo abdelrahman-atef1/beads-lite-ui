@@ -11,6 +11,8 @@
 import { DIMS, cleanValues, currentUser } from '../../utils/board-filter.js';
 
 const KEY = 'u3.tasks.filters';
+/** Desk keeps its own copy, so a Tasks Status filter never empties the Desk. */
+export const DESK_KEY = 'u3.desk.filters';
 
 /** @typedef {Record<string, string[]>} Saved one list per dimension (DIMS) */
 
@@ -33,10 +35,10 @@ const list = (v) =>
   Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : [];
 
 /** @returns {Saved} */
-export function loadSaved() {
+export function loadSaved(key = KEY) {
   const out = emptySaved();
   try {
-    const o = JSON.parse(store()?.getItem(KEY) || 'null');
+    const o = JSON.parse(store()?.getItem(key) || 'null');
     if (!o || typeof o !== 'object') return out;
     for (const d of DIMS) out[d] = cleanValues(d, list(o[d]));
     // old copy: `projects` was the project list
@@ -58,11 +60,11 @@ export function loadSaved() {
 }
 
 /** @param {Record<string, any>} s */
-export function save(s) {
+export function save(s, key = KEY) {
   try {
     const out = emptySaved();
     for (const d of DIMS) out[d] = cleanValues(d, s[d]);
-    store()?.setItem(KEY, JSON.stringify(out));
+    store()?.setItem(key, JSON.stringify(out));
   } catch {
     // storage full or blocked: the filters just are not remembered
   }

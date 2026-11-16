@@ -165,4 +165,44 @@ describe('flow-stats handler', () => {
     expect(r.days).toBe(200);
     expect(JSON.stringify(r).length).toBeLessThan(6000);
   });
+
+  test('project narrows every number; the project list stays whole; bad keys are ignored', async () => {
+    /** @type {Record<string, any>} */
+    const beads = {};
+    for (const [proj, c] of [
+      ['p', 3],
+      ['q', 5]
+    ]) {
+      for (let i = 0; i < Number(c); i++) {
+        const b = bead({ project: proj, id: proj + '-' + ++n });
+        beads[b.id] = b;
+      }
+    }
+    const blocked = bead({
+      project: 'q',
+      id: 'q-blk',
+      status: 'blocked',
+      closed: null
+    });
+    beads[blocked.id] = blocked;
+    fs.writeFileSync(
+      path.join(dir, 'rollup.json'),
+      JSON.stringify({ built_at: 'x', beads })
+    );
+    const all = await flowStats({ days: 7 });
+    const q = await flowStats({ days: 7, project: 'q' });
+    const p = await flowStats({ days: 7, project: 'p' });
+    expect(all.projects).toEqual(['p', 'q']);
+    expect(q.projects).toEqual(['p', 'q']);
+    expect(q.project).toBe('q');
+    expect(q.counts.blocked).toBe(1);
+    expect(p.counts.blocked).toBe(0);
+    expect(all.counts.blocked).toBe(1);
+    expect(q.split.n).toBe(5);
+    expect(p.split.n).toBe(3);
+    expect(all.split.n).toBe(8);
+    // a key with path characters is not a project: same as no filter
+    expect((await flowStats({ days: 7, project: '../x' })).split.n).toBe(8);
+    expect((await flowStats({ days: 7, project: 'nope' })).split.n).toBe(0);
+  });
 });
