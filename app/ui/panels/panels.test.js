@@ -354,6 +354,8 @@ describe('report sheet', () => {
     );
     expect(post[1].headers['x-bdui-report']).toBe('1');
     expect(root.querySelector('.u3-pn__msg')?.textContent).toContain('R-9');
+    const link = root.querySelector('.u3-pn__msg a[data-act=open-created]');
+    expect(link?.getAttribute('href')).toBe('#/issues?issue=R-9');
     expect(window.localStorage.getItem('bdui.report.draft')).toBe('{}');
     vi.unstubAllGlobals();
   });

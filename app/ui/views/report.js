@@ -121,7 +121,9 @@ export function openReportSheet(o) {
     busy: false,
     /** @type {'' | 'ok' | 'err'} */
     tone: '',
-    msg: ''
+    msg: '',
+    /** id of the bead just created; shown as a link */
+    createdId: ''
   };
   const box = document.createElement('div');
 
@@ -164,6 +166,7 @@ export function openReportSheet(o) {
     }
     st.busy = true;
     st.msg = '';
+    st.createdId = '';
     st.tone = '';
     paint();
     try {
@@ -188,7 +191,8 @@ export function openReportSheet(o) {
       };
       if (r.ok) {
         done();
-        st.msg = `${tp('rpt_sent')} ${r.id}`;
+        st.msg = tp('rpt_sent');
+        st.createdId = r.id;
       } else if (r.offline) {
         await queue.add(d);
         done();
@@ -376,7 +380,15 @@ export function openReportSheet(o) {
         role="status"
         aria-live="polite"
       >
-        ${st.msg}
+        ${st.msg}${st.createdId
+          ? html` <a
+              class="u3-mono"
+              data-act="open-created"
+              href=${'#/issues?issue=' + encodeURIComponent(st.createdId)}
+              @click=${() => sheet.close()}
+              >${st.createdId}</a
+            >`
+          : ''}
       </p>
       <button
         type="submit"
