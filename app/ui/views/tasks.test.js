@@ -67,7 +67,8 @@ function fixture(n) {
   return { all, ready, blocked, closed };
 }
 
-function setup(n = 200) {
+/** @param {number} [n] @param {any} [extra] */
+function setup(n = 200, extra = {}) {
   document.body.innerHTML = '<div id="a"></div><div id="b"></div>';
   window.history.replaceState(null, '', '/');
   window.localStorage.clear();
@@ -93,7 +94,8 @@ function setup(n = 200) {
   const h = mountTasks(a, {
     sub_issue_stores: stores,
     subscriptions: subs,
-    listSelectors: createListSelectors(/** @type {any} */ (stores))
+    listSelectors: createListSelectors(/** @type {any} */ (stores)),
+    ...extra
   });
   return { a, h };
 }
@@ -168,6 +170,86 @@ describe('ui/views/tasks (v3)', () => {
     await flush();
     expect(a.querySelector('.u3t-lane')).toBeNull();
     expect(a.querySelector('.u3t')?.getAttribute('data-group')).toBe('none');
+    h.unmount();
+  });
+
+  test('the project filter lists every registered project', async () => {
+    const sent = /** @type {any[]} */ ([]);
+    const { a, h } = setup(30, {
+      store: {
+        getState: () => ({
+          workspace: {
+            current: { path: 'E:/p/x' },
+            available: [
+              { path: 'E:/p/x', prefix: 'x' },
+              { path: 'E:/p/rayeh' },
+              { path: 'E:/p/company', prefix: 'company' }
+            ]
+          }
+        })
+      },
+      client: {
+        send: async (/** @type {any} */ t, /** @type {any} */ p) => (
+          sent.push([t, p]),
+          {}
+        )
+      }
+    });
+    await flush();
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-menu[data-name="project"]')
+    ).click();
+    const vals = Array.from(a.querySelectorAll('.u3t-opt')).map((e) =>
+      e.getAttribute('data-v')
+    );
+    expect(vals).toEqual(expect.arrayContaining(['x', 'rayeh', 'company']));
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-opt[data-v="company"]')
+    ).click();
+    await flush();
+    expect(sent).toEqual([['set-workspace', { path: 'E:/p/company' }]]);
+    h.unmount();
+  });
+
+  test('after the saved project is restored, the lists are subscribed again from empty stores', async () => {
+    let state = { workspace: { current: { path: 'E:/p/a' }, available: [] } };
+    /** @type {Array<() => void>} */
+    const fns = [];
+    const calls = /** @type {string[]} */ ([]);
+    const { a, h } = setup(10, {
+      store: {
+        getState: () => state,
+        subscribe: (/** @type {() => void} */ f) => (fns.push(f), () => {})
+      },
+      subscriptions: {
+        subscribeList: async (/** @type {string} */ id) => (
+          calls.push(id),
+          async () => {}
+        )
+      }
+    });
+    await flush();
+    const first = calls.length;
+    expect(first).toBe(4);
+    state = { workspace: { current: { path: 'E:/p/b' }, available: [] } };
+    fns.forEach((f) => f());
+    await flush();
+    expect(calls.length).toBe(first * 2);
+    expect(a.querySelectorAll('.u3t-card').length).toBe(0);
+    h.unmount();
+  });
+
+  test('tapping the active status chip again clears the column focus', async () => {
+    const { a, h } = setup(30);
+    await flush();
+    const chips = () => Array.from(a.querySelectorAll('.u3t-stat__chip'));
+    const second = /** @type {HTMLElement} */ (chips()[1]);
+    second.click();
+    await flush();
+    expect(chips()[1].getAttribute('aria-pressed')).toBe('true');
+    /** @type {HTMLElement} */ (chips()[1]).click();
+    await flush();
+    expect(chips()[1].getAttribute('aria-pressed')).toBe('false');
     h.unmount();
   });
 

@@ -136,23 +136,93 @@ export function mount(el, ctx) {
   const selected = bulk.selected;
 
   // v3 skips the legacy subscribe step: subscribe here.
-  for (const id of IDS) {
-    try {
-      stores.register(id, SPECS[id]);
-    } catch {
-      // already registered
+  function subscribeAll() {
+    for (const id of IDS) {
+      try {
+        stores.register(id, SPECS[id]);
+      } catch {
+        // already registered
+      }
+      void subs
+        .subscribeList(id, SPECS[id])
+        .then((/** @type {() => Promise<void>} */ u) => {
+          // The all-issues list stays on (shared with desk and nav); the
+          // others stop when this screen closes, so an idle user costs nothing.
+          if (id !== 'tab:all') unsubs.push(u);
+        })
+        .catch(() => {});
     }
-    void subs
-      .subscribeList(id, SPECS[id])
-      .then((/** @type {() => Promise<void>} */ u) => {
-        // The all-issues list stays on (shared with desk and nav); the others
-        // stop when this screen closes, so an idle user costs nothing.
-        if (id !== 'tab:all') unsubs.push(u);
-      })
-      .catch(() => {});
   }
+  subscribeAll();
+  // main.js restores the saved project after this screen mounted; the server
+  // drops every subscription on set-workspace, so ask again for the new
+  // project, from empty stores (no cards of the old project left over).
+  const wsPath = () => ctx.store?.getState?.().workspace?.current?.path || '';
+  let ws_seen = wsPath();
+  const offWs =
+    ctx.store && typeof ctx.store.subscribe === 'function'
+      ? ctx.store.subscribe(() => {
+          const p = wsPath();
+          if (!p || p === ws_seen) return;
+          const first = !ws_seen;
+          ws_seen = p;
+          if (first) return;
+          unsubs.length = 0;
+          for (const id of IDS) {
+            try {
+              stores.unregister(id);
+            } catch {
+              // not registered
+            }
+          }
+          subscribeAll();
+          refresh();
+        })
+      : () => {};
 
   const snap = (/** @type {string} */ id) => selectors.selectIssuesFor(id);
+
+  /** Every registered project: its id prefix (else folder name) and path. */
+  function registered() {
+    const ws = (ctx.store && ctx.store.getState().workspace) || {};
+    return (ws.available || [])
+      .map((/** @type {any} */ w) => {
+        const parts = String(w.path || '')
+          .split(/[\\/]/)
+          .filter(Boolean);
+        return {
+          key: String(w.prefix || parts[parts.length - 1] || '').toLowerCase(),
+          path: String(w.path || '')
+        };
+      })
+      .filter((/** @type {{key:string}} */ w) => w.key);
+  }
+  /** The registered project `key` when it is not the one open now, else null. */
+  function otherWorkspace(/** @type {string} */ key) {
+    const cur = ctx.store.getState().workspace?.current?.path || '';
+    const hit = registered().find(
+      (/** @type {{key:string,path:string}} */ w) => w.key === key
+    );
+    const seen = (model ? model.facetItems : []).some(
+      (i) => projectOf(i.id) === key
+    );
+    return hit && hit.path !== cur && !seen ? hit : null;
+  }
+  /** Another project's tasks live in its own workspace: switch, like the Projects screen. */
+  async function switchWorkspace(/** @type {string} */ path) {
+    try {
+      const r = await ctx.client.send('set-workspace', { path });
+      if (r && r.workspace) {
+        window.localStorage.setItem('beads-ui.workspace', path);
+        // the picked project's own tasks show; a saved project filter of the old one would hide them
+        projects = [];
+        remember();
+        if (r.changed) window.location.reload();
+      }
+    } catch {
+      // stays on this project
+    }
+  }
 
   function refresh() {
     if (!alive) return;
@@ -509,6 +579,11 @@ export function mount(el, ctx) {
         },
         pick: (v) => {
           if (name === 'project') {
+            const other = v ? otherWorkspace(v) : null;
+            if (other) {
+              void switchWorkspace(other.path);
+              return;
+            }
             projects = !v
               ? []
               : projects.includes(v)
@@ -553,6 +628,7 @@ export function mount(el, ctx) {
       'project',
       [
         ...new Set([
+          ...registered().map((/** @type {{key:string}} */ w) => w.key),
           ...(model ? model.facetItems : []).map((i) => projectOf(i.id)),
           ...projects
         ])
@@ -621,7 +697,7 @@ export function mount(el, ctx) {
             class="u3t-stat__chip u3t-stat__chip--${c.id}"
             aria-pressed=${effFocus() === c.id ? 'true' : 'false'}
             @click=${() => {
-              focus = focus === c.id && !phone() ? '' : c.id;
+              focus = focus === c.id ? '' : c.id;
               draw();
             }}
           >
@@ -635,7 +711,7 @@ export function mount(el, ctx) {
               class="u3t-stat__chip u3t-stat__chip--other"
               aria-pressed=${effFocus() === 'other' ? 'true' : 'false'}
               @click=${() => {
-                focus = 'other';
+                focus = focus === 'other' ? '' : 'other';
                 draw();
               }}
             >
@@ -748,6 +824,7 @@ export function mount(el, ctx) {
       if (q_timer) clearTimeout(q_timer);
       bulk.destroy();
       offF();
+      if (typeof offWs === 'function') offWs();
       document.removeEventListener('click', onDoc);
       document.removeEventListener('keydown', onDoc);
       if (typeof offS === 'function') offS();
