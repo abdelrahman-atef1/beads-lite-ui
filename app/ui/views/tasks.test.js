@@ -211,6 +211,34 @@ describe('ui/views/tasks (v3)', () => {
     h.unmount();
   });
 
+  test('after the saved project is restored, the lists are subscribed again from empty stores', async () => {
+    let state = { workspace: { current: { path: 'E:/p/a' }, available: [] } };
+    /** @type {Array<() => void>} */
+    const fns = [];
+    const calls = /** @type {string[]} */ ([]);
+    const { a, h } = setup(10, {
+      store: {
+        getState: () => state,
+        subscribe: (/** @type {() => void} */ f) => (fns.push(f), () => {})
+      },
+      subscriptions: {
+        subscribeList: async (/** @type {string} */ id) => (
+          calls.push(id),
+          async () => {}
+        )
+      }
+    });
+    await flush();
+    const first = calls.length;
+    expect(first).toBe(4);
+    state = { workspace: { current: { path: 'E:/p/b' }, available: [] } };
+    fns.forEach((f) => f());
+    await flush();
+    expect(calls.length).toBe(first * 2);
+    expect(a.querySelectorAll('.u3t-card').length).toBe(0);
+    h.unmount();
+  });
+
   test('tapping the active status chip again clears the column focus', async () => {
     const { a, h } = setup(30);
     await flush();

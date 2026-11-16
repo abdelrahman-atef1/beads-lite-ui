@@ -136,21 +136,49 @@ export function mount(el, ctx) {
   const selected = bulk.selected;
 
   // v3 skips the legacy subscribe step: subscribe here.
-  for (const id of IDS) {
-    try {
-      stores.register(id, SPECS[id]);
-    } catch {
-      // already registered
+  function subscribeAll() {
+    for (const id of IDS) {
+      try {
+        stores.register(id, SPECS[id]);
+      } catch {
+        // already registered
+      }
+      void subs
+        .subscribeList(id, SPECS[id])
+        .then((/** @type {() => Promise<void>} */ u) => {
+          // The all-issues list stays on (shared with desk and nav); the
+          // others stop when this screen closes, so an idle user costs nothing.
+          if (id !== 'tab:all') unsubs.push(u);
+        })
+        .catch(() => {});
     }
-    void subs
-      .subscribeList(id, SPECS[id])
-      .then((/** @type {() => Promise<void>} */ u) => {
-        // The all-issues list stays on (shared with desk and nav); the others
-        // stop when this screen closes, so an idle user costs nothing.
-        if (id !== 'tab:all') unsubs.push(u);
-      })
-      .catch(() => {});
   }
+  subscribeAll();
+  // main.js restores the saved project after this screen mounted; the server
+  // drops every subscription on set-workspace, so ask again for the new
+  // project, from empty stores (no cards of the old project left over).
+  const wsPath = () => ctx.store?.getState?.().workspace?.current?.path || '';
+  let ws_seen = wsPath();
+  const offWs =
+    ctx.store && typeof ctx.store.subscribe === 'function'
+      ? ctx.store.subscribe(() => {
+          const p = wsPath();
+          if (!p || p === ws_seen) return;
+          const first = !ws_seen;
+          ws_seen = p;
+          if (first) return;
+          unsubs.length = 0;
+          for (const id of IDS) {
+            try {
+              stores.unregister(id);
+            } catch {
+              // not registered
+            }
+          }
+          subscribeAll();
+          refresh();
+        })
+      : () => {};
 
   const snap = (/** @type {string} */ id) => selectors.selectIssuesFor(id);
 
@@ -186,6 +214,9 @@ export function mount(el, ctx) {
       const r = await ctx.client.send('set-workspace', { path });
       if (r && r.workspace) {
         window.localStorage.setItem('beads-ui.workspace', path);
+        // the picked project's own tasks show; a saved project filter of the old one would hide them
+        projects = [];
+        remember();
         if (r.changed) window.location.reload();
       }
     } catch {
@@ -793,6 +824,7 @@ export function mount(el, ctx) {
       if (q_timer) clearTimeout(q_timer);
       bulk.destroy();
       offF();
+      if (typeof offWs === 'function') offWs();
       document.removeEventListener('click', onDoc);
       document.removeEventListener('keydown', onDoc);
       if (typeof offS === 'function') offS();
