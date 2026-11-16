@@ -99,11 +99,7 @@ export function renderFolded(text, body, flat = body) {
           else openKeys.delete(key);
         }}
       >
-        <summary
-          dir="auto"
-          @click=${stop}
-          @keydown=${stop}
-        >
+        <summary dir="auto" @click=${stop} @keydown=${stop}>
           <span class="fold-name">${s.name}</span>
           <span class="fold-n" dir=${getLang() === 'ar' ? 'rtl' : 'ltr'}
             >${s.lines} ${t(s.lines === 1 ? 'line' : 'lines')}</span

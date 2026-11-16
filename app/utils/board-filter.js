@@ -1,88 +1,126 @@
 /**
- * Board filters (design/README.md 5.2 and 5.6): quick chip, type, label and a
- * search string. Pure matching plus a tiny persisted state, so the board and
- * the top bar share one source. Everything runs on the already-loaded slice:
- * typing never waits on the server.
+ * Board filters (design/README.md 5.2 and 5.6, beads-lite-1bo5.13.16.1): every
+ * dimension is a set of values, plus a search string. Pure matching plus the
+ * URL form, so the board and the top bar share one source. Everything runs on
+ * the already-loaded slice: typing never waits on the server.
  */
 
-const KEY = 'beads-ui.board-filter';
-const CHIPS = ['mine', 'p01', 'decision', 'blocked'];
+/** Dimensions that are sets: OR inside one dimension, AND across them. */
+export const DIMS = [
+  'status',
+  'assignee',
+  'prio',
+  'type',
+  'label',
+  'epic',
+  'project'
+];
+/** Status value (URL and filter) -> the board column that shows it. */
+export const STATUS_COL = /** @type {Record<string, string>} */ ({
+  owner_decision: 'owner',
+  in_progress: 'progress',
+  waiting_for_test: 'test',
+  waiting_for_merge: 'merge',
+  open: 'ready',
+  blocked: 'blocked',
+  other: 'other'
+});
+/** Board column id -> status value. */
+export const COL_STATUS = /** @type {Record<string, string>} */ (
+  Object.fromEntries(Object.entries(STATUS_COL).map(([k, v]) => [v, k]))
+);
+const MAX_VALUES = 50;
 
-/** @typedef {{ chip: 'all'|'mine'|'p01'|'decision'|'blocked', type: string, label: string, search: string, assignee: string, prio: string }} BoardFilter */
+/**
+ * assignee and epic use "-" for "none"; status holds STATUS_COL keys.
+ *
+ * @typedef {{
+ *   status: string[], assignee: string[], prio: string[], type: string[],
+ *   label: string[], epic: string[], project: string[], search: string
+ * }} BoardFilter
+ * @typedef {{
+ *   epic?: (it: any) => string,
+ *   project?: (it: any) => string,
+ *   status?: (it: any) => string
+ * }} Ctx
+ */
 
 /** @returns {BoardFilter} */
 export function emptyFilter() {
   return {
-    chip: 'all',
-    type: '',
-    label: '',
-    search: '',
-    assignee: '',
-    prio: ''
+    status: [],
+    assignee: [],
+    prio: [],
+    type: [],
+    label: [],
+    epic: [],
+    project: [],
+    search: ''
   };
 }
 
 /** @param {BoardFilter} f */
 export function isFiltering(f) {
   return Boolean(
-    f.chip !== 'all' ||
-    f.type ||
-    f.label ||
-    f.assignee ||
-    f.prio ||
-    f.search.trim()
+    DIMS.some((d) => /** @type {any} */ (f)[d].length) || f.search.trim()
   );
 }
 
 /**
+ * Values one issue has in a dimension (what a selection is compared with).
+ * Assignees compare case-insensitively (lower case here).
+ *
+ * @param {any} it
+ * @param {string} dim
+ * @param {Ctx} [ctx]
+ * @returns {string[]}
+ */
+export function valuesOf(it, dim, ctx = {}) {
+  switch (dim) {
+    case 'assignee':
+      return [
+        String(it.assignee || '')
+          .trim()
+          .toLowerCase() || '-'
+      ];
+    case 'prio':
+      return typeof it.priority === 'number' ? [String(it.priority)] : [];
+    case 'type':
+      return it.issue_type ? [String(it.issue_type)] : [];
+    case 'label':
+      return Array.isArray(it.labels) ? it.labels.map(String) : [];
+    case 'epic':
+      return [(ctx.epic && ctx.epic(it)) || '-'];
+    case 'project':
+      return ctx.project ? [ctx.project(it)] : [];
+    case 'status':
+      return ctx.status ? [ctx.status(it)] : [];
+    default:
+      return [];
+  }
+}
+
+/**
  * Does one issue pass the filter? Search matches id (substring, case
- * insensitive), title and title_ar.
+ * insensitive), title and title_ar. `skip` leaves one dimension out (to count
+ * the options of that dimension). Status is applied only when `ctx.status` is
+ * given: the board applies it to its columns instead.
  *
  * @param {any} it
  * @param {BoardFilter} f
- * @param {string} me - assignee name for the "Mine" chip
- * @param {Set<string>} [blocked_ids] - ids in `bd blocked` (dependency-blocked)
+ * @param {Ctx} [ctx]
+ * @param {string} [skip]
  */
-export function matchesFilter(it, f, me, blocked_ids) {
+export function matchesFilter(it, f, ctx = {}, skip = '') {
   if (!it) {
     return false;
   }
-  if (f.chip === 'mine') {
-    if (String(it.assignee || '').toLowerCase() !== me.toLowerCase()) {
-      return false;
-    }
-  } else if (f.chip === 'p01') {
-    if (typeof it.priority !== 'number' || it.priority > 1) {
-      return false;
-    }
-  } else if (f.chip === 'decision') {
-    if (it.status !== 'owner_decision') {
-      return false;
-    }
-  } else if (f.chip === 'blocked') {
-    const waiting =
-      Array.isArray(it.blocked_by_detail) && it.blocked_by_detail.length > 0;
-    if (it.status !== 'blocked' && !waiting && !blocked_ids?.has(it.id)) {
-      return false;
-    }
-  }
-  if (f.assignee) {
-    const who = String(it.assignee || '').toLowerCase();
-    if (f.assignee === '-' ? who !== '' : who !== f.assignee.toLowerCase()) {
-      return false;
-    }
-  }
-  if (f.prio !== '' && String(it.priority) !== f.prio) {
-    return false;
-  }
-  if (f.type && String(it.issue_type || '') !== f.type) {
-    return false;
-  }
-  if (f.label) {
-    const labels = Array.isArray(it.labels) ? it.labels : [];
-    if (!labels.includes(f.label)) {
-      return false;
-    }
+  for (const d of DIMS) {
+    const want = /** @type {string[]} */ (/** @type {any} */ (f)[d]);
+    if (!want.length || d === skip) continue;
+    if (d === 'status' && !ctx.status) continue;
+    const w = d === 'assignee' ? want.map((v) => v.toLowerCase()) : want;
+    if (!valuesOf(it, d, ctx).some((v) => w.includes(v))) return false;
   }
   const q = f.search.trim().toLowerCase();
   if (q) {
@@ -97,20 +135,24 @@ export function matchesFilter(it, f, me, blocked_ids) {
 }
 
 /**
- * Distinct types and labels in a slice, for the Type and Label menus.
+ * Distinct types, labels and assignees in a slice, for the filter menus.
  *
  * @param {any[]} items
  */
 export function facets(items) {
   const types = new Set();
   const labels = new Set();
-  const assignees = new Set();
+  /** @type {Map<string, string>} */
+  const assignees = new Map();
   for (const it of items) {
     if (it && it.issue_type) {
       types.add(String(it.issue_type));
     }
     if (it && it.assignee) {
-      assignees.add(String(it.assignee));
+      const a = String(it.assignee).trim();
+      if (a && !assignees.has(a.toLowerCase())) {
+        assignees.set(a.toLowerCase(), a);
+      }
     }
     for (const l of (it && it.labels) || []) {
       labels.add(String(l));
@@ -119,43 +161,63 @@ export function facets(items) {
   return {
     types: [...types].sort(),
     labels: [...labels].sort(),
-    assignees: [...assignees].sort()
+    assignees: [...assignees.values()].sort()
   };
 }
 
-/** URL query keys for the shareable filter state. */
-const URL_KEYS = /** @type {const} */ ({
-  assignee: 'assignee',
-  type: 'type',
-  prio: 'prio',
-  label: 'label'
-});
+/** @param {string} v */
+const enc = (v) => v.replace(/,/g, '%2C');
+/** @param {string} v */
+const dec = (v) => v.replace(/%2C/gi, ',');
 
 /**
- * Read filters from a query string (`?assignee=swe&type=task&prio=1&label=goal:x`).
- * Values are bounded; anything unknown is ignored.
+ * Keep known, bounded, distinct values of one dimension (URL and saved copy).
+ *
+ * @param {string} dim
+ * @param {unknown} list
+ * @returns {string[]}
+ */
+export function cleanValues(dim, list) {
+  if (!Array.isArray(list)) return [];
+  /** @type {string[]} */
+  const out = [];
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    let v = raw.trim().slice(0, 80);
+    if (dim === 'assignee') v = v.toLowerCase();
+    if (!v || out.includes(v)) continue;
+    if (dim === 'prio' && !/^[0-4]$/.test(v)) continue;
+    if (dim === 'status' && !Object.hasOwn(STATUS_COL, v)) continue;
+    out.push(v);
+    if (out.length >= MAX_VALUES) break;
+  }
+  return out;
+}
+
+/**
+ * Read filters from a query string. Each key is a comma-separated list, so an
+ * old single-value link (`?assignee=swe&prio=1`) is a list of one:
+ * `?status=owner_decision,blocked&assignee=swe,-`. Unknown values are dropped.
  *
  * @param {string} search
  * @returns {Partial<BoardFilter>}
  */
 export function filterFromQuery(search) {
   const q = new URLSearchParams(search);
-  /** @type {Partial<BoardFilter>} */
+  /** @type {Record<string, string[]>} */
   const out = {};
-  const a = q.get('assignee');
-  if (a) out.assignee = a.slice(0, 60);
-  const ty = q.get('type');
-  if (ty) out.type = ty.slice(0, 40);
-  const l = q.get('label');
-  if (l) out.label = l.slice(0, 80);
-  const p = q.get('prio');
-  if (p && /^[0-4]$/.test(p)) out.prio = p;
+  for (const d of DIMS) {
+    const raw = q.get(d);
+    if (!raw) continue;
+    const vals = cleanValues(d, raw.split(',').map(dec));
+    if (vals.length) out[d] = vals;
+  }
   return out;
 }
 
 /**
- * Write the four URL-backed filters into a query string, keeping any other
- * parameter untouched.
+ * Write the filters into a query string, keeping any other parameter
+ * untouched. A dimension with no values is removed from the URL.
  *
  * @param {string} search
  * @param {BoardFilter} f
@@ -163,49 +225,39 @@ export function filterFromQuery(search) {
  */
 export function filterToQuery(search, f) {
   const q = new URLSearchParams(search);
-  for (const k of Object.keys(URL_KEYS)) {
-    const v = String(/** @type {any} */ (f)[k] || '');
-    if (v) q.set(k, v);
-    else q.delete(k);
+  for (const d of DIMS) {
+    const v = cleanValues(d, /** @type {any} */ (f)[d]);
+    if (v.length) q.set(d, v.map(enc).join(','));
+    else q.delete(d);
   }
-  const out = q.toString();
+  const out = q.toString().replace(/%2C/gi, ',');
   return out ? '?' + out : '';
 }
 
 /** Stall threshold in hours: `?stall=N` in the URL, else the server's default. */
+/** @param {string} search @param {number} [fallback] */
 export function stallHoursFromQuery(search, fallback = 24) {
   const n = Number.parseFloat(new URLSearchParams(search).get('stall') || '');
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 /**
- * Persisted filter state shared by the top bar search and the board chips.
+ * Filter state shared by the top bar search and the board. `initial` (the
+ * saved device copy) is overridden as a whole when the page URL carries any
+ * filter key, so a shared link reproduces the same view and a cleared filter
+ * never comes back from an older copy. Every change is written to the URL;
+ * subscribers save the device copy. The search text is never saved.
  *
- * @param {Storage | null} [storage]
+ * @param {Partial<BoardFilter>} [initial]
  */
-export function createFilterState(storage = safeStorage()) {
+export function createFilterState(initial = {}) {
   /** @type {BoardFilter} */
-  let state = emptyFilter();
+  let state = { ...emptyFilter(), ...initial, search: '' };
   try {
-    const raw = storage && storage.getItem(KEY);
-    if (raw) {
-      const o = JSON.parse(raw);
-      state = {
-        chip: CHIPS.includes(o.chip) ? o.chip : 'all',
-        type: typeof o.type === 'string' ? o.type.slice(0, 40) : '',
-        label: typeof o.label === 'string' ? o.label.slice(0, 80) : '',
-        assignee: '',
-        prio: '',
-        // The search box starts empty after a reload (Esc-to-clear friendly).
-        search: ''
-      };
+    const from_url = filterFromQuery(window.location.search);
+    if (Object.keys(from_url).length) {
+      state = { ...emptyFilter(), ...from_url };
     }
-  } catch {
-    // ignore corrupt storage
-  }
-  // The URL wins over storage: a shared link reproduces the same view.
-  try {
-    state = { ...state, ...filterFromQuery(window.location.search) };
   } catch {
     // no window (tests)
   }
@@ -216,6 +268,12 @@ export function createFilterState(storage = safeStorage()) {
     /** @param {Partial<BoardFilter>} patch */
     set(patch) {
       const next = { ...state, ...patch };
+      for (const d of DIMS) {
+        /** @type {any} */ (next)[d] = cleanValues(
+          d,
+          /** @type {any} */ (next)[d]
+        );
+      }
       next.search = String(next.search || '').slice(0, 200);
       if (JSON.stringify(next) === JSON.stringify(state)) {
         return;
@@ -233,14 +291,6 @@ export function createFilterState(storage = safeStorage()) {
       } catch {
         // no window (tests)
       }
-      try {
-        storage?.setItem(
-          KEY,
-          JSON.stringify({ ...state, search: '', assignee: '', prio: '' })
-        );
-      } catch {
-        // ignore storage errors
-      }
       subs.forEach((fn) => fn());
     },
     /** @param {() => void} fn */
@@ -249,14 +299,6 @@ export function createFilterState(storage = safeStorage()) {
       return () => subs.delete(fn);
     }
   };
-}
-
-function safeStorage() {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /** Who "Mine" means. The owner by default; override in localStorage. */

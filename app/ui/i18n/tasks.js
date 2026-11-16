@@ -14,6 +14,18 @@ export const strings = {
   u3_tk_prio: { en: 'Priority', ar: 'الأولوية' },
   u3_tk_project: { en: 'Project', ar: 'المشروع' },
   u3_tk_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
+  u3_tk_status: { en: 'Status', ar: 'الحالة' },
+  u3_tk_epic: { en: 'Epic', ar: 'الإيبك' },
+  u3_tk_clear_all: { en: 'Clear all', ar: 'امسح الكل' },
+  u3_tk_clear_one: { en: 'Clear', ar: 'امسح' },
+  u3_tk_find: { en: 'Find', ar: 'دوّر' },
+  u3_tk_done: { en: 'Done', ar: 'تمام' },
+  u3_tk_remove: { en: 'Remove filter', ar: 'شيل الفلتر' },
+  u3_tk_no_match: {
+    en: 'No tasks match these filters',
+    ar: 'مفيش مهام بتطابق الفلاتر دي'
+  },
+  u3_tk_no_match_btn: { en: 'Clear all filters', ar: 'امسح كل الفلاتر' },
   u3_tk_any: { en: 'Any', ar: 'أي' },
   u3_tk_skipped: {
     en: 'Not shown (could not be read):',

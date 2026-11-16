@@ -369,9 +369,7 @@ describe('task page', () => {
     const base = send.getMockImplementation();
     send.mockImplementation((type, p) => {
       if (type !== 'add-comment') return base(type, p);
-      return fail
-        ? Promise.reject(new Error('x'))
-        : new Promise(() => {}); // socket holds it until back online
+      return fail ? Promise.reject(new Error('x')) : new Promise(() => {}); // socket holds it until back online
     });
     vi.useFakeTimers();
     try {

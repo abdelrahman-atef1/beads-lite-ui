@@ -559,7 +559,10 @@ export function mount(el, ctx) {
       ]
     ];
     const hot = Number(i.priority) <= 1;
-    const facts = html`${row(t3('u3_ts_status'), statusVal(i.status, { size: 18 }))}
+    const facts = html`${row(
+      t3('u3_ts_status'),
+      statusVal(i.status, { size: 18 })
+    )}
     ${row(
       t3('u3_ts_assignee'),
       i.assignee ? personChip({ role: String(i.assignee) }) : t3('u3_ts_none')
