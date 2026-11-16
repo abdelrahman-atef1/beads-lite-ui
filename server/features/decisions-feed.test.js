@@ -11,7 +11,7 @@ const rules = {
     } catch {
       opts = [];
     }
-    const ok = !!m.card_q && opts.length > 0 && m.card_class !== 'desk';
+    const ok = !!m.card_q && opts.length > 0;
     return {
       ok,
       card: {
@@ -59,8 +59,7 @@ function rig(/** @type {any} */ over = {}) {
   const parked = {
     '/w/alpha': [
       bead('alpha-1', card(), { priority: 2 }),
-      bead('alpha-2', card({ card_q: '' })), // no valid card
-      bead('alpha-3', card({ card_class: 'desk' })) // desk: never listed
+      bead('alpha-2', card({ card_q: '' })) // no valid card
     ],
     '/w/beta': [
       bead('beta-1', card(), { priority: 0 }),
@@ -198,12 +197,35 @@ describe('decisions-feed', () => {
     expect(snap.rules_ok).toBe(true);
   });
 
-  test('invalid card, desk card and a card that trips the secret scan are never listed', async () => {
+  test('invalid card and a card that trips the secret scan are not cards, but are counted as unanswerable', async () => {
     const r = rig();
-    const ids = (await r.feed.list()).items.map((i) => i.id);
+    const snap = await r.feed.list();
+    const ids = snap.items.map((i) => i.id);
     expect(ids).not.toContain('alpha-2');
-    expect(ids).not.toContain('alpha-3');
     expect(ids).not.toContain('beta-2');
+    expect(snap.unanswerable).toEqual([
+      {
+        id: 'alpha-2',
+        project: { key: 'alpha', name: 'alpha' },
+        why: 'no_card'
+      },
+      { id: 'beta-2', project: { key: 'beta', name: 'beta' }, why: 'secret' }
+    ]);
+    // every parked bead is accounted for: the Tasks count equals the Desk count
+    expect(snap.items.length + snap.unanswerable.length).toBe(4);
+  });
+
+  test('a desk-class card from sec/legal is listed like any other (13.15)', async () => {
+    const r = rig();
+    r.parked['/w/alpha'].push(
+      bead('alpha-3', card({ card_class: 'desk' }), {
+        created_by: 'sec',
+        assignee: 'legal',
+        labels: ['security']
+      })
+    );
+    const snap = await r.feed.list();
+    expect(snap.items.map((i) => i.id)).toContain('alpha-3');
   });
 
   test('only card_* metadata leaves the server', async () => {

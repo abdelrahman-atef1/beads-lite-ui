@@ -19,6 +19,10 @@ export const strings = {
     en: 'Nothing has moved today yet.',
     ar: 'لسه مفيش حاجة اتحركت النهارده.'
   },
+  u3_desk_nocard: {
+    en: 'These decisions have no readable card. Open the task to answer.',
+    ar: 'القرارات دي مالهاش كارت مقروء. افتح المهمة وجاوب.'
+  },
   u3_desk_loading: { en: 'Loading...', ar: 'بيحمّل...' },
   u3_desk_failed: {
     en: 'Could not load the decisions. Try again in a moment.',

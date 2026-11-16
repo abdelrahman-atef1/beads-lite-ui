@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from 'vitest';
-import { mount, projectOf, splitFeed, todayMoves } from './desk.js';
 import { setCardClient } from '../card/common.js';
+import { mount, projectOf, splitFeed, todayMoves } from './desk.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 20));
 
@@ -82,11 +82,24 @@ describe('desk view', () => {
     await tick();
     expect(el.querySelectorAll('.u3-cd').length).toBe(2);
     expect(el.querySelector('[data-kind=steps]')).toBeTruthy();
-    expect(el.querySelector('.dk3-steps a[href*="at=c-abcd1234"]')).toBeTruthy();
+    expect(
+      el.querySelector('.dk3-steps a[href*="at=c-abcd1234"]')
+    ).toBeTruthy();
     expect(el.querySelector('.dk3-moves .dk3-empty')).toBeTruthy();
-    handlers.get('decisions-all')({ items: [] });
+    // a decision with no readable card is a link, and counted in the header
+    handlers.get('decisions-all')({
+      items: [],
+      unanswerable: [
+        { id: 'q-9', project: { key: 'q', name: 'q' }, why: 'no_card' }
+      ]
+    });
     await tick();
     expect(el.querySelectorAll('.u3-cd').length).toBe(0);
+    expect(el.querySelector('.dk3-main a[href*="issue=q-9"]')).toBeTruthy();
+    expect(el.querySelector('.dk3-main .dk3-empty')).toBeTruthy();
+    handlers.get('decisions-all')({ items: [] });
+    await tick();
+    expect(el.querySelector('.dk3-main a[href*="issue=q-9"]')).toBeFalsy();
     expect(el.querySelector('.dk3-main .dk3-empty')).toBeTruthy();
     h.unmount();
     expect(handlers.size).toBe(0);

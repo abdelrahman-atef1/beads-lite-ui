@@ -78,6 +78,8 @@ export function mount(el, ctx) {
   const client = ctx.client;
   /** @type {any[] | null} */
   let feed = null;
+  /** Decision beads with no usable card: listed as links, never dropped. @type {any[]} */
+  let bad = [];
   let failed = false;
   let showAll = false;
   const issues = allIssues(ctx);
@@ -110,21 +112,38 @@ export function mount(el, ctx) {
 
   function paintFeed() {
     const { decisions, steps } = splitFeed(feed || []);
+    const total = decisions.length + bad.length;
     const waiting = feed === null && !failed;
     render(
-      html`${head('u3_desk_dec', decisions.length, 'amber')}
+      html`${head('u3_desk_dec', total, 'amber')}
       ${failed && feed === null
         ? html`<p class="dk3-empty" role="alert">${t3('u3_desk_failed')}</p>`
         : waiting
           ? html`<p class="dk3-empty">${t3('u3_desk_loading')}</p>`
-          : decisions.length
+          : total
             ? html`<div class="dk3-list">
-                ${repeat(
-                  decisions,
-                  (i) => i.id,
-                  (i) => renderCard(i, { client })
-                )}
-              </div>`
+                  ${repeat(
+                    decisions,
+                    (i) => i.id,
+                    (i) => renderCard(i, { client })
+                  )}
+                </div>
+                ${bad.length
+                  ? html`<p class="dk3-empty">${t3('u3_desk_nocard')}</p>
+                      <div class="dk3-rows">
+                        ${bad.map((b) =>
+                          listRow({
+                            title: b.id,
+                            dot: 'amber',
+                            href: `#/issues?issue=${encodeURIComponent(b.id)}`,
+                            meta: chip({
+                              label: projectLabel(projectOf(b.id)),
+                              tone: 'neutral'
+                            })
+                          })
+                        )}
+                      </div>`
+                  : nothing}`
             : html`<p class="dk3-empty">${t3('u3_desk_empty_dec')}</p>`}`,
       hosts.dec
     );
@@ -148,10 +167,11 @@ export function mount(el, ctx) {
 
   function paintChips() {
     const { decisions, steps } = splitFeed(feed || []);
+    const nDec = decisions.length + bad.length;
     const active = issues.items().filter((i) => i.status === 'in_progress');
     render(
       html`${chip({
-        label: html`<i class="u3-dot u3-dot--amber"></i>${decisions.length}
+        label: html`<i class="u3-dot u3-dot--amber"></i>${nDec}
           ${t3('u3_desk_chip_dec')}`,
         tone: 'amber'
       })}
@@ -220,6 +240,7 @@ export function mount(el, ctx) {
   function applyFeed(snap) {
     if (!snap || !Array.isArray(snap.items)) return;
     feed = snap.items;
+    bad = Array.isArray(snap.unanswerable) ? snap.unanswerable : [];
     failed = false;
     paintFeed();
   }
