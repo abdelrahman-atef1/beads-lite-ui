@@ -4,12 +4,12 @@
 // ar/en and dark/light, checks with DOM asserts, saves screenshots + summary.md.
 // usage: node scripts/qa-multi-card.mjs <out-dir>
 // Chrome is started and stopped here by its own PID (no shared browser).
+import { build } from 'esbuild';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import http from 'node:http';
-import { build } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.resolve(process.argv[2] || path.join(root, '.work/out/qa'));
@@ -21,7 +21,7 @@ const CHROME =
 fs.writeFileSync(
   path.join(tmp, 'entry.js'),
   `import { render } from 'lit-html';
-import { renderCard, setCardClient } from '${pathToFileURL(path.join(root, 'app/ui/views/card.js')).href}';
+import { renderCard, setCardClient } from '${path.join(root, 'app/ui/views/card.js').split(path.sep).join('/')}';
 const q = new URLSearchParams(location.search);
 const lang = q.get('lang'), surface = q.get('surface'), stop = q.get('stop');
 const T = {
@@ -54,6 +54,7 @@ window.run = async () => {
   const ok = (name, v) => log.push({ name, ok: !!v });
   await wait(150);
   ok('progress 0 of 3', /0/.test(el.querySelector('[data-prog] b').textContent) && el.querySelectorAll('.u3-cq__segs i.on').length === 0);
+  ok('no horizontal overflow at start', document.documentElement.scrollWidth <= window.innerWidth + 1 && el.getBoundingClientRect().right <= window.innerWidth + 1);
   ok('only q1 has current border', el.querySelectorAll('.u3-cq--cur').length === 1 && el.querySelector('.u3-cq--cur').dataset.q === '1');
   ok('chip shows 3 questions', /3/.test(el.querySelector('.u3-chip, .u3-cd__head').textContent));
   const cur = getComputedStyle(el.querySelector('.u3-cq--cur'));
@@ -94,7 +95,10 @@ ${['tokens', 'base', 'icons', 'shell', 'card', 'desk', 'task']
 <script type="module" src="./bundle.js"></script></body></html>`
 );
 for (const c of ['tokens', 'base', 'icons', 'shell', 'card', 'desk', 'task'])
-  fs.copyFileSync(path.join(root, `app/css/u3-${c}.css`), path.join(tmp, `u3-${c}.css`));
+  fs.copyFileSync(
+    path.join(root, `app/css/u3-${c}.css`),
+    path.join(tmp, `u3-${c}.css`)
+  );
 await build({
   entryPoints: [path.join(tmp, 'entry.js')],
   bundle: true,
@@ -139,8 +143,16 @@ function pageFor(c) {
 
 const srv = http.createServer((req, res) => {
   const f = path.join(tmp, decodeURIComponent(req.url.split('?')[0]));
-  if (!f.startsWith(tmp) || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
-  const t = f.endsWith('.js') ? 'text/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html';
+  if (!f.startsWith(tmp) || !fs.existsSync(f)) {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+  const t = f.endsWith('.js')
+    ? 'text/javascript'
+    : f.endsWith('.css')
+      ? 'text/css'
+      : 'text/html';
   res.writeHead(200, { 'content-type': t + '; charset=utf-8' });
   res.end(fs.readFileSync(f));
 });
@@ -152,15 +164,29 @@ const pids = [];
 function runChrome(args, timeoutMs = 60000) {
   return new Promise((resolve) => {
     const prof = path.join(tmp, 'profile');
-    const p = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-sandbox', `--user-data-dir=${prof}`, ...args], {
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'ignore']
-    });
+    const p = spawn(
+      CHROME,
+      [
+        '--headless=new',
+        '--disable-gpu',
+        '--no-sandbox',
+        `--user-data-dir=${prof}`,
+        ...args
+      ],
+      {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    );
     pids.push(p.pid);
     let buf = '';
     p.stdout.on('data', (d) => (buf += d));
     const t = setTimeout(() => {
-      try { process.kill(p.pid); } catch { /* gone */ }
+      try {
+        process.kill(p.pid);
+      } catch {
+        /* gone */
+      }
     }, timeoutMs);
     p.on('exit', () => {
       clearTimeout(t);
@@ -169,40 +195,97 @@ function runChrome(args, timeoutMs = 60000) {
   });
 }
 
-// The page runs window.run() itself when ?go=1 and writes the log into the DOM.
+// The page runs window.run() itself and writes the log into the DOM. The
+// phone case runs inside a 390px iframe (Chrome headless cannot make a window
+// narrower than ~500px, so media queries need a real 390px viewport).
 const driver = `<script type="module">
+if (window.parent === window) {
+  await new Promise((r) => setTimeout(r, 300));
+  const log = await window.run();
+  const pre = document.createElement('pre'); pre.id = '__log'; pre.style.display = 'none'; pre.textContent = JSON.stringify(log); document.body.append(pre);
+}
+</script>`;
+const wrapperDriver = `<script type="module">
+const fr = document.getElementById('f');
+await new Promise((r) => { fr.onload = r; fr.src = fr.dataset.src + location.search; });
 await new Promise((r) => setTimeout(r, 300));
-const log = await window.run();
-const pre = document.createElement('pre'); pre.id = '__log'; pre.textContent = JSON.stringify(log); document.body.append(pre);
+const log = await fr.contentWindow.run();
+const pre = document.createElement('pre'); pre.id = '__log'; pre.style.display = 'none'; pre.textContent = JSON.stringify(log); document.body.append(pre);
 </script>`;
 for (const c of cases) {
+  if (
+    process.env.ONLY &&
+    !`${c.surface}-${c.lang}-${c.theme}`.includes(process.env.ONLY)
+  )
+    continue;
   const f = pageFor(c);
   const html = fs.readFileSync(f, 'utf8');
   const q = `?lang=${c.lang}&surface=${c.surface}`;
   fs.writeFileSync(f, html.replace('</body>', driver + '</body>'));
-  const url = base + path.basename(f) + q;
-  const dom = await runChrome([`--window-size=${c.w},${c.h}`, '--virtual-time-budget=6000', '--dump-dom', url + '&stop=all']);
+  let url = base + path.basename(f) + q;
+  let win = c.w;
+  if (c.surface === 'phone') {
+    const wf = path.join(tmp, `w-${path.basename(f)}`);
+    fs.writeFileSync(
+      wf,
+      `<!doctype html><html data-theme="${c.theme}"><body style="margin:0;background:${c.theme === 'dark' ? '#0e121b' : '#f6f7fb'}"><iframe id="f" data-src="${path.basename(f)}" style="width:390px;height:${c.h}px;border:0;display:block"></iframe>${wrapperDriver}</body></html>`
+    );
+    url = base + path.basename(wf) + q;
+    win = 500;
+  }
+  const dom = await runChrome([
+    `--window-size=${win},${c.h}`,
+    '--virtual-time-budget=6000',
+    '--dump-dom',
+    url + '&stop=all'
+  ]);
   let log = [];
-  const m = /<pre id="__log">([\s\S]*?)<\/pre>/.exec(dom);
+  const m = /<pre id="__log"[^>]*>([\s\S]*?)<\/pre>/.exec(dom);
   if (m) {
-    try { log = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&')); } catch { /* shown as fail */ }
+    try {
+      log = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+    } catch {
+      /* shown as fail */
+    }
   }
   const name = `${c.surface}-${c.lang}-${c.theme}`;
   const bad = log.filter((x) => !x.ok).map((x) => x.name);
-  results.push({ name, checks: log.length, failed: m ? bad : ['page did not run'] });
+  results.push({
+    name,
+    checks: log.length,
+    failed: m ? bad : ['page did not run']
+  });
   // screenshot of the final state (all answered)
   for (const st of ['picked', 'all'])
-    await runChrome([`--window-size=${c.w},${c.h}`, '--virtual-time-budget=6000', `--screenshot=${path.join(out, `${name}-${st}.png`)}`, url + '&stop=' + st]);
-  console.log(name, log.length, 'checks', bad.length ? 'FAIL ' + bad.join('; ') : 'ok');
+    await runChrome([
+      `--window-size=${win},${c.h}`,
+      '--virtual-time-budget=6000',
+      `--screenshot=${path.join(out, `${name}-${st}.png`)}`,
+      url + '&stop=' + st
+    ]);
+  console.log(
+    name,
+    log.length,
+    'checks',
+    bad.length ? 'FAIL ' + bad.join('; ') : 'ok'
+  );
 }
 const failed = results.filter((r) => r.failed.length || r.checks === 0);
 fs.writeFileSync(
   path.join(out, 'summary.md'),
   `# Multi-question card, headless Chrome\n\n${results.length} cases (desk/task/phone x ar/en x dark/light), ${failed.length} failed.\n\n` +
-    results.map((r) => `- ${r.name}: ${r.checks} checks, ${r.failed.length ? 'FAIL ' + r.failed.join('; ') : 'ok'}`).join('\n') +
+    results
+      .map(
+        (r) =>
+          `- ${r.name}: ${r.checks} checks, ${r.failed.length ? 'FAIL ' + r.failed.join('; ') : 'ok'}`
+      )
+      .join('\n') +
     '\n'
 );
-fs.writeFileSync(path.join(out, 'results.json'), JSON.stringify(results, null, 2));
+fs.writeFileSync(
+  path.join(out, 'results.json'),
+  JSON.stringify(results, null, 2)
+);
 srv.close();
 fs.rmSync(path.join(tmp, 'profile'), { recursive: true, force: true });
 process.exit(failed.length ? 1 : 0);
