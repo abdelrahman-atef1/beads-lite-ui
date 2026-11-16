@@ -390,6 +390,15 @@
   height: 100%;
   object-fit: cover;
 }
+.att-strip__item--clip {
+  width: min(100%, 320px);
+}
+.att-strip__clip {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border-radius: 6px;
+}
 .att-strip__cap {
   font-size: 0.8em;
   overflow-wrap: anywhere;

@@ -6,7 +6,9 @@
  *   Content-Type: application/x-bdui-report, header x-bdui-report: 1,
  *   header x-board-token, Origin required and equal to this board.
  *   meta = { project, text, version }; the image is optional (0 bytes = none).
- * GET /att/<project>/<yyyy-mm>/<sha16>.<png|jpg|webp>  serves a stored image.
+ * GET /att/<project>/<yyyy-mm>/<sha16>.<png|jpg|webp|mp3|m4a|ogg|mp4|webm>
+ *   serves a stored image or short clip; sendFile answers Range requests (206)
+ *   so a phone can seek (beads-lite-1bo5.13.21).
  *
  * Own wire format instead of multipart: no dependency, and base64 JSON would
  * trip the global 100 KB json limit. Everything is bounded before it is used.
@@ -30,8 +32,17 @@ const CONTENT_TYPE = 'application/x-bdui-report';
 const VERSION_RE = /^[A-Za-z0-9][A-Za-z0-9 ._+()#:/-]{0,39}$/;
 const PROJECT_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const ATT_RE =
-  /^\/att\/([a-z0-9][a-z0-9_-]{0,39})\/(\d{4}-\d{2})\/([0-9a-f]{16})\.(png|jpg|webp)$/;
-const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
+  /^\/att\/([a-z0-9][a-z0-9_-]{0,39})\/(\d{4}-\d{2})\/([0-9a-f]{16})\.(png|jpg|webp|mp3|m4a|ogg|mp4|webm)$/;
+const MIME = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  webp: 'image/webp',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  ogg: 'audio/ogg',
+  mp4: 'video/mp4',
+  webm: 'video/webm'
+};
 
 /** @type {number[]} */
 let recent = [];
@@ -623,7 +634,7 @@ async function handleAtt(req, res) {
       "default-src 'none'; frame-ancestors 'none'"
     );
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
-    res.sendFile(real);
+    res.sendFile(real); // Accept-Ranges + 206 handled by send
   } catch {
     fail(res, 404, 'not_found');
   }
