@@ -15,6 +15,10 @@ export const strings = {
   u3_tk_project: { en: 'Project', ar: 'المشروع' },
   u3_tk_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
   u3_tk_any: { en: 'Any', ar: 'أي' },
+  u3_tk_skipped: {
+    en: 'Not shown (could not be read):',
+    ar: 'لم تظهر (تعذرت القراءة):'
+  },
   u3_tk_none: { en: 'No tasks', ar: 'لا توجد مهام' },
   u3_tk_loading: { en: 'Loading', ar: 'جارٍ التحميل' },
   u3_tk_closed: { en: 'Closed', ar: 'مغلقة' },
@@ -134,6 +138,10 @@ export const strings = {
   u3_bk_r_decision: {
     en: 'Waiting for your decision: answer it on its card',
     ar: 'بانتظار قرارك: جاوب عليه من كارته'
+  },
+  u3_bk_r_other_project: {
+    en: 'Another project: open that project first',
+    ar: 'مشروع تاني: افتح المشروع ده الأول'
   },
   u3_bk_r_already_closed: { en: 'Already closed', ar: 'مقفولة أصلاً' },
   u3_bk_r_children: { en: 'Has open sub-tasks', ar: 'فيها مهام فرعية مفتوحة' },

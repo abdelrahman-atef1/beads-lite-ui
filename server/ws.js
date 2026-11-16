@@ -15,6 +15,7 @@ import {
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
+import { markBoardPosted } from './features/board-posted.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { WS_DEFLATE } from './features/perf.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
@@ -34,7 +35,6 @@ import {
 } from './workspace-context.js';
 import { withCounts } from './workspace-counts.js';
 import { withPrefixes } from './workspace-prefix.js';
-import { markBoardPosted } from './features/board-posted.js';
 
 const log = debug('ws');
 
@@ -178,7 +178,7 @@ function collectActiveListSpecs(only_dbs = null) {
       continue;
     }
     const ctx = ctxFor(ws);
-    if (!ctx || (only_dbs && !only_dbs.has(ctx.db_path))) {
+    if (!ctx) {
       continue;
     }
     const s = ensureSubs(/** @type {any} */ (ws));
@@ -186,6 +186,15 @@ function collectActiveListSpecs(only_dbs = null) {
       continue;
     }
     for (const { key, spec } of s.list_subs.values()) {
+      // An "All projects" list covers every project, so a change in any of
+      // them refreshes it (the others answer from their own caches).
+      if (
+        only_dbs &&
+        !only_dbs.has(ctx.db_path) &&
+        spec.params?.scope !== 'all'
+      ) {
+        continue;
+      }
       const scoped = ctx.db_path + '\0' + key;
       if (!seen.has(scoped)) {
         seen.add(scoped);
@@ -272,7 +281,7 @@ async function refreshAllOnce(filter) {
 // No cache clearing here, or the fresh snapshot would be thrown away.
 boardData.onRevalidated = (root_dir) => {
   for (const { spec, ctx } of collectActiveListSpecs()) {
-    if (ctx.root_dir !== root_dir) continue;
+    if (ctx.root_dir !== root_dir && spec.params?.scope !== 'all') continue;
     void refreshAndPublish(spec, ctx).catch(() => undefined);
   }
 };
@@ -593,14 +602,17 @@ function nextListRevision(ws, key) {
  * @param {string} client_id
  * @param {string} key
  * @param {Array<Record<string, unknown>>} issues
+ * @param {string[]} [skipped]
  */
-function emitSubscriptionSnapshot(ws, client_id, key, issues) {
+function emitSubscriptionSnapshot(ws, client_id, key, issues, skipped) {
   const revision = nextListRevision(ws, key);
   const payload = {
     type: /** @type {const} */ ('snapshot'),
     id: client_id,
     revision,
-    issues
+    issues,
+    // An "All projects" list: which projects could not be read right now.
+    ...(skipped ? { skipped } : {})
   };
   const msg = JSON.stringify({
     id: `evt-${Date.now()}`,
@@ -671,6 +683,9 @@ function emitSubscriptionDelete(ws, client_id, key, issue_id) {
 
 // issues-changed removed in v2: detail and lists are pushed via subscriptions
 
+/** Last unreadable-project set per (project, list key), to notice a change. @type {Map<string, string>} */
+const SKIPPED_SIG = new Map();
+
 /**
  * Refresh a subscription spec: fetch via adapter, apply to registry and emit
  * per-subscription full-issue envelopes to subscribers. Serialized per key.
@@ -693,6 +708,12 @@ async function refreshAndPublish(spec, ctx) {
       return;
     }
     const items = applyClosedIssuesFilter(spec, res.items);
+    // The set of unreadable projects changed: say so with a full snapshot
+    // (the note must not depend on the list having changed).
+    const skip_sig = (res.skipped || []).slice().sort().join('\0');
+    const skip_key = ctx.db_path + '\0' + key;
+    const skip_changed = (SKIPPED_SIG.get(skip_key) || '') !== skip_sig;
+    if (skip_changed) SKIPPED_SIG.set(skip_key, skip_sig);
     if (is_detail) {
       populateIssueDetailCache(spec, items, detail_cache_generation, ctx);
     }
@@ -719,9 +740,9 @@ async function refreshAndPublish(spec, ctx) {
         if (v.key === key) client_ids.push(cid);
       }
       if (client_ids.length === 0) continue;
-      if (prev_size === 0) {
+      if (prev_size === 0 || skip_changed) {
         for (const cid of client_ids) {
-          emitSubscriptionSnapshot(ws, cid, key, items);
+          emitSubscriptionSnapshot(ws, cid, key, items, res.skipped || []);
         }
         continue;
       }
@@ -1144,6 +1165,10 @@ async function handleMessageUnsafe(ws, data) {
     }
     const s = ensureSubs(ws);
     const reg = registryFor(sub_ctx);
+    SKIPPED_SIG.set(
+      (sub_ctx?.db_path || '') + '\0' + keyOf(spec),
+      (initial.skipped || []).slice().sort().join('\0')
+    );
     const { key: attached_key } = reg.attach(spec, ws);
     s.list_subs?.set(client_id, { key: attached_key, spec });
 
@@ -1168,7 +1193,16 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
 
-    ws.send(JSON.stringify(makeOk(req, { id: client_id, key: attached_key })));
+    ws.send(
+      JSON.stringify(
+        makeOk(
+          req,
+          initial.skipped?.length
+            ? { id: client_id, key: attached_key, skipped: initial.skipped }
+            : { id: client_id, key: attached_key }
+        )
+      )
+    );
     return;
   }
 

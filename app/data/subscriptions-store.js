@@ -136,12 +136,14 @@ export function createSubscriptionStore(send) {
     if (set) {
       set.add(client_id);
     }
+    /** @type {any} */
+    let reply = null;
     try {
       // The server answers `stale` when the project changed while the list
       // was loading (a reload restoring the saved project): nothing was
       // attached, so ask again, now against the new project (1bo5.6.34).
       for (let tries = 0; tries < 3; tries++) {
-        const reply = /** @type {any} */ (
+        reply = /** @type {any} */ (
           await send('subscribe-list', {
             id: client_id,
             type: spec.type,
@@ -165,7 +167,7 @@ export function createSubscriptionStore(send) {
       throw err;
     }
 
-    return async () => {
+    const unsubscribe = async () => {
       log('unsubscribe %s key=%s', client_id, key);
       try {
         await send('unsubscribe-list', { id: client_id });
@@ -185,6 +187,10 @@ export function createSubscriptionStore(send) {
       }
       subs_by_id.delete(client_id);
     };
+    // Projects an "All projects" list could not read (a note for the screen).
+    return Object.assign(unsubscribe, {
+      skipped: reply && Array.isArray(reply.skipped) ? reply.skipped : []
+    });
   }
 
   /**

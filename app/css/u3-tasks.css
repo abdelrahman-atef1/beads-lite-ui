@@ -248,6 +248,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.u3 .u3t-card__proj {
+  font-weight: 700;
+  color: var(--u3-text-2, var(--u3-text-3));
+}
+.u3 .u3t-note {
+  margin: 0;
+  font-size: var(--u3-fs-s);
+}
 .u3 .u3t-card__title {
   font-weight: 600;
   overflow-wrap: anywhere;

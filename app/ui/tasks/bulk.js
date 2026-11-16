@@ -57,6 +57,7 @@ const reasonText = (code) => {
  *   all: () => any[],
  *   visible: () => string[],
  *   scope?: () => string,
+ *   foreign?: (id: string) => boolean,
  *   transport?: (type: string, payload: any) => Promise<any>
  * }} o
  */
@@ -203,11 +204,19 @@ export function createBulk(o) {
    * @param {boolean} take_over
    */
   async function run(action, params, take_over) {
-    const ids = [...selected];
+    // A task of another project is read in that project's workspace: say so
+    // instead of letting the server answer "not found".
+    const picked = [...selected];
+    const other = o.foreign ? picked.filter((id) => o.foreign?.(id)) : [];
+    const ids = picked.filter((id) => !other.includes(id));
+    const other_refused = other.map((id) => ({ id, reason: 'other_project' }));
     stopUndo();
     let r;
     try {
-      r = await api.apply({ action, ids, params, take_over }, o.all());
+      r = ids.length
+        ? await api.apply({ action, ids, params, take_over }, o.all())
+        : { batch: '', preview: false, ok: [], refused: [] };
+      r = { ...r, refused: [...r.refused, ...other_refused] };
     } catch {
       notice = t3('u3_bk_failed');
       noticeOver = false;

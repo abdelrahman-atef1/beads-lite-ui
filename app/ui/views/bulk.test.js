@@ -4,11 +4,13 @@ import { createSubscriptionIssueStores } from '../../data/subscription-issue-sto
 import { MAX_BULK, createBulkApi, refusal } from '../data/bulk.js';
 import { mount as mountTasks } from './tasks.js';
 
+// Same specs as the Tasks screen: every list spans all projects.
+const ALL = { scope: 'all' };
 const IDS = {
-  'tab:all': { type: 'all-issues' },
-  'tab:board:ready': { type: 'ready-issues' },
-  'tab:board:blocked': { type: 'blocked-issues' },
-  'tab:board:closed': { type: 'closed-issues' }
+  'tab:all': { type: 'all-issues', params: ALL },
+  'tab:board:ready': { type: 'ready-issues', params: ALL },
+  'tab:board:blocked': { type: 'blocked-issues', params: ALL },
+  'tab:board:closed': { type: 'closed-issues', params: ALL }
 };
 const mk = (/** @type {string} */ id, /** @type {any} */ extra = {}) => ({
   id,

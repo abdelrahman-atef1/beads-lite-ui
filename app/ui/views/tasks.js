@@ -52,12 +52,16 @@ const IDS = [
   'tab:board:blocked',
   'tab:board:closed'
 ];
-const SPECS = /** @type {Record<string, { type: string }>} */ ({
-  'tab:all': { type: 'all-issues' },
-  'tab:board:ready': { type: 'ready-issues' },
-  'tab:board:blocked': { type: 'blocked-issues' },
-  'tab:board:closed': { type: 'closed-issues' }
-});
+// Every list spans all registered projects (scope 'all'); the project filter
+// then narrows it on the device (beads-lite-1bo5.13.8.1).
+const ALL = { scope: 'all' };
+const SPECS =
+  /** @type {Record<string, { type: string, params: typeof ALL }>} */ ({
+    'tab:all': { type: 'all-issues', params: ALL },
+    'tab:board:ready': { type: 'ready-issues', params: ALL },
+    'tab:board:blocked': { type: 'blocked-issues', params: ALL },
+    'tab:board:closed': { type: 'closed-issues', params: ALL }
+  });
 
 /** @type {Record<string, string>} */
 const TONE = {
@@ -125,6 +129,8 @@ export function mount(el, ctx) {
   const collapsed = loadCollapsed();
   let budget = Infinity;
   let first_paint_done = false;
+  /** Projects the server could not read for the All list (shown as a note). @type {string[]} */
+  let skipped = [];
   /** @type {ReturnType<typeof setTimeout>|null} */
   let rest_timer = null;
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -138,7 +144,8 @@ export function mount(el, ctx) {
     redraw: () => draw(),
     all: () => snap('tab:all'),
     visible: () => visibleIds(),
-    scope: () => scopeLabel()
+    scope: () => scopeLabel(),
+    foreign: (id) => !!otherWorkspace(id)
   });
   const selected = bulk.selected;
 
@@ -152,7 +159,11 @@ export function mount(el, ctx) {
       }
       void subs
         .subscribeList(id, SPECS[id])
-        .then((/** @type {() => Promise<void>} */ u) => {
+        .then((/** @type {any} */ u) => {
+          if (id === 'tab:all') {
+            skipped = Array.isArray(u && u.skipped) ? u.skipped : [];
+            if (skipped.length) draw();
+          }
           // The all-issues list stays on (shared with desk and nav); the
           // others stop when this screen closes, so an idle user costs nothing.
           if (id !== 'tab:all') unsubs.push(u);
@@ -161,9 +172,15 @@ export function mount(el, ctx) {
     }
   }
   subscribeAll();
+  // The server says which projects it could not read (also when that changes later).
+  const onSkipped = (/** @type {any} */ e) => {
+    if (!e.detail || e.detail.id !== 'tab:all') return;
+    skipped = e.detail.skipped;
+    draw();
+  };
+  window.addEventListener('u3:skipped', onSkipped);
   // main.js restores the saved project after this screen mounted; the server
-  // drops every subscription on set-workspace, so ask again for the new
-  // project, from empty stores (no cards of the old project left over).
+  // drops every subscription on set-workspace, so ask again.
   const wsPath = () => ctx.store?.getState?.().workspace?.current?.path || '';
   let ws_seen = wsPath();
   const offWs =
@@ -175,13 +192,9 @@ export function mount(el, ctx) {
           ws_seen = p;
           if (first) return;
           unsubs.length = 0;
-          for (const id of IDS) {
-            try {
-              stores.unregister(id);
-            } catch {
-              // not registered
-            }
-          }
+          // Every list spans all projects, so the cards on screen stay right
+          // while the server re-attaches them to the new connection project:
+          // keep the stores (no old cards of another project, no empty flash).
           subscribeAll();
           refresh();
         })
@@ -204,26 +217,28 @@ export function mount(el, ctx) {
       })
       .filter((/** @type {{key:string}} */ w) => w.key);
   }
-  /** The registered project `key` when it is not the one open now, else null. */
-  function otherWorkspace(/** @type {string} */ key) {
-    const cur = ctx.store.getState().workspace?.current?.path || '';
+  /** The registered project of task `id` when it is not the one open now, else null. */
+  function otherWorkspace(/** @type {string} */ id) {
+    const cur = ctx.store?.getState?.().workspace?.current?.path || '';
+    const key = projectOf(id);
     const hit = registered().find(
       (/** @type {{key:string,path:string}} */ w) => w.key === key
     );
-    const seen = (model ? model.facetItems : []).some(
-      (i) => projectOf(i.id) === key
-    );
-    return hit && hit.path !== cur && !seen ? hit : null;
+    return hit && hit.path !== cur ? hit : null;
   }
-  /** Another project's tasks live in its own workspace: switch, like the Projects screen. */
-  async function switchWorkspace(/** @type {string} */ path) {
+  /**
+   * A task of another project opens in that project's workspace (its detail
+   * is read there): switch like the Projects screen, then show the task.
+   */
+  async function openInWorkspace(
+    /** @type {string} */ path,
+    /** @type {string} */ id
+  ) {
     try {
       const r = await ctx.client.send('set-workspace', { path });
       if (r && r.workspace) {
         window.localStorage.setItem('beads-ui.workspace', path);
-        // the picked project's own tasks show; a saved project filter of the old one would hide them
-        projects = [];
-        remember();
+        window.location.hash = '#/issues?issue=' + encodeURIComponent(id);
         if (r.changed) window.location.reload();
       }
     } catch {
@@ -300,7 +315,15 @@ export function mount(el, ctx) {
       @pointerup=${h.up}
       @pointercancel=${h.up}
       @pointerleave=${h.up}
-      @click=${(/** @type {Event} */ e) => h.click(e, it.id)}
+      @click=${(/** @type {Event} */ e) => {
+        const other = bulk.isMode() ? null : otherWorkspace(it.id);
+        if (other) {
+          e.preventDefault();
+          void openInWorkspace(other.path, it.id);
+          return;
+        }
+        h.click(e, it.id);
+      }}
       @contextmenu=${h.context}
     >
       ${bulk.isMode()
@@ -310,7 +333,11 @@ export function mount(el, ctx) {
             aria-checked=${picked ? 'true' : 'false'}
           ></span>`
         : ''}
-      <span class="u3t-card__id u3-mono">${it.id}</span>
+      <span class="u3t-card__id u3-mono"
+        ><span class="u3t-card__proj">${projectOf(it.id)}</span>${it.id.slice(
+          projectOf(it.id).length
+        )}</span
+      >
       <span class="u3t-card__title" dir="auto">${primary}</span>
       ${secondary
         ? html`<span class="u3t-card__sub" dir="auto">${secondary}</span>`
@@ -590,11 +617,6 @@ export function mount(el, ctx) {
         },
         pick: (v) => {
           if (name === 'project') {
-            const other = v ? otherWorkspace(v) : null;
-            if (other) {
-              void switchWorkspace(other.path);
-              return;
-            }
             projects = !v
               ? []
               : projects.includes(v)
@@ -699,6 +721,11 @@ export function mount(el, ctx) {
             : ''}
         </div>
       </div>
+      ${skipped.length
+        ? html`<p class="u3t-note u3-muted" role="status">
+            ${t3('u3_tk_skipped')} ${skipped.join(', ')}
+          </p>`
+        : ''}
       <div class="u3t-stat" role="group" aria-label=${t3('u3_tasks')}>
         ${COLUMNS.map((c) => {
           const n = model ? (model.columns[c.id] || []).length : 0;
@@ -839,6 +866,7 @@ export function mount(el, ctx) {
       document.removeEventListener('keydown', onDoc);
       if (typeof offS === 'function') offS();
       window.removeEventListener('bdui-lang', onLang);
+      window.removeEventListener('u3:skipped', onSkipped);
       for (const u of unsubs) void u().catch(() => {});
       for (const id of IDS) if (id !== 'tab:all') stores.unregister?.(id);
       render(html``, el);
