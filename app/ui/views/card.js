@@ -162,24 +162,26 @@ async function write(el, p, type, payload) {
 }
 
 /**
- * Answer a comment-only decision: the task page posts "Answered: n - label,
- * re: c-xxxx" as a comment (the same text the legacy board wrote).
+ * A decision comment on a bead with no card record: the options are shown
+ * read-only. Answering is only through the card path (Desk), never a comment.
  *
- * @param {HTMLElement} el @param {Panel} p @param {{n:number,l:string}} o
+ * @param {any} c @param {string} lang
  */
-async function fbWrite(el, p, o) {
-  if (p.busy) return;
-  p.busy = true;
-  p.error = '';
-  paint(el, p);
-  try {
-    await p.item.fallback.answer_with(o);
-    p.pick = null;
-  } catch {
-    p.error = errorText('failed');
-  }
-  p.busy = false;
-  paint(el, p);
+function readOnlyOpts(c, lang) {
+  return html`<ol class="u3-cd__ro" dir=${cardDir(lang)}>
+      ${c.opts.map(
+        (/** @type {any} */ o) =>
+          html`<li dir="auto">
+            ${o.n}.
+            ${o.l}${o.rec
+              ? html` <small>${tc('u3_card_rec', lang)}</small>`
+              : nothing}
+          </li>`
+      )}
+    </ol>
+    <p class="u3-cd__note" data-desk-only>
+      ${tc('u3_card_answer_desk', lang)}
+    </p>`;
 }
 
 /** @param {Panel} p */
@@ -260,10 +262,9 @@ function paint(el, p) {
         }
       : null);
   // A '## Decision' comment on a bead with no card record (task page): the
-  // options come from the comment, the answer goes back as a comment.
+  // options come from the comment, read-only (answer on Desk).
   const fb = p.item.fallback;
   const use_fb = Boolean(fb) && !d?.card;
-  const dd = use_fb && fb && !fb.answer ? { card: fb.card, fb: true } : d;
   const cc = use_fb && fb ? fb.card : c;
   const state = use_fb
     ? fb.answer
@@ -285,7 +286,8 @@ function paint(el, p) {
   const body = html`${cc
     ? cardBody(cc, lang)
     : html`<p class="u3-cd__q" dir="auto">${p.item.title}</p>`}
-  ${state === 'waiting' && dd ? answerArea(el, p, dd, lang) : nothing}
+  ${use_fb && fb && !fb.answer ? readOnlyOpts(fb.card, lang) : nothing}
+  ${state === 'waiting' && d && !use_fb ? answerArea(el, p, d, lang) : nothing}
   ${use_fb && fb?.answer
     ? html`<p class="u3-cd__rec" dir="auto" data-answered>${fb.answer}</p>`
     : nothing}
@@ -402,10 +404,7 @@ function answerArea(el, p, d, lang) {
         class="u3-btn u3-btn--primary u3-btn--block u3-cd__opt"
         data-act="confirm"
         ?disabled=${p.busy}
-        @click=${() =>
-          d.fb
-            ? void fbWrite(el, p, o)
-            : write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
+        @click=${() => write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
       >
         <span dir="auto">${tc('u3_card_confirm', lang)}: ${o.l}</span>
       </button>

@@ -15,7 +15,6 @@ import {
 } from '../../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../../utils/att-images.js';
 import {
-  answerText,
   decisionStates,
   parseDecisionComment
 } from '../../utils/decision-comment.js';
@@ -261,7 +260,6 @@ export function mount(el, ctx) {
     if (!d || idx < 0) return undefined;
     const st = decisionStates(list, issue).get(idx);
     if (!st || st.kind === 'closed') return undefined;
-    const ref = commentAnchor(c);
     return {
       card: {
         q: d.q,
@@ -271,13 +269,7 @@ export function mount(el, ctx) {
         opts: d.opts,
         att: []
       },
-      answer: st.kind === 'answered' ? st.answer : '',
-      /** @param {any} o */
-      answer_with: async (o) => {
-        const res = await send('add-comment', { id, text: answerText(o, ref) });
-        if (Array.isArray(res)) comments = res;
-        draw();
-      }
+      answer: st.kind === 'answered' ? st.answer : ''
     };
   }
 

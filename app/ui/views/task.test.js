@@ -117,7 +117,7 @@ describe('task page', () => {
     }
   });
 
-  test('an ASK comment with no card record shows its options and answers by comment (.59.36)', async () => {
+  test('an ASK comment with no card record shows its options and read-only, answer on Desk (.59.36)', async () => {
     COMMENTS.push({
       id: 'eeeeeeee-5555',
       author: 'cos',
@@ -139,14 +139,10 @@ describe('task page', () => {
       const { el, send } = setup('card');
       await tick();
       await tick();
-      const opts = el.querySelectorAll('.u3-cd__opt');
-      expect(opts.length).toBe(2);
-      opts[0].click();
-      await tick();
-      el.querySelector('[data-act="confirm"]').click();
-      await tick();
-      const call = send.mock.calls.find((c) => c[0] === 'add-comment');
-      expect(call[1].text).toMatch(/^Answered: 1 - Yes, re: c-eeeeeeee$/);
+      expect(el.querySelectorAll('.u3-cd__ro li').length).toBe(2);
+      expect(el.querySelector('[data-desk-only]')).not.toBeNull();
+      expect(el.querySelector('.u3-cd__opt')).toBeNull();
+      expect(send.mock.calls.some((c) => c[0] === 'add-comment')).toBe(false);
     } finally {
       COMMENTS.pop();
       ISSUE.status = 'in_progress';
