@@ -240,6 +240,7 @@ describe('POST /api/report', () => {
     expect(call.cwd).toBe(path.join(tmp, 'demo'));
     expect(call.args).toContain('bug');
     expect(call.args).toContain('owner-report');
+    expect(call.args[call.args.indexOf('--assignee') + 1]).toBe('cos');
     expect(call.args[call.args.indexOf('--actor') + 1]).toBe('owner-board');
     expect(call.args[1]).toMatch(/^\[v1\.2\.3\+4\] Button is cut off$/);
     const meta = JSON.parse(call.args[call.args.indexOf('--metadata') + 1]);
@@ -272,6 +273,25 @@ describe('POST /api/report', () => {
       "default-src 'none'; frame-ancestors 'none'"
     );
     expect(a.body.includes('SECRETMETA')).toBe(false);
+  });
+
+  test('assignee comes from the per-project map, and can be switched off', async () => {
+    process.env.BDUI_REPORT_ASSIGNEES = JSON.stringify({ demo: 'swe' });
+    try {
+      expect((await post(frame(GOOD))).status).toBe(200);
+      const a = bdCalls[bdCalls.length - 1].args;
+      expect(a[a.indexOf('--assignee') + 1]).toBe('swe');
+    } finally {
+      delete process.env.BDUI_REPORT_ASSIGNEES;
+    }
+    process.env.BDUI_REPORT_ASSIGNEE = 'none';
+    try {
+      resetReportRate();
+      expect((await post(frame(GOOD))).status).toBe(200);
+      expect(bdCalls[bdCalls.length - 1].args).not.toContain('--assignee');
+    } finally {
+      delete process.env.BDUI_REPORT_ASSIGNEE;
+    }
   });
 
   test('a report for a redirected project lands in the real store, for cos, and wakes cos', async () => {
