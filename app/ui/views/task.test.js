@@ -127,6 +127,28 @@ describe('task page', () => {
     expect(el.querySelector('[data-anchor="description"]')).toBeTruthy();
   });
 
+  test('reactions fold under their comment and leave the thread/count (13.3)', async () => {
+    COMMENTS.push(
+      { id: 'f1', author: 'swe', text: 'REACT: 👀 re: c-aaaaaaaa' },
+      { id: 'f2', author: 'qa', text: 'REACT: 👀 re: c-aaaaaaaa' }
+    );
+    try {
+      const { el } = setup();
+      await tick();
+      expect(el.querySelectorAll('.u3-ts__c').length).toBe(3);
+      const chips = el.querySelectorAll(
+        '[data-anchor="c-aaaaaaaa"] .u3-ts__rxc'
+      );
+      expect(chips.length).toBe(1);
+      expect(chips[0].textContent).toContain('👀');
+      expect(chips[0].textContent).toContain('swe, qa');
+      expect(el.textContent).not.toContain('REACT:');
+    } finally {
+      COMMENTS.pop();
+      COMMENTS.pop();
+    }
+  });
+
   test('an id the server refuses shows not-found, not loading (.59.24)', async () => {
     document.body.innerHTML = '<div id="v"></div>';
     window.localStorage.setItem('beads-ui.lang', 'en');

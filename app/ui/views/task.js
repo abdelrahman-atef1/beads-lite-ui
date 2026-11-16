@@ -20,6 +20,7 @@ import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
 import { renderMarkdown } from '../../utils/markdown.js';
 import { priorityName } from '../../utils/priority.js';
+import { splitReactions } from '../../utils/reactions.js';
 import { statusLabel } from '../../utils/status.js';
 import { renderAskHead } from '../ask/head-slot.js';
 import { renderStepsComment } from '../card/steps.js';
@@ -244,8 +245,8 @@ export function mount(el, ctx) {
         </section>`
       : nothing;
 
-  /** @param {any} c - @param {boolean} as_card */
-  function commentView(c, as_card) {
+  /** @param {any} c - @param {boolean} as_card - @param {{ emoji: string, who: string[] }[]} [reacts] */
+  function commentView(c, as_card, reacts = []) {
     const body_text = String(c.text || '');
     const a = commentAnchor(c);
     const author = String(c.author || '') || t3('u3_ts_unknown');
@@ -274,19 +275,30 @@ export function mount(el, ctx) {
         >
       </header>
       <div class="u3-ts__cb">${body}</div>
+      ${reacts.length
+        ? html`<div class="u3-ts__rx" data-reactions>
+            ${reacts.map(
+              (r) =>
+                html`<span class="u3-ts__rxc" title=${r.who.join(', ')}
+                  >${r.emoji}
+                  <span class="u3-muted">${r.who.join(', ')}</span></span
+                >`
+            )}
+          </div>`
+        : nothing}
       ${renderMentionChips(id, c, c === comments?.[comments.length - 1])}
     </article>`;
   }
 
   function commentsBlock() {
-    const list = comments || [];
+    const { real: list, byAnchor } = splitReactions(comments || []);
     let seen_decision = false;
     // Newest first, like the legacy page; the card shows once (newest ask).
     const items = [...list].reverse().map((c) => {
       const is_d = Boolean(parseDecisionComment(String(c.text || '')));
       const first = is_d && !seen_decision;
       if (is_d) seen_decision = true;
-      return commentView(c, first);
+      return commentView(c, first, byAnchor.get(commentAnchor(c)) || []);
     });
     return html`<section class="u3-ts__sec" data-anchor="comments">
       <h3 class="u3-ts__h">
