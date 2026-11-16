@@ -220,6 +220,19 @@ html[dir='rtl'] .u3 .u3-ts__back {
   border-inline-start: 3px solid var(--u3-amber);
 }
 /* Decision comment is flat (design A): the amber edge only, no inner boxes. */
+.u3 .u3-ts__c--decision {
+  border-block-end: 0;
+}
+.u3 .u3-ts__c--decision .u3-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.u3 .u3-ts__c--decision .u3-card::before {
+  display: none;
+}
 .u3 .u3-ts__c--decision .u3-cd__field,
 .u3 .u3-ts__c--decision .u3-cd__blk {
   padding: 0;
@@ -519,8 +532,7 @@ html[dir='rtl'] .u3 .u3-ts__back {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--u3-sp-2);
-  padding-block: var(--u3-sp-2);
-  border-block: 1px solid var(--u3-border);
+  padding-block: var(--u3-sp-1);
 }
 .u3 .u3-ts__time u3-time-slot {
   flex: 1;
@@ -546,6 +558,12 @@ html[dir='rtl'] .u3 .u3-ts__back {
   font: inherit;
   font-size: var(--u3-fs-s);
   cursor: pointer;
+}
+.u3 .u3-ts__time .u3-chip {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--u3-text-2);
 }
 .u3 .u3-ts__timebtn::after {
   content: ' \203A';
@@ -580,4 +598,15 @@ html[dir='rtl'] .u3 .u3-ts__timebtn::after {
   border: 1px solid var(--u3-border);
   border-radius: 999px;
   font-size: var(--u3-fs-s);
+}
+
+/* Time row closed: one plain line, long notes are cut with an ellipsis. */
+.u3 .u3-ts__time:not([data-open]) .u3-tm__unk {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.u3 .u3-ts__time:not([data-open]) u3-time-slot {
+  overflow: hidden;
 }
