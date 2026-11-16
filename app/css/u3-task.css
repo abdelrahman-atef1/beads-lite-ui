@@ -370,3 +370,18 @@ html[dir='rtl'] .u3 .u3-ts__back {
 .u3 .u3-ed__row .u3-ts__labels {
   justify-content: flex-start;
 }
+.u3 .u3-ts__rx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--u3-sp-2);
+  margin-block-start: var(--u3-sp-2);
+}
+.u3 .u3-ts__rxc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--u3-sp-2);
+  border: 1px solid var(--u3-border);
+  border-radius: 999px;
+  font-size: var(--u3-fs-s);
+}
