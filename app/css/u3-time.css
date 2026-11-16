@@ -564,3 +564,9 @@ html[dir='rtl'] .u3 .u3-tm__q {
 .u3 .u3-ex__g-n {
   white-space: nowrap;
 }
+
+.u3 .u3-tm__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-3);
+}

@@ -14,7 +14,10 @@ import {
   parseAnchor
 } from '../../utils/anchor.js';
 import { bindAttClicks, setImgContext } from '../../utils/att-images.js';
-import { parseDecisionComment } from '../../utils/decision-comment.js';
+import {
+  decisionStates,
+  parseDecisionComment
+} from '../../utils/decision-comment.js';
 import { renderFolded } from '../../utils/fold.js';
 import { getLang } from '../../utils/i18n.js';
 import { linkifyText } from '../../utils/linkify-ids.js';
@@ -71,6 +74,8 @@ const TONE = /** @type {Record<string, string>} */ ({
  * @param {HTMLElement} el
  * @param {any} ctx
  */
+const QUEUED_MS = 4000;
+
 export function mount(el, ctx) {
   const stores = ctx.sub_issue_stores;
   const subs = ctx.subscriptions;
@@ -89,6 +94,13 @@ export function mount(el, ctx) {
   let text = '';
   let pending = false;
   let post_error = false;
+  let queued = false;
+  // Flat page (beads-lite-1bo5.13.2): one tab at a time, the add-comment box
+  // is one line until tapped, the ⋯ menu and the time detail are closed.
+  let tab = 'comments';
+  let composing = false;
+  let menu_open = false;
+  let time_open = false;
   let anchor_done = '';
   /** @type {null | (() => void)} */
   let unsub_store = null;
@@ -140,6 +152,10 @@ export function mount(el, ctx) {
     sub_failed = false;
     comments = null;
     text = '';
+    tab = 'comments';
+    composing = false;
+    closeMenu();
+    time_open = false;
     anchor_done = '';
     setImgContext({ bead: id });
     const cid = `detail:${id}`;
@@ -185,19 +201,93 @@ export function mount(el, ctx) {
     if (!body || pending || body.length > COMMENT_MAX) return;
     pending = true;
     post_error = false;
+    queued = false;
     draw();
+    // Offline the socket holds the request and sends it on reconnect: say so
+    // instead of sitting on "Sending…" (queued, no second post needed).
+    const q = setTimeout(() => {
+      queued = true;
+      draw();
+    }, QUEUED_MS);
     try {
       const res = await send('add-comment', { id, text: body });
       if (Array.isArray(res)) {
         comments = res;
-        await afterCommentPosted(ctx, id, body);
         text = '';
+        composing = false;
+        // mentions are scanned in the background; the box closes at once
+        void afterCommentPosted(ctx, id, body).catch(() => {});
       }
     } catch {
       post_error = true;
     }
+    clearTimeout(q);
+    queued = false;
     pending = false;
     draw();
+  }
+
+  /** Close the ⋯ menu; the outside-click listener lives only while open. */
+  function closeMenu() {
+    menu_open = false;
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onDocKey, true);
+  }
+  /** @param {Event} e */
+  function onDocClick(e) {
+    if (!(e.target instanceof Node) || !el.querySelector('.u3-ts__more')) {
+      return;
+    }
+    if (!el.querySelector('.u3-ts__more')?.contains(e.target)) {
+      closeMenu();
+      draw();
+    }
+  }
+  /** @param {KeyboardEvent} e */
+  function onDocKey(e) {
+    if (e.key === 'Escape') {
+      closeMenu();
+      draw();
+    }
+  }
+  function toggleMenu() {
+    if (menu_open) closeMenu();
+    else {
+      menu_open = true;
+      document.addEventListener('click', onDocClick, true);
+      document.addEventListener('keydown', onDocKey, true);
+    }
+    draw();
+  }
+  function addSubtask() {
+    closeMenu();
+    draw();
+    openNewTask(el.closest('.u3') || el, ctx, { parent: issue.id });
+  }
+  function toggleEdit() {
+    closeMenu();
+    if (!edit.isEditing()) tab = 'description';
+    edit.toggle();
+  }
+  function openComposer() {
+    tab = 'comments';
+    composing = true;
+    draw();
+    const ta = /** @type {HTMLTextAreaElement | null} */ (
+      el.querySelector('#u3-ts-in')
+    );
+    if (ta) {
+      ta.focus();
+      ta.scrollIntoView({ block: 'center' });
+    }
+  }
+  /** @param {string} target - which tab holds this anchor */
+  function tabOf(target) {
+    if (['description', 'design', 'notes', 'acceptance'].includes(target)) {
+      return 'description';
+    }
+    if (target.startsWith('rel-')) return 'subtasks';
+    return 'comments';
   }
 
   /** @param {string} label - @param {any} value */
@@ -245,6 +335,32 @@ export function mount(el, ctx) {
         </section>`
       : nothing;
 
+  /**
+   * The comment's own decision (question, options, state) for a bead that has
+   * no card record, so its answer buttons still show here.
+   *
+   * @param {any} c
+   */
+  function decisionFallback(c) {
+    const d = parseDecisionComment(String(c.text || ''));
+    const list = comments || [];
+    const idx = list.indexOf(c);
+    if (!d || idx < 0) return undefined;
+    const st = decisionStates(list, issue).get(idx);
+    if (!st || st.kind === 'closed') return undefined;
+    return {
+      card: {
+        q: d.q,
+        effect: d.effect,
+        show: d.show,
+        blocks: d.blocks,
+        opts: d.opts,
+        att: []
+      },
+      answer: st.kind === 'answered' ? st.answer : ''
+    };
+  }
+
   /** @param {any} c - @param {boolean} as_card - @param {{ emoji: string, who: string[] }[]} [reacts] */
   function commentView(c, as_card, reacts = []) {
     const body_text = String(c.text || '');
@@ -252,7 +368,10 @@ export function mount(el, ctx) {
     const author = String(c.author || '') || t3('u3_ts_unknown');
     let body;
     if (as_card) {
-      body = renderCard({ id, title: issue?.title || '' }, ctx);
+      body = renderCard(
+        { id, title: issue?.title || '', fallback: decisionFallback(c) },
+        ctx
+      );
     } else if (body_text.startsWith('STEPS: ')) {
       const st = renderStepsComment(c, { issueId: id, client: ctx.client });
       body =
@@ -262,7 +381,11 @@ export function mount(el, ctx) {
         ${renderFolded(body_text, renderMarkdown, flat)}
       </div>`;
     }
-    return html`<article class="u3-ts__c" data-anchor=${a}>
+    const is_decision = Boolean(parseDecisionComment(body_text));
+    return html`<article
+      class="u3-ts__c${is_decision ? ' u3-ts__c--decision' : ''}"
+      data-anchor=${a}
+    >
       <header class="u3-ts__ch">
         ${personChip({ role: author })}
         <span class="u3-muted u3-ts__cd">${fmtDate(c.created_at)}</span>
@@ -300,10 +423,75 @@ export function mount(el, ctx) {
       if (is_d) seen_decision = true;
       return commentView(c, first, byAnchor.get(commentAnchor(c)) || []);
     });
+    const open = composing || pending || Boolean(text.trim());
+    const composer = open
+      ? html`<div class="u3-ts__composer">
+          <label class="u3-ts__lbl" for="u3-ts-in">${t3('u3_ts_add')}</label>
+          <textarea
+            id="u3-ts-in"
+            class="u3-ts__in"
+            dir="auto"
+            rows="3"
+            maxlength=${COMMENT_MAX}
+            placeholder=${t3('u3_ts_ph')}
+            .value=${text}
+            ?disabled=${pending}
+            @input=${(/** @type {Event} */ e) => {
+              const was = Boolean(text.trim());
+              text = /** @type {HTMLTextAreaElement} */ (e.target).value;
+              if (was !== Boolean(text.trim())) draw();
+            }}
+            @keydown=${(/** @type {KeyboardEvent} */ e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                void post();
+              }
+            }}
+          ></textarea>
+          <div class="u3-ts__act">
+            ${renderComposerExtras(ctx)}
+            ${button({
+              label: t3('u3_ts_cancel'),
+              variant: 'ghost',
+              disabled: pending,
+              onClick: () => {
+                text = '';
+                composing = false;
+                post_error = false;
+                draw();
+              }
+            })}
+            ${button({
+              label: pending ? t3('u3_ts_sending') : t3('u3_ts_send'),
+              disabled: pending || !text.trim(),
+              onClick: () => void post()
+            })}
+          </div>
+          ${queued && pending
+            ? html`<p role="status" class="u3-muted">${t3('u3_ts_queued')}</p>`
+            : nothing}
+          ${post_error
+            ? html`<p role="alert" class="u3-ts__err">
+                ${t3('u3_ts_failed')}
+                ${button({
+                  label: t3('u3_ts_retry'),
+                  variant: 'ghost',
+                  onClick: () => void post()
+                })}
+              </p>`
+            : nothing}
+        </div>`
+      : html`<button
+          type="button"
+          class="u3-ts__quick"
+          @click=${() => openComposer()}
+        >
+          ${t3('u3_ts_add')}
+        </button>`;
+    // The add-comment box sits at the TOP of the thread, above the newest
+    // comment (owner, 2026-11-16).
     return html`<section class="u3-ts__sec" data-anchor="comments">
-      <h3 class="u3-ts__h">
-        ${t3('u3_ts_comments')} <span class="u3-muted">${list.length}</span>
-      </h3>
+      ${composer}
       ${comments_error
         ? html`<p role="alert" class="u3-muted">
             ${t3('u3_ts_comments_failed')}
@@ -318,41 +506,6 @@ export function mount(el, ctx) {
           : list.length === 0
             ? html`<p class="u3-muted">${t3('u3_ts_no_comments')}</p>`
             : items}
-      <div class="u3-ts__composer">
-        <label class="u3-ts__lbl" for="u3-ts-in">${t3('u3_ts_add')}</label>
-        <textarea
-          id="u3-ts-in"
-          class="u3-ts__in"
-          dir="auto"
-          rows="3"
-          maxlength=${COMMENT_MAX}
-          placeholder=${t3('u3_ts_ph')}
-          .value=${text}
-          ?disabled=${pending}
-          @input=${(/** @type {Event} */ e) => {
-            const was = Boolean(text.trim());
-            text = /** @type {HTMLTextAreaElement} */ (e.target).value;
-            if (was !== Boolean(text.trim())) draw();
-          }}
-          @keydown=${(/** @type {KeyboardEvent} */ e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              void post();
-            }
-          }}
-        ></textarea>
-        <div class="u3-ts__act">
-          ${renderComposerExtras(ctx)}
-          ${button({
-            label: pending ? t3('u3_ts_sending') : t3('u3_ts_send'),
-            disabled: pending || !text.trim(),
-            onClick: () => void post()
-          })}
-        </div>
-        ${post_error
-          ? html`<p role="alert" class="u3-ts__err">${t3('u3_ts_failed')}</p>`
-          : nothing}
-      </div>
     </section>`;
   }
 
@@ -394,13 +547,65 @@ export function mount(el, ctx) {
     const parent = deps.find(isChild);
     const labels = Array.isArray(i.labels) ? i.labels : [];
     const acceptance = i.acceptance || i.acceptance_criteria || '';
-    const jump = [
-      ['u3_ts_comments', 'comments', true],
-      ['u3_ts_description', 'description', i.description],
-      ['u3_ts_design', 'design', i.design],
-      ['u3_ts_notes', 'notes', i.notes],
-      ['u3_ts_acceptance', 'acceptance', acceptance]
-    ].filter(([, , on]) => String(on || '').trim() || on === true);
+    const editing = edit.isEditing();
+    const tabs = [
+      ['comments', t3('u3_ts_comments'), (comments || []).length],
+      ['description', t3('u3_ts_description'), null],
+      [
+        'subtasks',
+        t3('u3_ts_children'),
+        children.length + deps.length + others.length
+      ]
+    ];
+    const hot = Number(i.priority) <= 1;
+    const facts = html`${row(t3('u3_ts_status'), statusLabel(i.status))}
+    ${row(
+      t3('u3_ts_assignee'),
+      i.assignee ? personChip({ role: String(i.assignee) }) : t3('u3_ts_none')
+    )}
+    ${row(t3('u3_ts_priority'), priorityName(i.priority))}
+    ${row(t3('u3_ts_project'), projectOf(i.id))}
+    ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
+    ${parent
+      ? row(
+          t3('u3_ts_parent'),
+          html`<a class="u3-mono" href=${href(parent.id)}>${parent.id}</a>`
+        )
+      : nothing}
+    ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
+    ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
+    ${labels.length
+      ? row(
+          t3('u3_ts_labels'),
+          html`<span class="u3-ts__labels"
+            >${labels.map((/** @type {string} */ l) =>
+              chip({ label: l })
+            )}</span
+          >`
+        )
+      : nothing}
+    ${i.close_reason ? row(t3('u3_ts_close_reason'), i.close_reason) : nothing}`;
+    const panel =
+      tab === 'description'
+        ? html`${editing
+            ? edit.description(i)
+            : field('u3_ts_description', 'description', i.description)}
+          ${field('u3_ts_design', 'design', i.design)}
+          ${field('u3_ts_notes', 'notes', i.notes)}
+          ${field('u3_ts_acceptance', 'acceptance', acceptance)}
+          ${editing
+            ? nothing
+            : html`<section class="u3-ts__sec u3-ts__phone-facts">
+                ${facts}
+              </section>`}`
+        : tab === 'subtasks'
+          ? html`${relations('u3_ts_children', children)}
+            ${relations(
+              'u3_ts_deps',
+              deps.filter((/** @type {any} */ d) => d !== parent)
+            )}
+            ${relations('u3_ts_dependents', others)}`
+          : commentsBlock();
     render(
       page(
         html`<div class="u3-ts__top">
@@ -410,85 +615,105 @@ export function mount(el, ctx) {
               aria-label=${t3('u3_ts_back')}
               >&larr;</a
             >
-            <div class="u3-ts__chips">
-              ${chip({ label: projectOf(i.id), tone: 'blue' })}
-              ${chip({ label: i.id, mono: true })}
-              ${chip({
-                label: statusLabel(i.status),
-                tone: TONE[i.status] || 'neutral'
-              })}
-              ${chip({ label: priorityName(i.priority) })}
-            </div>
+            <span class="u3-ts__id u3-mono" dir="ltr">${i.id}</span>
             <span class="u3-ts__tools">
-              ${button({
-                label: t3('u3_nt_sub'),
-                variant: 'ghost',
-                onClick: () =>
-                  openNewTask(el.closest('.u3') || el, ctx, { parent: i.id })
-              })}
-              ${edit.toggleButton()}
+              <button
+                type="button"
+                class="u3-btn u3-btn--ghost u3-ed__toggle"
+                aria-pressed=${editing ? 'true' : 'false'}
+                @click=${() => toggleEdit()}
+              >
+                ${editing ? t3('u3_ed_done') : t3('u3_ed_edit')}
+              </button>
+              <span class="u3-ts__more">
+                <button
+                  type="button"
+                  class="u3-ts__morebtn"
+                  aria-haspopup="menu"
+                  aria-expanded=${menu_open ? 'true' : 'false'}
+                  aria-label=${t3('u3_ts_more')}
+                  @click=${() => toggleMenu()}
+                >
+                  &#8943;
+                </button>
+                ${menu_open
+                  ? html`<div class="u3-ts__menu" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="u3-ts__mi"
+                        @click=${() => addSubtask()}
+                      >
+                        ${t3('u3_nt_sub')}
+                      </button>
+                    </div>`
+                  : nothing}
+              </span>
             </span>
           </div>
-          ${edit.title(i)} ${renderTimeSlot(i, ctx)}
-          <nav class="u3-ts__jump">
-            ${jump.map(
-              ([k, a]) =>
-                html`<a class="u3-ts__j" href=${href(id) + '&at=' + a}
-                  >${t3(String(k))}</a
-                >`
+          ${edit.title(i)}
+          <p class="u3-ts__facts">
+            <span class="u3-ts__st u3-ts__st--${TONE[i.status] || 'neutral'}"
+              >${statusLabel(i.status)}</span
+            >
+            <span class="u3-ts__pr${hot ? ' u3-ts__pr--hot' : ''}"
+              >${priorityName(i.priority)}</span
+            >
+            <span class="u3-ts__pj">${projectOf(i.id)}</span>
+          </p>
+          <div class="u3-ts__time" ?data-open=${time_open}>
+            ${renderTimeSlot(i, ctx)}
+            <button
+              type="button"
+              class="u3-ts__timebtn"
+              aria-expanded=${time_open ? 'true' : 'false'}
+              @click=${() => {
+                time_open = !time_open;
+                draw();
+              }}
+            >
+              ${t3('u3_ts_time_more')}
+            </button>
+          </div>
+          <nav class="u3-ts__jump" role="tablist">
+            ${tabs.map(
+              ([k, label, n]) =>
+                html`<button
+                  type="button"
+                  role="tab"
+                  class="u3-ts__j${tab === k ? ' is-on' : ''}"
+                  aria-selected=${tab === k ? 'true' : 'false'}
+                  @click=${() => {
+                    tab = String(k);
+                    draw();
+                  }}
+                >
+                  ${label}${n === null
+                    ? nothing
+                    : html` <span class="u3-muted">${n}</span>`}
+                </button>`
             )}
           </nav>
           <div class="u3-ts__cols">
-            <div class="u3-ts__main">
-              ${edit.isEditing()
-                ? edit.description(i)
-                : field('u3_ts_description', 'description', i.description)}
-              ${field('u3_ts_design', 'design', i.design)}
-              ${field('u3_ts_notes', 'notes', i.notes)}
-              ${field('u3_ts_acceptance', 'acceptance', acceptance)}
-              ${relations('u3_ts_children', children)}
-              ${relations(
-                'u3_ts_deps',
-                deps.filter((/** @type {any} */ d) => d !== parent)
-              )}
-              ${relations('u3_ts_dependents', others)} ${commentsBlock()}
-            </div>
-            <aside class="u3-ts__side">
-              <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
-              ${edit.isEditing()
-                ? edit.rows(i)
-                : html`${row(t3('u3_ts_status'), statusLabel(i.status))}
-                  ${row(
-                    t3('u3_ts_assignee'),
-                    i.assignee
-                      ? personChip({ role: String(i.assignee) })
-                      : t3('u3_ts_none')
-                  )}
-                  ${row(t3('u3_ts_priority'), priorityName(i.priority))}`}
-              ${i.issue_type ? row(t3('u3_ts_type'), i.issue_type) : nothing}
-              ${parent
-                ? row(
-                    t3('u3_ts_parent'),
-                    html`<a class="u3-mono" href=${href(parent.id)}
-                      >${parent.id}</a
-                    >`
-                  )
-                : nothing}
-              ${row(t3('u3_ts_created'), fmtDate(i.created_at))}
-              ${row(t3('u3_ts_updated'), fmtDate(i.updated_at))}
-              ${labels.length && !edit.isEditing()
-                ? row(
-                    t3('u3_ts_labels'),
-                    html`<span class="u3-ts__labels"
-                      >${labels.map((/** @type {string} */ l) =>
-                        chip({ label: l })
-                      )}</span
-                    >`
-                  )
-                : nothing}
-              ${i.close_reason
-                ? row(t3('u3_ts_close_reason'), i.close_reason)
-                : nothing}
+            <div class="u3-ts__main">${panel}</div>
+            <aside class="u3-ts__side${editing ? ' is-editing' : ''}">
+              <div class="u3-ts__acts">
+                ${button({
+                  label: t3('u3_ts_add'),
+                  onClick: () => openComposer()
+                })}
+                ${button({
+                  label: editing ? t3('u3_ed_done') : t3('u3_ed_edit'),
+                  variant: 'ghost',
+                  onClick: () => toggleEdit()
+                })}
+                ${button({
+                  label: t3('u3_nt_sub'),
+                  variant: 'ghost',
+                  onClick: () => addSubtask()
+                })}
+              </div>
+              ${editing ? edit.rows(i) : facts}
             </aside>
           </div>`
       ),
@@ -508,6 +733,12 @@ export function mount(el, ctx) {
     }
     const key = `${id}|${a.target}|${a.from}-${a.to}`;
     if (anchor_done === key) return;
+    const need = tabOf(a.target);
+    if (need !== tab) {
+      tab = need;
+      draw(); // re-enters here once the right tab is drawn
+      return;
+    }
     let attr = a.target;
     let source = '';
     if (a.target.startsWith('c-')) {
@@ -564,6 +795,7 @@ export function mount(el, ctx) {
     },
     unmount: () => {
       alive = false;
+      closeMenu();
       teardown();
       render(html``, el);
     }

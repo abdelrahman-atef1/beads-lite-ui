@@ -26,6 +26,9 @@ const ASK_MAX = 500;
 const WAIT_MS = 3000;
 const QUOTE_MAX = 300;
 const TYPED_MAX = 500;
+// Options that mean "I have something to say": the text box is required for them.
+const NOTE_OPT =
+  /ملاحظات|اكتب|اختيار (تاني|تانى|آخر|اخر)|رد تاني|notes?\b|other|something else|write/i;
 
 /**
  * @typedef {object} Panel
@@ -161,6 +164,29 @@ async function write(el, p, type, payload) {
   await load(el, p);
 }
 
+/**
+ * A decision comment on a bead with no card record: the options are shown
+ * read-only. Answering is only through the card path (Desk), never a comment.
+ *
+ * @param {any} c @param {string} lang
+ */
+function readOnlyOpts(c, lang) {
+  return html`<ol class="u3-cd__ro" dir=${cardDir(lang)}>
+      ${c.opts.map(
+        (/** @type {any} */ o) =>
+          html`<li dir="auto">
+            ${o.n}.
+            ${o.l}${o.rec
+              ? html` <small>${tc('u3_card_rec', lang)}</small>`
+              : nothing}
+          </li>`
+      )}
+    </ol>
+    <p class="u3-cd__note" data-desk-only>
+      ${tc('u3_card_answer_desk', lang)}
+    </p>`;
+}
+
 /** @param {Panel} p */
 function langOf(p) {
   const c = p.data?.card;
@@ -238,25 +264,40 @@ function paint(el, p) {
           opts: []
         }
       : null);
-  const state = d?.state || 'waiting';
-  if (p.failed && !d) {
+  // A '## Decision' comment on a bead with no card record (task page): the
+  // options come from the comment, read-only (answer on Desk).
+  const fb = p.item.fallback;
+  const use_fb = Boolean(fb) && !d?.card;
+  const cc = use_fb && fb ? fb.card : c;
+  const state = use_fb
+    ? fb.answer
+      ? 'answered'
+      : 'waiting'
+    : d?.state || 'waiting';
+  if (p.failed && !d && !use_fb) {
     render(html`<p class="u3-cd__err" role="alert">${p.failed}</p>`, el);
     return;
   }
   const foot = html`<div class="u3-cd__foot">
-    ${state === 'waiting' && d && !p.asking ? askArea(el, p, d, lang) : nothing}
+    ${state === 'waiting' && d && !use_fb && !p.asking
+      ? askArea(el, p, d, lang)
+      : nothing}
     <a class="u3-cd__link" href=${taskHref(p.item.id)}
       >${tc('u3_card_open_task', lang)}</a
     >
   </div>`;
-  const body = html`${c
-    ? cardBody(c, lang)
+  const body = html`${cc
+    ? cardBody(cc, lang)
     : html`<p class="u3-cd__q" dir="auto">${p.item.title}</p>`}
-  ${state === 'waiting' && d ? answerArea(el, p, d, lang) : nothing}
+  ${use_fb && fb && !fb.answer ? readOnlyOpts(fb.card, lang) : nothing}
+  ${state === 'waiting' && d && !use_fb ? answerArea(el, p, d, lang) : nothing}
+  ${use_fb && fb?.answer
+    ? html`<p class="u3-cd__rec" dir="auto" data-answered>${fb.answer}</p>`
+    : nothing}
   ${state === 'asked'
     ? html`<p class="u3-cd__note" data-asked>${tc('u3_card_waiting', lang)}</p>`
     : nothing}
-  ${state === 'answered' && d?.decision
+  ${state === 'answered' && !use_fb && d?.decision
     ? html`<p class="u3-cd__rec" dir="auto" data-answered>
         ${d.decision.answer}
         <small
@@ -268,7 +309,9 @@ function paint(el, p) {
       </p>`
     : nothing}
   ${d?.thread?.length ? threadView(d.thread, lang) : nothing}
-  ${state === 'waiting' && d && p.asking ? askForm(el, p, d, lang) : nothing}
+  ${state === 'waiting' && d && !use_fb && p.asking
+    ? askForm(el, p, d, lang)
+    : nothing}
   ${p.error ? html`<p class="u3-cd__err" role="alert">${p.error}</p>` : nothing}
   ${wakeChip(p, d, lang)}`;
   render(
@@ -358,13 +401,38 @@ function answerArea(el, p, d, lang) {
   }
   if (p.pick !== null && c.opts[p.pick]) {
     const o = c.opts[p.pick];
+    const need = NOTE_OPT.test(o.l);
     return html`<div class="u3-cd__opts">
+      <textarea
+        class="u3-cd__text"
+        data-note
+        dir="auto"
+        rows="3"
+        maxlength=${TYPED_MAX}
+        placeholder=${tc(need ? 'u3_card_note_req_ph' : 'u3_card_note_ph', lang)}
+        .value=${p.typed}
+        @input=${(/** @type {Event} */ ev) => {
+          p.typed = /** @type {HTMLTextAreaElement} */ (ev.target).value;
+        }}
+      ></textarea>
       <button
         type="button"
         class="u3-btn u3-btn--primary u3-btn--block u3-cd__opt"
         data-act="confirm"
         ?disabled=${p.busy}
-        @click=${() => write(el, p, 'card-answer', { option: o.n, sha: d.sha })}
+        @click=${() => {
+          const text = p.typed.trim();
+          if (need && !text) {
+            p.error = errorText('empty');
+            paint(el, p);
+            return;
+          }
+          void write(el, p, 'card-answer', {
+            option: o.n,
+            sha: d.sha,
+            ...(text ? { text } : {})
+          });
+        }}
       >
         <span dir="auto">${tc('u3_card_confirm', lang)}: ${o.l}</span>
       </button>
@@ -394,6 +462,7 @@ function answerArea(el, p, d, lang) {
           ?disabled=${p.busy}
           @click=${() => {
             p.pick = i;
+            p.typed = '';
             p.error = '';
             paint(el, p);
           }}
