@@ -15,6 +15,10 @@ export const strings = {
   u3_tk_project: { en: 'Project', ar: 'المشروع' },
   u3_tk_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
   u3_tk_any: { en: 'Any', ar: 'أي' },
+  u3_tk_skipped: {
+    en: 'Not shown (could not be read):',
+    ar: 'لم تظهر (تعذرت القراءة):'
+  },
   u3_tk_none: { en: 'No tasks', ar: 'لا توجد مهام' },
   u3_tk_loading: { en: 'Loading', ar: 'جارٍ التحميل' },
   u3_tk_closed: { en: 'Closed', ar: 'مغلقة' },

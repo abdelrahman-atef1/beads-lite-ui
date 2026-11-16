@@ -24,6 +24,14 @@ const SUBSCRIPTION_TYPES = new Set([
   'issue-detail'
 ]);
 
+/** List types that can span every project (params.scope = 'all'). */
+const ALL_SCOPE_TYPES = new Set([
+  'all-issues',
+  'ready-issues',
+  'blocked-issues',
+  'closed-issues'
+]);
+
 /**
  * Validate a subscribe-list payload and normalize to a SubscriptionSpec.
  *
@@ -76,6 +84,13 @@ export function validateSubscribeListPayload(payload) {
     params = /** @type {Record<string, string|number|boolean>} */ (any.params);
   }
 
+  // params.scope = 'all': one list over every registered project.
+  const wantsAll = ALL_SCOPE_TYPES.has(type) && params?.scope === 'all';
+  if (wantsAll && params) {
+    params = { ...params };
+    delete params.scope;
+    if (Object.keys(params).length === 0) params = undefined;
+  }
   // Per-type param schemas
   if (type === 'issue-detail') {
     const id = String(params?.id ?? '').trim();
@@ -114,6 +129,10 @@ export function validateSubscribeListPayload(payload) {
     } else {
       params = undefined;
     }
+    if (wantsAll) params = { ...(params || {}), scope: 'all' };
+  } else if (wantsAll) {
+    // Every registered project in one list (beads-lite-1bo5.13.8.1).
+    params = { scope: 'all' };
   } else {
     // Other types do not accept params
     if (params && Object.keys(params).length > 0) {

@@ -15,6 +15,7 @@ import {
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
+import { markBoardPosted } from './features/board-posted.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { WS_DEFLATE } from './features/perf.js';
 import { BOARD_TASK_ARGS, afterBoardTask } from './features/report.js';
@@ -34,7 +35,6 @@ import {
 } from './workspace-context.js';
 import { withCounts } from './workspace-counts.js';
 import { withPrefixes } from './workspace-prefix.js';
-import { markBoardPosted } from './features/board-posted.js';
 
 const log = debug('ws');
 
@@ -178,7 +178,7 @@ function collectActiveListSpecs(only_dbs = null) {
       continue;
     }
     const ctx = ctxFor(ws);
-    if (!ctx || (only_dbs && !only_dbs.has(ctx.db_path))) {
+    if (!ctx) {
       continue;
     }
     const s = ensureSubs(/** @type {any} */ (ws));
@@ -186,6 +186,15 @@ function collectActiveListSpecs(only_dbs = null) {
       continue;
     }
     for (const { key, spec } of s.list_subs.values()) {
+      // An "All projects" list covers every project, so a change in any of
+      // them refreshes it (the others answer from their own caches).
+      if (
+        only_dbs &&
+        !only_dbs.has(ctx.db_path) &&
+        spec.params?.scope !== 'all'
+      ) {
+        continue;
+      }
       const scoped = ctx.db_path + '\0' + key;
       if (!seen.has(scoped)) {
         seen.add(scoped);
@@ -272,7 +281,7 @@ async function refreshAllOnce(filter) {
 // No cache clearing here, or the fresh snapshot would be thrown away.
 boardData.onRevalidated = (root_dir) => {
   for (const { spec, ctx } of collectActiveListSpecs()) {
-    if (ctx.root_dir !== root_dir) continue;
+    if (ctx.root_dir !== root_dir && spec.params?.scope !== 'all') continue;
     void refreshAndPublish(spec, ctx).catch(() => undefined);
   }
 };
@@ -1168,7 +1177,16 @@ async function handleMessageUnsafe(ws, data) {
       return;
     }
 
-    ws.send(JSON.stringify(makeOk(req, { id: client_id, key: attached_key })));
+    ws.send(
+      JSON.stringify(
+        makeOk(
+          req,
+          initial.skipped?.length
+            ? { id: client_id, key: attached_key, skipped: initial.skipped }
+            : { id: client_id, key: attached_key }
+        )
+      )
+    );
     return;
   }
 

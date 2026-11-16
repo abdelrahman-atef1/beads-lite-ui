@@ -1,6 +1,7 @@
 import { runBdJson } from './bd.js';
 import { boardData, isBoardColumnType } from './board-data.js';
 import { debug } from './logging.js';
+import { getAvailableWorkspaces } from './registry-watcher.js';
 
 const log = debug('list-adapters');
 
@@ -219,9 +220,86 @@ export function slimBoardItems(items) {
   });
 }
 
+/** Most projects one "All" list reads (bounds bd work and memory). */
+const MAX_ALL_PROJECTS = 16;
+/** Closed items kept in an "All" list, newest first (payload budget). */
+const ALL_CLOSED_LIMIT = 200;
+
+/**
+ * One list over every registered project (params.scope = 'all'). Read-only:
+ * each project's own cached board snapshot is used, so a project already open
+ * costs nothing extra and the rest load once, in parallel behind the bd queue.
+ * An unreadable project is skipped and named in `skipped`, never an error;
+ * only when none can be read does the call fail. Ids carry their project
+ * prefix, so nothing is added to the cards.
+ *
+ * @param {{ type: string, params?: Record<string, string | number | boolean> }} spec
+ * @param {{ priority?: 'interactive' | 'background', allow_stale?: boolean }} options
+ * @returns {Promise<FetchListResultSuccess | FetchListResultFailure>}
+ */
+async function fetchAllProjects(spec, options) {
+  const seen = new Set();
+  const roots = [];
+  for (const w of getAvailableWorkspaces()) {
+    const root = String(w.path || '');
+    if (!root || seen.has(root.toLowerCase())) continue;
+    seen.add(root.toLowerCase());
+    roots.push(root);
+  }
+  const skipped = roots.slice(MAX_ALL_PROJECTS).map(nameOf);
+  const parts = await Promise.all(
+    roots.slice(0, MAX_ALL_PROJECTS).map(async (root) => {
+      try {
+        const col = await boardData.getColumn(
+          { type: spec.type },
+          {
+            cwd: root,
+            priority: options.priority,
+            allow_stale: options.allow_stale
+          }
+        );
+        return { root, col };
+      } catch (err) {
+        log('all-projects: %s failed: %o', root, err);
+        return { root, col: null };
+      }
+    })
+  );
+  /** @type {Array<Record<string, any>>} */
+  let raw = [];
+  let readable = 0;
+  for (const { root, col } of parts) {
+    if (!col || !col.ok) {
+      skipped.push(nameOf(root));
+      continue;
+    }
+    readable += 1;
+    raw = raw.concat(/** @type {any[]} */ (col.raw));
+  }
+  if (readable === 0 && roots.length > 0) {
+    return {
+      ok: false,
+      error: { code: 'bd_error', message: 'no project could be read' }
+    };
+  }
+  let items = slimBoardItems(normalizeIssueList(raw));
+  if (spec.type === 'closed-issues') {
+    items = items
+      .sort((a, b) => (b.closed_at || 0) - (a.closed_at || 0))
+      .slice(0, ALL_CLOSED_LIMIT);
+  }
+  return skipped.length ? { ok: true, items, skipped } : { ok: true, items };
+}
+
+/** @param {string} root folder name of a project path */
+function nameOf(root) {
+  return String(root).split(/[\\/]/).filter(Boolean).pop() || root;
+}
+
 /**
  * @typedef {Object} FetchListResultSuccess
  * @property {true} ok
+ * @property {string[]} [skipped] projects an "All" list could not read
  * @property {Array<{ id: string, updated_at: number, closed_at: number | null } & Record<string, unknown>>} items
  */
 
@@ -249,6 +327,10 @@ export async function fetchListForSubscription(spec, options = {}) {
     log('mapSubscriptionToBdArgs failed for %o: %o', spec, err);
     const e = toErrorObject(err);
     return { ok: false, error: e };
+  }
+
+  if (spec.params?.scope === 'all' && isBoardColumnType(String(spec.type))) {
+    return fetchAllProjects(spec, options);
   }
 
   // Board columns share one refresh (see board-data.js) instead of one bd

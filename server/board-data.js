@@ -119,7 +119,7 @@ async function loadSnapshot(cwd, priority) {
 }
 
 /** Most projects whose snapshot is kept at once (LRU); each holds four bd lists, so this bounds memory. */
-const DEFAULT_MAX_PROJECTS = 8;
+const DEFAULT_MAX_PROJECTS = 16;
 
 /**
  * Cache state of one project (one workspace root). Projects never share or
