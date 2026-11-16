@@ -458,16 +458,25 @@ export function mount(el, ctx) {
               <h3 class="u3-ts__h">${t3('u3_ts_details')}</h3>
               ${edit.isEditing()
                 ? edit.rows(i)
-                : html`${row(t3('u3_ts_status'), statusVal(i.status))}
+                : html`${row(
+                    t3('u3_ts_status'),
+                    statusVal(i.status, { size: 20 })
+                  )}
                   ${row(
                     t3('u3_ts_assignee'),
                     i.assignee
                       ? personChip({ role: String(i.assignee) })
                       : t3('u3_ts_none')
                   )}
-                  ${row(t3('u3_ts_priority'), priorityVal(i.priority))}`}
+                  ${row(
+                    t3('u3_ts_priority'),
+                    priorityVal(i.priority, { size: 20 })
+                  )}`}
               ${i.issue_type
-                ? row(t3('u3_ts_type'), typeVal(String(i.issue_type)))
+                ? row(
+                    t3('u3_ts_type'),
+                    typeVal(String(i.issue_type), { size: 20 })
+                  )
                 : nothing}
               ${parent
                 ? row(
