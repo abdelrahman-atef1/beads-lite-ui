@@ -9,6 +9,7 @@
  */
 import { html, render } from 'lit-html';
 import { live } from 'lit-html/directives/live.js';
+import { submitReport } from '../../views/report.js';
 import {
   MAX_Q,
   WAIT_MAX_S,
@@ -75,7 +76,7 @@ export function mountAsk(host, opts = {}) {
   /** blocked = signed out / disabled: shown at once, input off */
   let blocked = '';
   let copied = false;
-  /** @type {Array<{ q: string, a: string, nodes: DocumentFragment, truncated: boolean }>} */
+  /** @type {Array<{ q: string, a: string, nodes: DocumentFragment, truncated: boolean, draft: string, filed: string, filing: boolean, fileErr: string }>} */
   let turns = [];
   /** @type {AbortController | null} */
   let abort = null;
@@ -202,7 +203,11 @@ export function mountAsk(host, opts = {}) {
         q,
         a: r.answer,
         nodes: renderMarkdown(r.answer),
-        truncated: r.truncated
+        truncated: r.truncated,
+        draft: r.draft,
+        filed: '',
+        filing: false,
+        fileErr: ''
       });
       question = '';
       phase = 'answer';
@@ -246,6 +251,54 @@ export function mountAsk(host, opts = {}) {
     abort = null;
     stopTimers();
     phase = 'idle';
+    draw();
+  }
+  /** Where a report is filed: this task's project, else the last one used. */
+  function reportProject() {
+    let p = isStats() ? '' : project();
+    if (!p) {
+      try {
+        p = window.localStorage.getItem('bdui.report.project') || '';
+      } catch {
+        // no storage
+      }
+    }
+    return p || 'beads-lite';
+  }
+  function reportVersion() {
+    try {
+      const v = JSON.parse(
+        window.localStorage.getItem('bdui.report.versions') || '[]'
+      )[0];
+      if (typeof v === 'string' && v) return v;
+    } catch {
+      // no storage
+    }
+    return 'board-v3';
+  }
+  /**
+   * The only way a report is filed: a person taps the button under a draft.
+   * Same /api/report path as the board's report form.
+   *
+   * @param {(typeof turns)[number]} x
+   */
+  async function fileReport(x) {
+    if (x.filing || x.filed || !x.draft) return;
+    x.filing = true;
+    x.fileErr = '';
+    draw();
+    const r = await submitReport(
+      {
+        project: reportProject(),
+        text: x.draft,
+        version: reportVersion()
+      },
+      { fetch: opts.fetch }
+    );
+    x.filing = false;
+    if (r.ok) x.filed = r.id;
+    else if (r.offline) x.fileErr = tr('u3_ask_rep_offline');
+    else x.fileErr = tr('u3_ask_rep_failed');
     draw();
   }
   function again() {
@@ -338,6 +391,27 @@ export function mountAsk(host, opts = {}) {
             </button>
           </div>`}
     </form>`;
+    const reportBox = (/** @type {(typeof turns)[number]} */ x) =>
+      html`<div class="u3-ask__draft" data-act="report-draft">
+        <p class="u3-ask__label">${tr('u3_ask_rep_title')}</p>
+        <pre class="u3-ask__draft-text" dir="auto">${x.draft}</pre>
+        ${x.filed
+          ? html`<p role="status">
+              ${tr('u3_ask_rep_filed', { id: x.filed })}
+            </p>`
+          : html`<button
+              type="button"
+              class="u3-ask__btn u3-ask__btn--primary"
+              data-act="file-report"
+              ?disabled=${x.filing}
+              @click=${() => void fileReport(x)}
+            >
+              ${x.filing ? tr('u3_ask_rep_filing') : tr('u3_ask_rep_file')}
+            </button>`}
+        ${x.fileErr
+          ? html`<div class="u3-ask__hint" role="alert">${x.fileErr}</div>`
+          : ''}
+      </div>`;
     const capped = turns.length >= MAX_TURNS;
     const thread = html`${turns.map(
         (x) =>
@@ -346,7 +420,8 @@ export function mountAsk(host, opts = {}) {
               ${x.nodes}${x.truncated
                 ? html`<p class="u3-ask__trunc">${tr('u3_ask_truncated')}</p>`
                 : ''}
-            </div>`
+            </div>
+            ${x.draft ? reportBox(x) : ''}`
       )}
       <div class="u3-ask__actions">
         <button

@@ -277,3 +277,17 @@
     box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
   }
 }
+.u3 .u3-ask__draft {
+  margin: var(--u3-sp-3) 0;
+  padding: var(--u3-sp-3) var(--u3-sp-4);
+  border: 1px dashed var(--u3-border);
+  border-radius: var(--u3-radius-m);
+}
+.u3 .u3-ask__draft-text {
+  margin: var(--u3-sp-2) 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  max-height: 30dvh;
+  overflow: auto;
+}

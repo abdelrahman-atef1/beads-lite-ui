@@ -40,6 +40,21 @@ export const strings = {
     en: 'Stats · last {n} days',
     ar: 'الإحصائيات · آخر {n} يوم'
   },
+  u3_ask_rep_title: {
+    en: 'Draft bug report. Nothing is filed until you tap.',
+    ar: 'مسودة بلاغ. مفيش حاجة بتتسجل غير لما تضغط.'
+  },
+  u3_ask_rep_file: { en: 'File report', ar: 'سجّل البلاغ' },
+  u3_ask_rep_filing: { en: 'Filing…', ar: 'بيتسجل…' },
+  u3_ask_rep_filed: { en: 'Report filed: {id}', ar: 'البلاغ اتسجل: {id}' },
+  u3_ask_rep_offline: {
+    en: 'No connection. The report was not filed; tap again.',
+    ar: 'مفيش اتصال. البلاغ ماتسجلش؛ اضغط تاني.'
+  },
+  u3_ask_rep_failed: {
+    en: 'The board refused the report. Try the report form.',
+    ar: 'اللوحة رفضت البلاغ. جرّب نموذج البلاغ.'
+  },
   u3_ask_ph_more: { en: 'Ask a follow-up', ar: 'اسأل سؤال متابعة' },
   u3_ask_cap: {
     en: 'This chat is full. Start a new chat to keep asking.',

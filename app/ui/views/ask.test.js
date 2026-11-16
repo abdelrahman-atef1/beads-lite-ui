@@ -207,6 +207,69 @@ describe('ask head and sheet', () => {
     });
   });
 
+  test('report draft: shown, nothing filed until the tap, then /api/report once', async () => {
+    const { f, q, host } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : u === '/api/report'
+          ? reply({ ok: true, id: 'beads-lite-1bo5.13.99' })
+          : reply({
+              ok: true,
+              answer: 'Here is a draft.',
+              truncated: false,
+              report_draft: {
+                text: 'Save button does nothing on the task page'
+              }
+            })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'file this as a bug');
+    await tick();
+    await tick();
+    expect(q('.u3-ask__draft-text').textContent).toContain('Save button');
+    expect(f.mock.calls.some((c) => c[0] === '/api/report')).toBe(false);
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    const rep = f.mock.calls.filter((c) => c[0] === '/api/report');
+    expect(rep.length).toBe(1);
+    expect(rep[0][1].headers['x-bdui-report']).toBe('1');
+    expect(host.textContent).toContain('beads-lite-1bo5.13.99');
+    expect(q('[data-act=file-report]')).toBeNull();
+  });
+
+  test('report draft: a refused filing says so and can be tapped again', async () => {
+    let n = 0;
+    const { q } = setup((u) =>
+      u === '/api/ask/status'
+        ? reply(STATUS_OK)
+        : u === '/api/report'
+          ? ++n === 1
+            ? reply({ ok: false, error: 'rate_limited' }, 429)
+            : reply({ ok: true, id: 'x-1' })
+          : reply({
+              ok: true,
+              answer: 'd',
+              truncated: false,
+              report_draft: { text: 'bug' }
+            })
+    );
+    q('.u3-ask__head').click();
+    await tick();
+    ask(q, 'report it');
+    await tick();
+    await tick();
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    expect(q('.u3-ask__draft [role=alert]')).not.toBeNull();
+    q('[data-act=file-report]').click();
+    await tick();
+    await tick();
+    expect(q('[data-act=file-report]')).toBeNull();
+  });
+
   test('every server error code has its own text', async () => {
     const codes = [
       'timeout',
