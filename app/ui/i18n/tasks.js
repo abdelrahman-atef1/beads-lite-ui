@@ -54,7 +54,11 @@ export const strings = {
   u3_tk_lane_unassigned: { en: 'Unassigned', ar: 'بدون مسؤول' },
   u3_tk_lane_noepic: { en: 'No epic', ar: 'بدون إيبك' },
   u3_tk_lane_others: { en: 'Others', ar: 'أخرى' },
-  u3_tk_col_other: { en: 'Other', ar: 'أخرى' },
+  u3_tk_col_deferred: { en: 'Deferred', ar: 'مؤجلة' },
+  u3_tk_unknown_status: {
+    en: 'Unknown status "{s}" on {id}: fix it in bd, the board only knows 8 statuses',
+    ar: 'حالة غير معروفة "{s}" في {id}: صحّحها في bd، اللوحة تعرف ٨ حالات فقط'
+  },
   u3_bk_lane_all: { en: 'Select lane', ar: 'حدّد الحارة' },
   u3_bk_select: { en: 'Select', ar: 'تحديد' },
   u3_bk_selected: { en: 'selected', ar: 'محدّدة' },

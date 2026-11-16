@@ -25,7 +25,7 @@ export const strings =
     st_owner_decision: { en: 'Owner decision', ar: 'بانتظار قرار المالك' },
     st_waiting_for_test: { en: 'Waiting for test', ar: 'بانتظار الاختبار' },
     st_waiting_for_merge: { en: 'Waiting for merge', ar: 'بانتظار الدمج' },
-    st_deferred: { en: 'Deferred', ar: 'مؤجّلة' },
+    st_deferred: { en: 'Deferred', ar: 'مؤجلة' },
     st_closed: { en: 'Closed', ar: 'مغلقة' },
     st_pinned: { en: 'Pinned', ar: 'مثبّتة' },
     st_hooked: { en: 'Hooked', ar: 'معلّقة' }

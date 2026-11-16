@@ -60,7 +60,7 @@ describe('saved filters', () => {
     /** @param {string[]} project */
     const count = (project) => {
       const m = buildBoard(src, { ...emptyFilter(), project });
-      return Object.values(m.columns).flat().length + m.other.length;
+      return Object.values(m.columns).flat().length + m.unknown.length;
     };
     expect(count([])).toBe(4);
     expect(count(['b'])).toBe(2);

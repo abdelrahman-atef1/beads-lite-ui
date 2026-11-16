@@ -11,8 +11,8 @@ import {
 } from '../../utils/board-filter.js';
 import { COLUMNS, splitColumns } from '../../utils/board-model.js';
 
-/** Order of the Status options: the board's column order, then Other. */
-export const STATUS_ORDER = [...COLUMNS.map((c) => COL_STATUS[c.id]), 'other'];
+/** Order of the Status options: the board's column order. */
+export const STATUS_ORDER = [...COLUMNS.map((c) => COL_STATUS[c.id])];
 
 /**
  * Status value (STATUS_COL key) of every open issue, by the column it is in.
@@ -29,7 +29,6 @@ export function statusMap(items, ready_ids, blocked_ids) {
   for (const c of COLUMNS) {
     for (const it of s.columns[c.id]) m.set(it.id, COL_STATUS[c.id]);
   }
-  for (const it of s.other) m.set(it.id, 'other');
   return m;
 }
 

@@ -18,8 +18,9 @@ const STATUSES = [
   'waiting_for_merge',
   'open',
   'blocked',
-  'weird'
+  'deferred'
 ];
+let WEIRD = false;
 const flush = () => new Promise((r) => setTimeout(r, 80));
 /**
  * Wait (bounded) until the rest-of-cards paint has landed.
@@ -56,6 +57,9 @@ function fixture(n) {
     };
     all.push(it);
     if (st === 'open') (i % 2 ? ready : blocked).push(it);
+  }
+  if (WEIRD) {
+    all.push({ id: 'x-weird', title: 'W', status: 'in_review', priority: 2 });
   }
   const closed = Array.from({ length: 120 }, (_, i) => ({
     id: `c-${i}`,
@@ -119,7 +123,7 @@ const MAP = {
   merge: 'merge',
   ready: 'ready',
   blocked: 'blocked',
-  other: 'other'
+  deferred: 'deferred'
 };
 
 describe('ui/views/tasks (v3)', () => {
@@ -134,6 +138,25 @@ describe('ui/views/tasks (v3)', () => {
     expect(seen.length).toBe(200);
     expect(new Set(seen).size).toBe(200);
     expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBe(200);
+  });
+
+  test('an unknown status is a visible error row, never a column', async () => {
+    WEIRD = true;
+    try {
+      const { a, h } = setup(14);
+      await flush();
+      const row = a.querySelector('[data-testid="unknown-status"]');
+      expect(row).not.toBeNull();
+      expect(row?.textContent).toContain('x-weird');
+      expect(row?.textContent).toContain('in_review');
+      expect(a.querySelector('#u3t-other')).toBeNull();
+      expect(a.querySelector('.u3t-stat__chip--other')).toBeNull();
+      expect(a.querySelector('#u3t-deferred')).not.toBeNull();
+      expect(a.querySelector('.u3t-stat__chip--deferred')).not.toBeNull();
+      h.unmount();
+    } finally {
+      WEIRD = false;
+    }
   });
 
   test('filters and search narrow the board', async () => {

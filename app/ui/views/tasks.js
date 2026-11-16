@@ -18,7 +18,6 @@ import {
 import {
   CLOSED_COLUMN,
   COLUMNS,
-  OTHER_COLUMN,
   ageLabel,
   displayTitle
 } from '../../utils/board-model.js';
@@ -81,7 +80,7 @@ const TONE = {
   merge: 'green',
   ready: 'neutral',
   blocked: 'red',
-  other: 'neutral',
+  deferred: 'neutral',
   closed: 'neutral'
 };
 
@@ -288,7 +287,7 @@ export function mount(el, ctx) {
       (n, c) => n + (model?.columns[c.id] || []).length,
       0
     );
-    return cols + (!v.length || v.includes('other') ? model.other.length : 0);
+    return cols + model.unknown.length;
   }
 
   /**
@@ -410,17 +409,41 @@ export function mount(el, ctx) {
 
   /**
    * @param {Record<string, any[]>} cols
-   * @param {any[]} other
+   * @param {any[]} unknown
    */
-  function board(cols, other) {
+  function board(cols, unknown) {
     const fx = visibleCols();
     const list = COLUMNS.filter((c) => !fx.length || fx.includes(c.id)).map(
       (c) => column(c, cols[c.id] || [])
     );
-    if (other.length && (!fx.length || fx.includes('other'))) {
-      list.push(column(OTHER_COLUMN, other));
-    }
-    return html`<div class="u3t-board">${list}</div>`;
+    return html`${unknownRows(unknown)}
+      <div class="u3t-board">${list}</div>`;
+  }
+
+  /**
+   * A status outside the 8 is an error, never a silent bucket: one visible row
+   * per task, naming the task and its status.
+   *
+   * @param {any[]} unknown
+   */
+  function unknownRows(unknown) {
+    if (!unknown.length) return '';
+    return html`<ul
+      class="u3t-unknown"
+      role="alert"
+      data-testid="unknown-status"
+    >
+      ${unknown.map(
+        (it) =>
+          html`<li class="u3-chip u3-chip--red">
+            <a href=${'#/issues?issue=' + encodeURIComponent(it.id)}
+              >${t3('u3_tk_unknown_status')
+                .replace('{s}', String(it.status || ''))
+                .replace('{id}', it.id)}</a
+            >
+          </li>`
+      )}
+    </ul>`;
   }
 
   function laneName(/** @type {any} */ g) {
@@ -435,7 +458,7 @@ export function mount(el, ctx) {
       ...COLUMNS.filter((c) => !sel.length || sel.includes(c.id)).flatMap(
         (c) => m.columns[c.id] || []
       ),
-      ...(!sel.length || sel.includes('other') ? m.other : [])
+      ...m.unknown
     ];
     const ready_ids = new Set(
       snap('tab:board:ready').map((/** @type {any} */ i) => i.id)
@@ -449,7 +472,7 @@ export function mount(el, ctx) {
       blocked_ids
     });
     if (group_by === 'none') {
-      return board(m.columns, m.other);
+      return board(m.columns, m.unknown);
     }
     return html`${groups.map((g) => {
       const id = group_by + ':' + g.key;
@@ -526,7 +549,7 @@ export function mount(el, ctx) {
               </button>`
             : ''}
         </h2>
-        ${shut ? '' : board(s.columns, s.other)}
+        ${shut ? '' : board(s.columns, s.unknown)}
       </section>`;
     })}`;
   }
@@ -672,7 +695,7 @@ export function mount(el, ctx) {
     const st = statusMap(items, ready_ids, blocked_ids);
     const ctx = {
       ...filterCtx(all),
-      status: (/** @type {any} */ it) => st.get(it.id) || 'other'
+      status: (/** @type {any} */ it) => st.get(it.id) || ''
     };
     const by_id = new Map(all.map((/** @type {any} */ i) => [i.id, i]));
     const names = new Map(
@@ -686,7 +709,7 @@ export function mount(el, ctx) {
       merge: 's_merge',
       ready: 's_open',
       blocked: 's_block',
-      other: 'any'
+      deferred: 's_defer'
     };
     /** @type {Record<string, (v: string) => { label: string, icon?: string, project?: string }>} */
     const look = {
@@ -937,20 +960,6 @@ export function mount(el, ctx) {
             <span class="u3t-stat__l">${colLabel(c)}</span>
           </button>`;
         })}
-        ${(phone() && model && model.other.length) || f.status.includes('other')
-          ? html`<button
-              type="button"
-              class="u3t-stat__chip u3t-stat__chip--other"
-              aria-pressed=${f.status.includes('other') ? 'true' : 'false'}
-              data-shown=${!f.status.includes('other') && effFocus() === 'other'
-                ? '1'
-                : '0'}
-              @click=${() => toggleValue('status', 'other')}
-            >
-              <span class="u3t-stat__n">${model ? model.other.length : 0}</span>
-              <span class="u3t-stat__l">${colLabel(OTHER_COLUMN)}</span>
-            </button>`
-          : ''}
       </div>
       ${sheet
         ? filterSheet({
@@ -1055,7 +1064,7 @@ export function mount(el, ctx) {
     }
     const total = model
       ? Object.values(model.columns).reduce((n, c) => n + c.length, 0) +
-        model.other.length
+        model.unknown.length
       : 0;
     const trim = !first_paint_done;
     budget = trim ? FIRST_PAINT_CARDS : Infinity;

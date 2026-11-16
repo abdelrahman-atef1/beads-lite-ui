@@ -68,7 +68,8 @@ const TONE = /** @type {Record<string, string>} */ ({
   blocked: 'red',
   owner_decision: 'amber',
   waiting_for_test: 'teal',
-  waiting_for_merge: 'green'
+  waiting_for_merge: 'green',
+  deferred: 'neutral'
 });
 
 /**

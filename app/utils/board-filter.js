@@ -23,7 +23,7 @@ export const STATUS_COL = /** @type {Record<string, string>} */ ({
   waiting_for_merge: 'merge',
   open: 'ready',
   blocked: 'blocked',
-  other: 'other'
+  deferred: 'deferred'
 });
 /** Board column id -> status value. */
 export const COL_STATUS = /** @type {Record<string, string>} */ (

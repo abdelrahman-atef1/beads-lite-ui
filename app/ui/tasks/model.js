@@ -31,7 +31,7 @@ export function filterCtx(all) {
  *
  * @param {{ all: any[], ready: any[], blocked: any[], closed: any[] }} src
  * @param {any} filter
- * @returns {{ columns: Record<string, any[]>, other: any[], closed: any[], facetItems: any[] }}
+ * @returns {{ columns: Record<string, any[]>, unknown: any[], closed: any[], facetItems: any[] }}
  */
 export function buildBoard(src, filter) {
   const ready_ids = new Set(src.ready.map((i) => i.id));
@@ -42,7 +42,7 @@ export function buildBoard(src, filter) {
   for (const id of Object.keys(split.columns)) {
     split.columns[id].sort(/** @type {any} */ (cmpPriorityThenCreated));
   }
-  split.other.sort(/** @type {any} */ (cmpPriorityThenCreated));
+  split.unknown.sort(/** @type {any} */ (cmpPriorityThenCreated));
   // Oldest first in the owner's column: the longest-waiting question first.
   split.columns.owner.sort((a, b) => (a.updated_at || 0) - (b.updated_at || 0));
   const closed = src.closed
@@ -50,7 +50,7 @@ export function buildBoard(src, filter) {
     .sort(/** @type {any} */ (cmpClosedDesc));
   return {
     columns: split.columns,
-    other: split.other,
+    unknown: split.unknown,
     closed,
     facetItems: src.all
   };
@@ -68,7 +68,7 @@ export function columnsOf(issues, ready_ids, blocked_ids) {
   for (const id of Object.keys(s.columns)) {
     s.columns[id].sort(/** @type {any} */ (cmpPriorityThenCreated));
   }
-  s.other.sort(/** @type {any} */ (cmpPriorityThenCreated));
+  s.unknown.sort(/** @type {any} */ (cmpPriorityThenCreated));
   s.columns.owner.sort((a, b) => (a.updated_at || 0) - (b.updated_at || 0));
   return s;
 }

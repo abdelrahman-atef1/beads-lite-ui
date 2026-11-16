@@ -843,3 +843,15 @@
     flex: none;
   }
 }
+.u3 .u3t-unknown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--u3-sp-2);
+  margin: 0 0 var(--u3-sp-3);
+  padding: 0;
+  list-style: none;
+}
+.u3 .u3t-unknown a {
+  color: inherit;
+  white-space: normal;
+}
