@@ -13,6 +13,7 @@ export const strings =
       en: 'e.g. 1.4.2 or build 31',
       ar: 'مثال: 1.4.2 أو بناء 31'
     },
+    rpt_version_other: { en: 'Other version', ar: 'نسخة أخرى' },
     rpt_version_recent: { en: 'Recent versions', ar: 'نسخ سابقة' },
     rpt_shot_add: { en: 'Add a screenshot', ar: 'أضف لقطة شاشة' },
     rpt_shot_cam: { en: 'Take a photo', ar: 'صوّر بالكاميرا' },

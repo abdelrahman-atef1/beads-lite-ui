@@ -53,6 +53,50 @@ export function buildFrame(meta, image) {
   return out;
 }
 
+/** Value of the "another version" choice in the version dropdown. */
+export const OTHER_VERSION = '__other';
+
+/**
+ * Versions the project has released, newest first (GET /api/report-versions).
+ * Never throws: offline or any failure gives [] and the form falls back to
+ * typing the version.
+ *
+ * @param {string} project
+ * @param {typeof fetch} [f]
+ * @returns {Promise<string[]>}
+ */
+export async function fetchVersions(project, f) {
+  if (!project) return [];
+  try {
+    const r = await (f || fetch)(
+      '/api/report-versions?project=' + encodeURIComponent(project),
+      { headers: { 'x-board-token': boardToken() } }
+    );
+    if (!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j?.versions)
+      ? j.versions
+          .map((/** @type {any} */ x) => String(x?.v ?? ''))
+          .filter(validVersion)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * What the dropdown shows: the current version when it is a released one, the
+ * "other" choice when the current one is typed or old, else the newest.
+ *
+ * @param {string[]} list
+ * @param {string} current
+ */
+export function versionChoice(list, current) {
+  const c = String(current || '').trim();
+  if (c) return list.includes(c) ? c : OTHER_VERSION;
+  return list[0] || OTHER_VERSION;
+}
+
 /** @param {string} v */
 export function validVersion(v) {
   return VERSION_RE.test(String(v || '').trim());
@@ -427,17 +471,38 @@ export function openReport(d) {
     placeholder: t('rpt_version_ph'),
     value: draft.version || recentVersions()[0] || ''
   });
-  const chips = h(
-    'div',
-    {
-      class: 'rpt-chips',
-      role: 'group',
-      'aria-label': t('rpt_version_recent')
-    },
-    recentVersions().map((v) =>
-      h('button', { type: 'button', class: 'rpt-chip', 'data-v': v }, [v])
-    )
-  );
+  const verSel = h('select', {
+    id: 'rpt-version-sel',
+    'aria-label': t('rpt_version')
+  });
+  /** Fill the dropdown for a project; typing is for "another version" only. */
+  const showVersions = (/** @type {string[]} */ list) => {
+    const want = versionChoice(list, ver.value);
+    verSel.replaceChildren(
+      ...list.map((v) => h('option', { value: v, selected: v === want }, [v])),
+      h('option', { value: OTHER_VERSION, selected: want === OTHER_VERSION }, [
+        t('rpt_version_other')
+      ])
+    );
+    verSel.value = want;
+    applyVersion();
+  };
+  const applyVersion = () => {
+    const other = verSel.value === OTHER_VERSION;
+    ver.hidden = !other;
+    if (!other) ver.value = verSel.value;
+  };
+  verSel.addEventListener('change', () => {
+    applyVersion();
+    if (!ver.hidden) ver.focus({ preventScroll: true });
+    lsSet(LS_DRAFT, JSON.stringify(snapshot()));
+  });
+  const loadVersions = () =>
+    void fetchVersions(proj.value).then((l) => {
+      if (sheet) showVersions(l);
+    });
+  proj.addEventListener('change', loadVersions);
+  showVersions([]);
   const text = h('textarea', {
     name: 'text',
     id: 'rpt-text',
@@ -476,7 +541,7 @@ export function openReport(d) {
     ]),
     h('div', { class: 'rpt-body' }, [
       field('rpt-project', t('rpt_project'), [proj]),
-      field('rpt-version', t('rpt_version'), [ver, chips]),
+      field('rpt-version-sel', t('rpt_version'), [verSel, ver]),
       media,
       field('rpt-text', t('rpt_text'), [text]),
       h('small', { class: 'rpt-note' }, [t('rpt_note')]),
@@ -488,7 +553,7 @@ export function openReport(d) {
   document.body.append(root);
   document.documentElement.classList.add('rpt-lock');
   renderMedia(media);
-  void fillProjects(proj, draft.project);
+  void fillProjects(proj, draft.project).then(loadVersions);
   // Keep the draft while typing: a reload or a closed tab loses nothing.
   root.addEventListener('input', () =>
     lsSet(LS_DRAFT, JSON.stringify(snapshot()))
@@ -506,7 +571,7 @@ export function openReport(d) {
     if (e.key === 'Escape') closeReport();
   });
   send.addEventListener('click', () => void doSend(send, msg));
-  /** @type {HTMLElement} */ (ver.value ? text : ver).focus({
+  /** @type {HTMLElement} */ (ver.value ? text : verSel).focus({
     preventScroll: true
   });
 }
