@@ -137,7 +137,8 @@ export function mount(el, ctx) {
     redraw: () => draw(),
     all: () => snap('tab:all'),
     visible: () => visibleIds(),
-    scope: () => scopeLabel()
+    scope: () => scopeLabel(),
+    foreign: (id) => !!otherWorkspace(id)
   });
   const selected = bulk.selected;
 
@@ -164,9 +165,15 @@ export function mount(el, ctx) {
     }
   }
   subscribeAll();
+  // The server says which projects it could not read (also when that changes later).
+  const onSkipped = (/** @type {any} */ e) => {
+    if (!e.detail || e.detail.id !== 'tab:all') return;
+    skipped = e.detail.skipped;
+    draw();
+  };
+  window.addEventListener('u3:skipped', onSkipped);
   // main.js restores the saved project after this screen mounted; the server
-  // drops every subscription on set-workspace, so ask again for the new
-  // project, from empty stores (no cards of the old project left over).
+  // drops every subscription on set-workspace, so ask again.
   const wsPath = () => ctx.store?.getState?.().workspace?.current?.path || '';
   let ws_seen = wsPath();
   const offWs =
@@ -178,13 +185,9 @@ export function mount(el, ctx) {
           ws_seen = p;
           if (first) return;
           unsubs.length = 0;
-          for (const id of IDS) {
-            try {
-              stores.unregister(id);
-            } catch {
-              // not registered
-            }
-          }
+          // Every list spans all projects, so the cards on screen stay right
+          // while the server re-attaches them to the new connection project:
+          // keep the stores (no old cards of another project, no empty flash).
           subscribeAll();
           refresh();
         })
@@ -209,7 +212,7 @@ export function mount(el, ctx) {
   }
   /** The registered project of task `id` when it is not the one open now, else null. */
   function otherWorkspace(/** @type {string} */ id) {
-    const cur = ctx.store.getState().workspace?.current?.path || '';
+    const cur = ctx.store?.getState?.().workspace?.current?.path || '';
     const key = projectOf(id);
     const hit = registered().find(
       (/** @type {{key:string,path:string}} */ w) => w.key === key
@@ -853,6 +856,7 @@ export function mount(el, ctx) {
       document.removeEventListener('keydown', onDoc);
       if (typeof offS === 'function') offS();
       window.removeEventListener('bdui-lang', onLang);
+      window.removeEventListener('u3:skipped', onSkipped);
       for (const u of unsubs) void u().catch(() => {});
       for (const id of IDS) if (id !== 'tab:all') stores.unregister?.(id);
       render(html``, el);

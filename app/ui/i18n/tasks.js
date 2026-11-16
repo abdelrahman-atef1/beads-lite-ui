@@ -139,6 +139,10 @@ export const strings = {
     en: 'Waiting for your decision: answer it on its card',
     ar: 'بانتظار قرارك: جاوب عليه من كارته'
   },
+  u3_bk_r_other_project: {
+    en: 'Another project: open that project first',
+    ar: 'مشروع تاني: افتح المشروع ده الأول'
+  },
   u3_bk_r_already_closed: { en: 'Already closed', ar: 'مقفولة أصلاً' },
   u3_bk_r_children: { en: 'Has open sub-tasks', ar: 'فيها مهام فرعية مفتوحة' },
   u3_bk_r_blockers: {

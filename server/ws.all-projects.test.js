@@ -11,6 +11,8 @@ import { attachWsServer, handleMessage, scheduleListRefresh } from './ws.js';
 
 /** @type {string[]} */
 const ROOTS = [];
+/** Projects that start failing mid-test. @type {Set<string>} */
+const BROKEN = new Set();
 /** Title served per project; bumped to simulate a change. @type {Record<string, string>} */
 const titles = {};
 
@@ -19,7 +21,7 @@ vi.mock('./bd.js', () => ({
   runBdJson: vi.fn(
     async (/** @type {string[]} */ args, /** @type {any} */ o) => {
       const name = path.basename(String(o?.cwd || ''));
-      if (name.includes('bad')) {
+      if (name.includes('bad') || BROKEN.has(name)) {
         return { code: 1, stderr: 'database is locked' };
       }
       if (args[0] === 'list' && args.includes('closed')) {
@@ -175,6 +177,33 @@ describe('All projects list (scope all)', () => {
       i.id.split('-').pop()
     );
     expect(ids).toEqual(['c2', 'c2', 'c1', 'c1']);
+  });
+
+  test('a project that becomes unreadable later is named in a pushed snapshot', async () => {
+    const pc = makeSock();
+    srv.wss.clients.add(/** @type {any} */ (pc));
+    await call(pc, 'subscribe-list', {
+      id: 'late',
+      type: 'all-issues',
+      params: { scope: 'all' }
+    });
+    const phone = makeSock();
+    srv.wss.clients.add(/** @type {any} */ (phone));
+    await call(phone, 'set-workspace', { path: b });
+    const db_b = (await call(phone, 'get-workspace', {})).payload.db_path;
+    BROKEN.add(path.basename(b));
+    pc.sent.length = 0;
+    scheduleListRefresh(db_b);
+    await new Promise((res) => setTimeout(res, 400));
+    const push = pc.sent.find((m) => m.type === 'snapshot');
+    expect(push?.payload.skipped).toContain(path.basename(b));
+    // and when it is readable again the note clears (empty list, full snapshot)
+    BROKEN.delete(path.basename(b));
+    pc.sent.length = 0;
+    scheduleListRefresh(db_b);
+    await new Promise((res) => setTimeout(res, 400));
+    const back = pc.sent.find((m) => m.type === 'snapshot');
+    expect(back?.payload.skipped).toEqual([path.basename(bad)]);
   });
 
   test('a change in another project reaches an All subscriber live', async () => {

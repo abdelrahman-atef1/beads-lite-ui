@@ -602,14 +602,17 @@ function nextListRevision(ws, key) {
  * @param {string} client_id
  * @param {string} key
  * @param {Array<Record<string, unknown>>} issues
+ * @param {string[]} [skipped]
  */
-function emitSubscriptionSnapshot(ws, client_id, key, issues) {
+function emitSubscriptionSnapshot(ws, client_id, key, issues, skipped) {
   const revision = nextListRevision(ws, key);
   const payload = {
     type: /** @type {const} */ ('snapshot'),
     id: client_id,
     revision,
-    issues
+    issues,
+    // An "All projects" list: which projects could not be read right now.
+    ...(skipped ? { skipped } : {})
   };
   const msg = JSON.stringify({
     id: `evt-${Date.now()}`,
@@ -680,6 +683,9 @@ function emitSubscriptionDelete(ws, client_id, key, issue_id) {
 
 // issues-changed removed in v2: detail and lists are pushed via subscriptions
 
+/** Last unreadable-project set per (project, list key), to notice a change. @type {Map<string, string>} */
+const SKIPPED_SIG = new Map();
+
 /**
  * Refresh a subscription spec: fetch via adapter, apply to registry and emit
  * per-subscription full-issue envelopes to subscribers. Serialized per key.
@@ -702,6 +708,12 @@ async function refreshAndPublish(spec, ctx) {
       return;
     }
     const items = applyClosedIssuesFilter(spec, res.items);
+    // The set of unreadable projects changed: say so with a full snapshot
+    // (the note must not depend on the list having changed).
+    const skip_sig = (res.skipped || []).slice().sort().join('\0');
+    const skip_key = ctx.db_path + '\0' + key;
+    const skip_changed = (SKIPPED_SIG.get(skip_key) || '') !== skip_sig;
+    if (skip_changed) SKIPPED_SIG.set(skip_key, skip_sig);
     if (is_detail) {
       populateIssueDetailCache(spec, items, detail_cache_generation, ctx);
     }
@@ -728,9 +740,9 @@ async function refreshAndPublish(spec, ctx) {
         if (v.key === key) client_ids.push(cid);
       }
       if (client_ids.length === 0) continue;
-      if (prev_size === 0) {
+      if (prev_size === 0 || skip_changed) {
         for (const cid of client_ids) {
-          emitSubscriptionSnapshot(ws, cid, key, items);
+          emitSubscriptionSnapshot(ws, cid, key, items, res.skipped || []);
         }
         continue;
       }
@@ -1153,6 +1165,10 @@ async function handleMessageUnsafe(ws, data) {
     }
     const s = ensureSubs(ws);
     const reg = registryFor(sub_ctx);
+    SKIPPED_SIG.set(
+      (sub_ctx?.db_path || '') + '\0' + keyOf(spec),
+      (initial.skipped || []).slice().sort().join('\0')
+    );
     const { key: attached_key } = reg.attach(spec, ws);
     s.list_subs?.set(client_id, { key: attached_key, spec });
 

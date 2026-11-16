@@ -3,11 +3,13 @@ import { createListSelectors } from '../../data/list-selectors.js';
 import { createSubscriptionIssueStores } from '../../data/subscription-issue-stores.js';
 import { mount as mountTasks } from './tasks.js';
 
+// Same specs as the screen: every list spans all projects.
+const ALL = { scope: 'all' };
 const IDS = {
-  'tab:all': { type: 'all-issues' },
-  'tab:board:ready': { type: 'ready-issues' },
-  'tab:board:blocked': { type: 'blocked-issues' },
-  'tab:board:closed': { type: 'closed-issues' }
+  'tab:all': { type: 'all-issues', params: ALL },
+  'tab:board:ready': { type: 'ready-issues', params: ALL },
+  'tab:board:blocked': { type: 'blocked-issues', params: ALL },
+  'tab:board:closed': { type: 'closed-issues', params: ALL }
 };
 const STATUSES = [
   'owner_decision',
@@ -207,11 +209,13 @@ describe('ui/views/tasks (v3)', () => {
       a.querySelector('.u3t-opt[data-v="company"]')
     ).click();
     await flush();
-    expect(sent).toEqual([['set-workspace', { path: 'E:/p/company' }]]);
+    // All lists hold every project: picking one narrows on the device and
+    // never moves the connection to another workspace.
+    expect(sent).toEqual([]);
     h.unmount();
   });
 
-  test('after the saved project is restored, the lists are subscribed again from empty stores', async () => {
+  test('after the saved project is restored, the lists are subscribed again and the cards stay', async () => {
     let state = { workspace: { current: { path: 'E:/p/a' }, available: [] } };
     /** @type {Array<() => void>} */
     const fns = [];
@@ -235,7 +239,8 @@ describe('ui/views/tasks (v3)', () => {
     fns.forEach((f) => f());
     await flush();
     expect(calls.length).toBe(first * 2);
-    expect(a.querySelectorAll('.u3t-card').length).toBe(0);
+    // every list spans all projects: no empty flash while re-attaching
+    expect(a.querySelectorAll('.u3t-card').length).toBeGreaterThan(0);
     h.unmount();
   });
 

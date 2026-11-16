@@ -60,7 +60,7 @@ function closedLimit() {
 }
 
 /**
- * @typedef {{ ok: true, value: unknown } | { ok: false, code: number, stderr: string }} Part
+ * @typedef {{ ok: true, value: unknown, lazy?: boolean } | { ok: false, code: number, stderr: string, lazy?: undefined }} Part
  * @typedef {{ open: Part, closed: Part, ready: Part, blocked: Part }} Snapshot
  */
 
@@ -90,17 +90,14 @@ async function runPart(args, cwd, priority) {
   }
 }
 
-/**
- * @param {string | undefined} cwd
- * @param {'interactive' | 'background' | undefined} priority
- * @returns {Promise<Snapshot>}
- */
-async function loadSnapshot(cwd, priority) {
-  const [open, closed, ready, blocked] = await Promise.all([
-    // `--limit 0` = unlimited; bd list leaves closed issues out by default.
-    runPart(['list', '--json', '--tree=false', '--limit', '0'], cwd, priority),
-    runPart(
-      [
+/** bd arguments of each snapshot part. */
+function partArgs(/** @type {'open'|'closed'|'ready'|'blocked'} */ part) {
+  switch (part) {
+    case 'open':
+      // `--limit 0` = unlimited; bd list leaves closed issues out by default.
+      return ['list', '--json', '--tree=false', '--limit', '0'];
+    case 'closed':
+      return [
         'list',
         '--json',
         '--tree=false',
@@ -108,12 +105,31 @@ async function loadSnapshot(cwd, priority) {
         'closed',
         '--limit',
         String(closedLimit())
-      ],
-      cwd,
-      priority
-    ),
-    runPart(['ready', '--limit', '1000', '--json'], cwd, priority),
-    runPart(['blocked', '--json'], cwd, priority)
+      ];
+    case 'ready':
+      return ['ready', '--limit', '1000', '--json'];
+    default:
+      return ['blocked', '--json'];
+  }
+}
+
+/** A part not loaded yet (see `first_paint`): filled on first use. */
+/** @type {Part} */
+const LAZY = { ok: true, value: [], lazy: true };
+
+/**
+ * @param {string | undefined} cwd
+ * @param {'interactive' | 'background' | undefined} priority
+ * @param {boolean} [first_paint] load only what the all-issues list needs
+ *   (open + blocked); ready and closed are read when a column asks for them
+ * @returns {Promise<Snapshot>}
+ */
+async function loadSnapshot(cwd, priority, first_paint) {
+  const [open, blocked, closed, ready] = await Promise.all([
+    runPart(partArgs('open'), cwd, priority),
+    runPart(partArgs('blocked'), cwd, priority),
+    first_paint ? LAZY : runPart(partArgs('closed'), cwd, priority),
+    first_paint ? LAZY : runPart(partArgs('ready'), cwd, priority)
   ]);
   return { open, closed, ready, blocked };
 }
@@ -204,16 +220,17 @@ export function createBoardData(options = {}) {
    * @param {ProjectState} st
    * @param {string | undefined} cwd
    * @param {'interactive' | 'background' | undefined} priority
+   * @param {boolean} [first_paint]
    * @returns {Promise<Snapshot>}
    */
-  function start(st, cwd, priority) {
+  function start(st, cwd, priority, first_paint) {
     spawned += 1;
     const started_generation = st.generation;
     const key = cwd || '';
     /** @type {{ generation: number, promise: Promise<Snapshot> }} */
     const entry = {
       generation: started_generation,
-      promise: load(cwd, priority).then((snapshot) => {
+      promise: load(cwd, priority, first_paint).then((snapshot) => {
         // A load that started before the last change is never cached.
         if (started_generation === st.generation) {
           st.fresh = { snapshot, at: now() };
@@ -240,9 +257,10 @@ export function createBoardData(options = {}) {
    * @param {ProjectState} st
    * @param {string | undefined} cwd
    * @param {'interactive' | 'background' | undefined} priority
+   * @param {boolean} [first_paint]
    * @returns {Promise<Snapshot>}
    */
-  function chain(st, cwd, priority) {
+  function chain(st, cwd, priority, first_paint) {
     const prev = /** @type {{ promise: Promise<Snapshot> }} */ (st.inflight)
       .promise;
     /** @type {{ promise: Promise<Snapshot> }} */
@@ -251,7 +269,7 @@ export function createBoardData(options = {}) {
         .catch(() => undefined)
         .then(() => {
           if (st.queued === entry) st.queued = null;
-          return start(st, cwd, priority);
+          return start(st, cwd, priority, first_paint);
         })
     };
     st.queued = entry;
@@ -259,7 +277,7 @@ export function createBoardData(options = {}) {
   }
 
   /**
-   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean }} [opts]
+   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean, first_paint?: boolean }} [opts]
    * @returns {Promise<Snapshot>}
    */
   function getSnapshot(opts = {}) {
@@ -293,9 +311,35 @@ export function createBoardData(options = {}) {
     if (st.inflight) {
       // A run that started before the last change is in flight: wait for it,
       // then run exactly one more.
-      return chain(st, opts.cwd, opts.priority);
+      return chain(st, opts.cwd, opts.priority, opts.first_paint);
     }
-    return start(st, opts.cwd, opts.priority);
+    return start(st, opts.cwd, opts.priority, opts.first_paint);
+  }
+
+  /** @type {WeakMap<Snapshot, Map<string, Promise<Part>>>} */
+  const filling = new WeakMap();
+  /**
+   * Read a part a first-paint snapshot left out, once, and keep it on the
+   * snapshot so every later column reuses it.
+   *
+   * @param {Snapshot} snapshot
+   * @param {'closed' | 'ready'} name
+   * @param {string | undefined} cwd
+   * @param {'interactive' | 'background' | undefined} priority
+   * @returns {Promise<Part>}
+   */
+  function fill(snapshot, name, cwd, priority) {
+    let m = filling.get(snapshot);
+    if (!m) filling.set(snapshot, (m = new Map()));
+    let p = m.get(name);
+    if (!p) {
+      p = runPart(partArgs(name), cwd, priority).then((part) => {
+        snapshot[name] = part;
+        return part;
+      });
+      m.set(name, p);
+    }
+    return p;
   }
 
   /**
@@ -333,7 +377,7 @@ export function createBoardData(options = {}) {
    * Items for one subscription spec, taken from the shared snapshot.
    *
    * @param {{ type: string, params?: Record<string, string | number | boolean> }} spec
-   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean }} [opts]
+   * @param {{ cwd?: string, priority?: 'interactive' | 'background', allow_stale?: boolean, first_paint?: boolean }} [opts]
    * @returns {Promise<{ ok: true, raw: unknown[] } | { ok: false, error: { code: string, message: string, details?: Record<string, unknown> } }>}
    */
   async function getColumn(spec, opts = {}) {
@@ -359,8 +403,20 @@ export function createBoardData(options = {}) {
         }
       };
     }
-    const snapshot = await getSnapshot(opts);
-    const part = snapshot[col.part];
+    // Only the all-issues list may start a first-paint (partial) snapshot.
+    const snapshot = await getSnapshot({
+      ...opts,
+      first_paint: opts.first_paint && type === 'all-issues'
+    });
+    let part = snapshot[col.part];
+    if (part.lazy) {
+      part = await fill(
+        snapshot,
+        /** @type {'closed' | 'ready'} */ (col.part),
+        opts.cwd,
+        opts.priority
+      );
+    }
     if (!part.ok) {
       log('part %s failed code=%s %s', col.part, part.code, part.stderr);
       return {

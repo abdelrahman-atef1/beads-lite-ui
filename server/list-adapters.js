@@ -255,7 +255,9 @@ async function fetchAllProjects(spec, options) {
           {
             cwd: root,
             priority: options.priority,
-            allow_stale: options.allow_stale
+            allow_stale: options.allow_stale,
+            // The first card needs open + blocked only (fewer bd runs).
+            first_paint: true
           }
         );
         return { root, col };

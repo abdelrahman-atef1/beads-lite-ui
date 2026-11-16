@@ -58,6 +58,14 @@ export function bootstrap(root_element) {
       } catch {
         // ignore
       }
+      // "All projects" lists name the projects the server could not read.
+      if (Array.isArray(p.skipped)) {
+        window.dispatchEvent(
+          new CustomEvent('u3:skipped', {
+            detail: { id, skipped: p.skipped }
+          })
+        );
+      }
     }
   });
   client.on('upsert', (payload) => {
