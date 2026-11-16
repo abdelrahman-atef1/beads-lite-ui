@@ -11,6 +11,7 @@ import { SETTABLE_STATUSES } from '../../protocol.js';
 import { priorityName } from '../../utils/priority.js';
 import { statusLabel } from '../../utils/status.js';
 import { chip } from '../components/index.js';
+import { personLabel } from '../data/people.js';
 import { t3 } from '../i18n.js';
 import { icon } from '../icons.js';
 
@@ -312,21 +313,18 @@ export function createTaskEdit(o) {
           <label class="u3-ts__k" for="u3-ed-asg"
             >${t3('u3_ts_assignee')}</label
           >
-          <input
+          <select
             id="u3-ed-asg"
-            class="u3-ed__in u3-ltr"
-            dir="ltr"
-            list="u3-ed-roles"
-            maxlength="100"
-            autocomplete="off"
-            .value=${assignee}
+            class="u3-ed__in"
             @input=${(/** @type {Event} */ e) =>
               setDraft(
                 'assignee',
-                /** @type {HTMLInputElement} */ (e.target).value
+                /** @type {HTMLSelectElement} */ (e.target).value
               )}
             @change=${(/** @type {Event} */ e) => {
-              const v = /** @type {HTMLInputElement} */ (e.target).value.trim();
+              const v = /** @type {HTMLSelectElement} */ (
+                e.target
+              ).value.trim();
               if (v !== String(i.assignee || ''))
                 void save(
                   'assignee',
@@ -334,13 +332,20 @@ export function createTaskEdit(o) {
                   { assignee: v },
                   { assignee: v },
                   'u3_ed_fail_assignee',
-                  /** @type {HTMLInputElement} */ (e.target)
+                  /** @type {HTMLSelectElement} */ (e.target)
                 );
             }}
-          />
-          <datalist id="u3-ed-roles">
-            ${knownAssignees(i).map((r) => html`<option value=${r}></option>`)}
-          </datalist>
+          >
+            <option value="" ?selected=${assignee === ''}>
+              ${t3('u3_tk_unassigned')}
+            </option>
+            ${knownAssignees(i).map(
+              (r) =>
+                html`<option value=${r} ?selected=${assignee === r}>
+                  ${personLabel(r).full}
+                </option>`
+            )}
+          </select>
           ${err('assignee')}
         </div>
         <div class="u3-ed__row">

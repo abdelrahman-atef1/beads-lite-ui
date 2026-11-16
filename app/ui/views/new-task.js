@@ -258,26 +258,23 @@ export function openNewTask(host, ctx, opts = {}) {
         ${field(
           'u3-nt-asg',
           'u3_ts_assignee',
-          html`<input
-              id="u3-nt-asg"
-              class="u3-ed__in"
-              dir="ltr"
-              list="u3-nt-people"
-              maxlength="100"
-              autocomplete="off"
-              .value=${f.assignee}
-              @input=${on('assignee')}
-            /><datalist id="u3-nt-people">
-              ${[...people]
-                .sort()
-                .map(
-                  (r) =>
-                    html`<option
-                      value=${r}
-                      label=${personLabel(r).full}
-                    ></option>`
-                )}
-            </datalist>`
+          html`<select
+            id="u3-nt-asg"
+            class="u3-ed__in"
+            @input=${on('assignee')}
+          >
+            <option value="" ?selected=${f.assignee === ''}>
+              ${t3('u3_tk_unassigned')}
+            </option>
+            ${[...people]
+              .sort()
+              .map(
+                (r) =>
+                  html`<option value=${r} ?selected=${f.assignee === r}>
+                    ${personLabel(r).full}
+                  </option>`
+              )}
+          </select>`
         )}
         ${field(
           'u3-nt-labels',
