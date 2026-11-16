@@ -1,0 +1,16 @@
+import { chromium } from '@playwright/test';
+import { CHROME, base, E } from './lib.mjs';
+const S = E().seed;
+const b = await chromium.launch({ executablePath: CHROME, headless: true });
+const c = await b.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-US' });
+await c.addInitScript(() => { localStorage.setItem('beads-ui.lang', 'en'); localStorage.setItem('beads-ui.theme', 'light'); });
+const p = await c.newPage();
+await p.goto(base('pc') + '/#/issues'); await p.waitForSelector('.u3t-card'); await p.waitForTimeout(1500);
+console.log('FILTER BTNS', JSON.stringify(await p.locator('.u3t-filters button, .u3t-bar button, .u3t-bar select, .u3t-filters select').evaluateAll((a) => a.map((x) => x.tagName + ':' + (x.getAttribute('aria-label') || '') + ':' + x.innerText.trim().slice(0, 20) + ':' + x.className))));
+await p.goto(base('pc') + '/#/time'); await p.waitForTimeout(2500);
+console.log('TIME فشل/failed', JSON.stringify((await p.evaluate(() => document.body.innerText)).split('\n').filter((l) => /failed|fail|فشل/i.test(l)).slice(0, 4)));
+await p.goto(base('pc') + `/#/issues?issue=${S.q_type}&at=card`); await p.waitForTimeout(3500);
+console.log('TYPE card', JSON.stringify(await p.locator('.u3-cardhost').innerHTML().then((h) => h.replace(/<!--.*?-->/g, '').replace(/\s+/g, ' ').slice(0, 900))));
+await p.goto(base('pc') + `/#/issues?issue=${S.plain}&at=c-last`); await p.waitForTimeout(2500);
+console.log('CLAST', JSON.stringify(await p.evaluate(() => [...document.querySelectorAll('[data-anchor^=c-]')].map((e) => e.dataset.anchor + ':' + e.className.split(' ').slice(-1) + ':' + Math.round(e.getBoundingClientRect().top)))));
+await b.close();

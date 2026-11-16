@@ -1,0 +1,13 @@
+import { chromium } from '@playwright/test';
+import { CHROME, base, E, OUT } from './lib.mjs';
+const S = E().seed;
+const b = await chromium.launch({ executablePath: CHROME, headless: true });
+const c = await b.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'en-US' });
+await c.addInitScript(() => { localStorage.setItem('beads-ui.lang', 'en'); localStorage.setItem('beads-ui.theme', 'light'); });
+const p = await c.newPage();
+await p.goto(base('pc') + `/#/issues?issue=${S.q_type}&at=card`); await p.waitForTimeout(4000);
+console.log('TASK', (await p.evaluate(() => document.querySelector('.u3-main__in').innerText)).replace(/\s+/g, ' ').slice(0, 700));
+await p.screenshot({ path: OUT + '/shots/probe-type-task.png' });
+await p.goto(base('pc') + `/#/decisions`); await p.waitForTimeout(3500);
+console.log('DESK type card', await p.locator('.u3-cd__text').count(), await p.locator('.u3-cd').count());
+await b.close();

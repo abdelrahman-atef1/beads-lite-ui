@@ -7,7 +7,7 @@ import http from 'node:http';
 import net from 'node:net';
 import zlib from 'node:zlib';
 import { spawnSync } from 'node:child_process';
-import { CHROME, OUT, SC, E, base, bd, show, comments, FAST3G, COMBOS, door, watch } from './lib.mjs';
+import { CHROME, OUT, SC, E, base, bd, show, comments, FAST3G, COMBOS, door, watch, postCard } from './lib.mjs';
 import { TN } from './paths.mjs';
 
 const only = (process.argv[2] || 'ABCDEFG').toUpperCase();
@@ -17,7 +17,9 @@ fs.mkdirSync(OUT + '/shots', { recursive: true });
 fs.writeFileSync(SC + '/runner.pid', String(process.pid));
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const idFilter = process.env.IDS ? new RegExp(process.env.IDS) : null;
 async function check(id, name, fn) {
+  if (idFilter && !idFilter.test(id)) return;
   const t0 = Date.now();
   try {
     const r = await fn();
@@ -139,7 +141,7 @@ if (only.includes('B')) {
       const proj = page.locator('.u3t-filters button, .u3t-bar button').filter({ hasText: /Project|المشروع/ }).first();
       await proj.click(); await page.waitForSelector('.u3t-opt', { timeout: 5000 });
       const opts = await page.locator('.u3t-opt').allInnerTexts();
-      await page.locator('.u3t-opt').filter({ hasText: 'whisper-flow' }).first().click(); await page.waitForTimeout(1200); await page.keyboard.press('Escape');
+      await page.locator('.u3t-opt').first().click(); await page.waitForTimeout(1200); await page.keyboard.press('Escape');
       const n1 = await page.locator('.u3t-card').count(); const chip = await page.locator('.u3t-fchip').count(); const hash1 = await page.evaluate(() => location.hash);
       await page.screenshot({ path: `${OUT}/shots/B3-${C.tag}-filtered.png` });
       await page.reload(); await page.waitForSelector('.u3-main__in'); await page.waitForTimeout(2000);
@@ -393,6 +395,112 @@ if (only.includes('G')) {
     const c = await ctx(COMBOS[1]); const page = await c.newPage(); await page.goto(base('pc') + '/#/'); await page.waitForSelector('.u3-sh__row', { timeout: 30000 }); await page.waitForTimeout(1500);
     const rows = await page.locator('.u3-sh__muted').allInnerTexts(); const sample = rows.filter((t) => / - /.test(t)).slice(0, 4); await c.close();
     return { ok: false === true ? true : sample.length === 0 || sample.every((t) => !/^(Lead|Engineer|Manager|Officer|QA|Chief|Software|Site|Product|UX|Security|Reliability)/i.test(t.split(' - ')[0])), detail: `role lines: ${JSON.stringify(sample)}` };
+  });
+}
+
+// ---------------------------------------------------------------- H: second pass (cases re-aimed after the first run; same cases, fixed selectors / fresh seeds)
+if (only.includes('H')) {
+  for (const C of [COMBOS[0], COMBOS[2]]) {
+    await check(`B3-${C.tag}`, `tasks filters change the list and survive refresh [${C.tag}]`, async () => {
+      const c = await ctx(C); const page = await c.newPage(); const errs = []; watch(page, errs);
+      await page.goto(base(door(C)) + '/#/issues'); await page.waitForSelector('.u3t-card', { timeout: 30000 }); await page.waitForTimeout(1500);
+      const n0 = await page.locator('.u3t-card').count();
+      await page.locator('button.u3t-menu').filter({ hasText: /Priority|الأولوية/ }).first().click(); await page.waitForSelector('.u3t-opt', { timeout: 5000 });
+      const opts = await page.locator('.u3t-opt').allInnerTexts();
+      await page.locator('.u3t-opt').first().click(); await page.waitForTimeout(1200); await page.keyboard.press('Escape');
+      const n1 = await page.locator('.u3t-card').count(); const chips1 = await page.locator('.u3t-fchip').allInnerTexts(); const hash1 = await page.evaluate(() => location.hash);
+      await page.screenshot({ path: `${OUT}/shots/B3-${C.tag}-filtered.png` });
+      await page.reload(); await page.waitForSelector('.u3-main__in'); await page.waitForTimeout(2500);
+      const n2 = await page.locator('.u3t-card').count();
+      // a quick chip too
+      await page.locator('button.u3t-fchip').filter({ hasText: /Decisions|قرارات/ }).first().click().catch(() => {}); await page.waitForTimeout(800); const n4 = await page.locator('.u3t-card').count();
+      await page.screenshot({ path: `${OUT}/shots/B3-${C.tag}-chip.png` });
+      await c.close();
+      return { ok: n1 !== n0 && n2 === n1 && !errs.length, detail: `unfiltered=${n0} priority option 1 ->${n1} (chips ${JSON.stringify(chips1)}) after refresh=${n2} + Decisions chip ->${n4} hash=${hash1} options=${opts.length} errs=${errs.join(';').slice(0, 100)}` };
+    });
+  }
+  for (const at of ['c-last', 'c-1']) {
+    await check(`C1-${at}`, `#/issues?issue=<id>&at=${at} brings that comment into view and highlights it (c-last = newest, c-1 = oldest; thread is newest first)`, async () => {
+      const c = await ctx(COMBOS[1]); const page = await c.newPage(); const errs = []; watch(page, errs);
+      await page.goto(base('pc') + `/#/issues?issue=${S.plain}&at=${at}`); await page.waitForSelector('.u3-ts__title', { timeout: 30000 }); await page.waitForTimeout(2500);
+      const r = await page.evaluate((at) => {
+        const els = [...document.querySelectorAll('[data-anchor^="c-"]')]; const el = document.querySelector('.anchor-hit[data-anchor^="c-"]');
+        const hit = document.querySelector('.anchor-hit[data-anchor^="c-"]'); const b = el?.getBoundingClientRect();
+        const hitText = (hit?.innerText || '').replace(/s+/g, ' '); return { n: els.length, hitText: hitText.slice(0, 80), targetIsHit: at === 'c-last' ? /OUTPUT v1/.test(hitText) : /QA6 comment number 1/.test(hitText), inView: !!b && b.bottom > 0 && b.top < innerHeight, hit: hit?.dataset.anchor, target: el?.dataset.anchor };
+      }, at);
+      await page.screenshot({ path: `${OUT}/shots/C1-${at}.png` }); await c.close();
+      return { ok: r.n >= 3 && r.targetIsHit && r.inView && !errs.length, detail: JSON.stringify(r) };
+    });
+  }
+  await check('D4', 'stale card: answered in tab A, tab B (still showing the card) is refused or updated honestly, still one record', async () => {
+    const card = postCard('QA6 card stale two tabs'); const id = card.id; const c = await ctx(COMBOS[1]); const a = await c.newPage(); const b = await c.newPage(); const errs = []; watch(b, errs, /already|handled|409|400|403/i);
+    for (const p of [a, b]) { await p.goto(base('pc') + `/#/issues?issue=${id}&at=card`); await p.waitForSelector('.u3-cd__opt', { timeout: 30000 }); await p.locator('.u3-cd__opt').first().click(); await p.waitForSelector('[data-act=confirm]'); }
+    await a.locator('[data-act=confirm]').click(); await a.waitForTimeout(6000);
+    const stillThere = await b.locator('[data-act=confirm]').count(); let after = '';
+    if (stillThere) { await b.locator('[data-act=confirm]').click(); await b.waitForTimeout(4000); }
+    after = (await b.locator('.u3-cardhost').innerText()).replace(/\s+/g, ' ').slice(0, 220); await b.screenshot({ path: `${OUT}/shots/D4-stale-second-tab.png` });
+    const decisions = (comments('beads-lite', id).match(/OWNER DECISION/g) || []).length; await c.close();
+    return { ok: decisions === 1, detail: `${card.out.slice(0, 40)} second tab still offered Confirm after A answered=${stillThere === 1}; second tab shows: "${after}"; decision_comments=${decisions}` };
+  });
+  await check('D7', 'typed-answer card on Desk: box limited, answer recorded', async () => {
+    const card = postCard('QA6 typed answer two', { class: 'type', opts: [{ l: 'Name it' }], q: 'What should the project be called?' }); const id = card.id;
+    const c = await ctx(COMBOS[1]); const page = await c.newPage(); const errs = []; watch(page, errs);
+    await page.goto(base('pc') + '/#/decisions'); await page.waitForSelector('.u3-cd__text', { timeout: 30000 }); await page.waitForTimeout(1500);
+    const host = page.locator('.u3-cd', { has: page.locator('.u3-cd__text') }).filter({ hasText: id }).first(); const max = await host.locator('.u3-cd__text').getAttribute('maxlength');
+    await host.locator('.u3-cd__text').fill('Project Falcon'); await host.locator('[data-act=send]').click(); await page.waitForTimeout(6000);
+    const j = show('beads-lite', id); const cm = comments('beads-lite', id); await c.close();
+    return { ok: j.status !== 'owner_decision' && /Project Falcon/.test(cm) && Number(max) > 0 && !errs.length, detail: `${card.out.slice(0, 40)} maxlength=${max} status=${j.status} text_in_record=${/Project Falcon/.test(cm)} errs=${errs.join(';').slice(0, 100)}` };
+  });
+  await check('D7b', 'typed-answer card on its task page (the push link target): answer box present', async () => {
+    const card = postCard('QA6 typed answer task page', { class: 'type', opts: [{ l: 'Name it' }], q: 'What should the tool be called?' }); const id = card.id;
+    const c = await ctx(COMBOS[1]); const page = await c.newPage(); await page.goto(base('pc') + `/#/issues?issue=${id}&at=card`); await page.waitForSelector('.u3-ts__title', { timeout: 30000 }); await page.waitForTimeout(3500);
+    const box = await page.locator('.u3-cd__text').count(); const folded = (await page.locator('[data-anchor^="c-"]').first().innerText()).replace(/\s+/g, ' ').slice(0, 100); await page.screenshot({ path: `${OUT}/shots/D7b-typed-task-page.png` }); await c.close();
+    return { ok: box === 1, detail: `answer box on task page=${box}; the ASK comment is drawn as: "${folded}"` };
+  });
+  await check('D5b', 'offline at Confirm: how long until the card says anything', async () => {
+    const card = postCard('QA6 card offline two'); const id = card.id; const c = await ctx(COMBOS[0]); const page = await c.newPage(); const errs = []; watch(page, errs, /ERR_|Failed to fetch|WebSocket/i);
+    await page.goto(base('phone') + `/#/issues?issue=${id}&at=card`); await page.waitForSelector('.u3-cd__opt'); await page.locator('.u3-cd__opt').first().click(); await page.waitForSelector('[data-act=confirm]');
+    await c.setOffline(true); await page.waitForTimeout(1500); await page.locator('[data-act=confirm]').click(); const t0 = Date.now(); let msg = ''; let at = -1;
+    for (let i = 0; i < 40; i++) { await page.waitForTimeout(500); msg = (await page.locator('.u3-cd__err, .u3-cd__msg').allInnerTexts()).join(' | ').replace(/\s+/g, ' '); if (msg.trim()) { at = Date.now() - t0; break; } }
+    const disabled = await page.locator('[data-act=confirm]').isDisabled().catch(() => null); await page.screenshot({ path: `${OUT}/shots/D5b-offline-${at < 0 ? 'silent' : 'msg'}-390.png` });
+    await c.setOffline(false); await page.waitForTimeout(8000); const j = show('beads-lite', id); const decisions = (comments('beads-lite', id).match(/OWNER DECISION/g) || []).length; await c.close();
+    return { ok: at >= 0 && at <= 15000, detail: `message after ${at < 0 ? 'NEVER (20 s)' : at + ' ms'}: "${msg.slice(0, 120)}"; confirm disabled while offline=${disabled}; after reconnect status=${j.status} decision_comments=${decisions}` };
+  });
+  await check('F1b', 'Fast 3G + 4x CPU (S-3 protocol: first screen, 2.5 s settle, then lazy open): blank <= 1 s', async () => {
+    const out = [];
+    for (const settle of [2500, 0]) {
+      for (const [n, h] of [['tasks', '#/issues'], ['task', `#/issues?issue=${S.plain}`], ['time', '#/time']]) {
+        const c = await ctx(COMBO0, { serviceWorkers: 'block' }); const page = await c.newPage();
+        await page.addInitScript(() => { window.__t = {}; const loop = () => { const v = document.getElementById('u3-view') || document.querySelector('.u3-main__in'); const txt = v ? (v.innerText || '').trim().length : -1; const now = performance.now(); const st = window.__t; if (st.hashAt != null) { if (txt <= 1 && st.bs == null && st.fc == null) st.bs = now; if (txt > 40 && !v.querySelector('.dk3') && st.fc == null) st.fc = now; } requestAnimationFrame(loop); }; requestAnimationFrame(loop); });
+        const cdp = await c.newCDPSession(page); await cdp.send('Network.enable'); await cdp.send('Network.emulateNetworkConditions', FAST3G); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+        await page.goto(base('phone') + '/', { timeout: 120000 }); await page.waitForFunction(() => document.querySelector('.u3-main__in')?.innerText.length > 40, null, { timeout: 120000 }); await page.waitForTimeout(settle);
+        await page.evaluate((h) => { window.__t = { hashAt: performance.now() }; location.hash = h; }, h); await page.waitForFunction(() => window.__t.fc != null, null, { timeout: 90000, polling: 50 }); const t = await page.evaluate(() => window.__t);
+        out.push({ settle, n, blank: Math.round(t.bs != null ? t.fc - t.bs : 0), toContent: Math.round(t.fc - t.hashAt) }); await c.close();
+      }
+    }
+    const settled = out.filter((r) => r.settle === 2500);
+    return { ok: settled.every((r) => r.blank <= 1000), detail: out.map((r) => `${r.settle ? 'settled' : 'immediate'} ${r.n}: blank ${r.blank} ms, content ${r.toContent} ms`).join('; ') };
+  });
+  await check('F2b', 'cold state: Stats, Time, Projects show no error text (words "Fail rate" are metric names)', async () => {
+    const c = await ctx(COMBO0); const page = await c.newPage(); const errs = []; watch(page, errs); const bad = [];
+    for (const h of ['#/', '#/time', '#/projects']) { await page.goto(base('phone') + '/' + h); await page.waitForSelector('.u3-main__in'); await page.waitForTimeout(2200); const t = await page.evaluate(() => document.body.innerText.replace(/Fail rate|QA fails|فشل الجودة|معدل الفشل/gi, '')); if (/error|exception|couldn.t|تعذّر|حصل خطأ/i.test(t) || /\bfailed\b/i.test(t)) bad.push(h); }
+    await c.close(); return { ok: bad.length === 0 && !errs.length, detail: `error text on: ${bad.join(',') || 'none'}; flow data was present in this run, an empty flow home was NOT exercised` };
+  });
+  await check('B8', 'language and theme switches persist across refresh (PC sidebar, phone More sheet)', async () => {
+    const out = [];
+    for (const C of [COMBOS[1], COMBOS[0]]) {
+      const c = await browser.newContext({ viewport: { width: C.w, height: 900 }, hasTouch: C.w < 500, locale: 'en-US' }); const page = await c.newPage(); const errs = []; watch(page, errs);
+      await page.goto(base(door(C)) + '/#/'); await page.waitForSelector('.u3-main__in'); await page.waitForTimeout(1500);
+      if (C.w < 500) { await page.locator('.u3-tabbar button, .u3-tabbar a').last().click(); await page.waitForSelector('.u3-more__prefs'); }
+      const scope = C.w < 500 ? page.locator('.u3-more__prefs') : page.locator('.u3-side__foot');
+      const dir0 = await page.evaluate(() => document.documentElement.dir); const th0 = await page.evaluate(() => document.documentElement.dataset.theme || document.documentElement.className);
+      await scope.locator('button').first().click(); await page.waitForTimeout(500); const btns = await scope.locator('button').count(); if (btns > 1) { await scope.locator('button').nth(1).click(); await page.waitForTimeout(500); }
+      const dir1 = await page.evaluate(() => document.documentElement.dir); const th1 = await page.evaluate(() => document.documentElement.dataset.theme || document.documentElement.className);
+      await page.reload(); await page.waitForSelector('.u3-main__in'); await page.waitForTimeout(1200);
+      const dir2 = await page.evaluate(() => document.documentElement.dir); const th2 = await page.evaluate(() => document.documentElement.dataset.theme || document.documentElement.className);
+      out.push({ w: C.w, dir: [dir0, dir1, dir2], theme: [th0, th1, th2], errs: errs.length }); await c.close();
+    }
+    return { ok: out.every((o) => o.dir[1] !== o.dir[0] || o.theme[1] !== o.theme[0]) && out.every((o) => o.dir[2] === o.dir[1] && o.theme[2] === o.theme[1] && !o.errs), detail: JSON.stringify(out) };
   });
 }
 

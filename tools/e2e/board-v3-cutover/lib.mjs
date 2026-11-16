@@ -23,3 +23,11 @@ export function watch(page, errs, okRe = /$^/) {
     if (r.status() >= 400 && !/favicon/.test(r.url()) && !okRe.test(r.url())) errs.push(`http ${r.status()} ${r.url().replace(/^https?:\/\/[^/]+/, '')}`);
   });
 }
+export function postCard(title, extra = {}, store = 'beads-lite') {
+  const r = bd(store, ['create', title, '-t', 'task', '-a', 'swe', '--silent']);
+  const id = r.stdout.split(/\s+/).filter((x) => new RegExp('^' + store + '-').test(x)).pop();
+  const e = E();
+  const input = { repo: store, bead: id, by: 'swe', class: 'tap', q: 'Which colour for the logo?', effect: 'Changes the logo colour.', blocks: 'nothing', opts: [{ l: 'Red' }, { l: 'Blue', rec: true }], show: 'Red or blue.', title, ...extra };
+  const res = spawnSync(process.execPath, ['E:/Projects/learner/scripts/cards/card.mjs', 'post'], { input: JSON.stringify(input), encoding: 'utf8', windowsHide: true, env: { ...process.env, USERPROFILE: e.home, BDUI_ATTACH_ROOT: e.attach, BD_BIN: 'C:/Users/abduu/AppData/Roaming/npm/node_modules/@beads/bd/bin/bd.exe', BD_ACTOR: 'qa', BD_LITE_UPSTREAM: 'I:/Claude Files/data/tools/bd/bd-upstream-1.3.1/bd.exe' } });
+  return { id, out: (res.stdout || res.stderr || '').trim().slice(0, 120) };
+}
