@@ -10,6 +10,7 @@
 import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
 import { statusLabel } from '../../utils/status.js';
+import { relIfToday } from '../card/common.js';
 import { chip } from '../components/chip.js';
 import { BUCKETS, fmtDur, summarize } from '../data/time-math.js';
 import { loadRollup } from '../data/time.js';
@@ -204,12 +205,14 @@ export function timeBody(row, o) {
 /** @param {{ built_at?: string | null, fixture?: boolean }} r */
 export function footer(r) {
   const when = r.built_at
-    ? new Intl.DateTimeFormat(lang() === 'ar' ? 'ar-u-nu-latn' : 'en-GB', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(Date.parse(r.built_at))
+    ? relIfToday(Date.parse(r.built_at), lang(), () =>
+        new Intl.DateTimeFormat(lang() === 'ar' ? 'ar-u-nu-latn' : 'en-GB', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit'
+        }).format(Date.parse(r.built_at))
+      )
     : '';
   return html`<p class="u3-tm__note">
     ${t3('u3_tm_note')}${when
