@@ -28,5 +28,9 @@ export const strings = {
     en: 'Could not load the decisions. Try again in a moment.',
     ar: 'مقدرتش أحمّل القرارات. جرّب كمان شوية.'
   },
-  u3_desk_more: { en: 'Show more', ar: 'اعرض أكتر' }
+  u3_desk_more: { en: 'Show more', ar: 'اعرض أكتر' },
+  u3_desk_no_match: {
+    en: 'No decisions match',
+    ar: 'مفيش قرارات مطابقة'
+  }
 };

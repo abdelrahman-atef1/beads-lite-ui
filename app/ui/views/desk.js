@@ -12,16 +12,27 @@
  */
 import { html, nothing, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
+import {
+  DIMS,
+  createFilterState,
+  isFiltering,
+  matchesFilter
+} from '../../utils/board-filter.js';
 import { getLang } from '../../utils/i18n.js';
 import { chip } from '../components/chip.js';
 import { listRow } from '../components/list-row.js';
 import { allIssues } from '../data/all.js';
 import { projectLabel } from '../data/project-icons.js';
+import { registeredProjects } from '../data/registered.js';
 import { t3 } from '../i18n.js';
 import { personChip } from '../people/person-chip.js';
+import { createFilterBar } from '../tasks/filter-bar.js';
+import { DESK_KEY, loadSaved, save } from '../tasks/saved-filters.js';
 import { renderCard } from './card.js';
 
 export const MOVES_MAX = 12;
+/** Desk filters: every Tasks dimension except Status (every card is a decision) and Epic. */
+export const DESK_DIMS = DIMS.filter((d) => d !== 'status' && d !== 'epic');
 
 /**
  * Split the feed into decisions and steps.
@@ -51,7 +62,7 @@ export function todayMoves(issues, now = Date.now()) {
     .sort((a, b) => Number(b.updated_at) - Number(a.updated_at));
 }
 
-/** @param {string} id bead id -> project part */
+/** @param {string} id - bead id -> project part */
 export const projectOf = (id) => String(id).replace(/-[^-.]+(\.\d+)*$/, '');
 
 /** @param {any} it */
@@ -83,16 +94,35 @@ export function mount(el, ctx) {
   let failed = false;
   let showAll = false;
   const issues = allIssues(ctx);
+  // Desk keeps its own saved set and never the address bar, so a Tasks filter
+  // (Status above all) never empties the Desk.
+  const saved = loadSaved(DESK_KEY);
+  const filter = createFilterState(
+    { ...saved, status: [], epic: [] },
+    { url: false }
+  );
+  const fctx = { project: (/** @type {any} */ it) => projectOf(it.id) };
+  /** A feed card carries no labels or type: join them from the shared list. */
+  function enrich(/** @type {any} */ it) {
+    const full = issues.items().find((i) => i.id === it.id);
+    return full
+      ? { ...full, ...it, labels: full.labels, issue_type: full.issue_type }
+      : it;
+  }
+  const keep = (/** @type {any} */ it) =>
+    matchesFilter(enrich(it), filter.get(), fctx);
+  const filtering = () => isFiltering(filter.get());
 
   el.textContent = '';
   const root = document.createElement('div');
   root.className = 'dk3';
   root.innerHTML =
-    '<div class="dk3-chips"></div><div class="dk3-cols"><section class="dk3-main"></section><div class="dk3-side"><section class="dk3-steps"></section><section class="dk3-moves"></section></div></div>';
+    '<div class="dk3-bar"></div><div class="dk3-chips"></div><div class="dk3-cols"><section class="dk3-main"></section><div class="dk3-side"><section class="dk3-steps"></section><section class="dk3-moves"></section></div></div>';
   el.appendChild(root);
   const q = (/** @type {string} */ s) =>
     /** @type {HTMLElement} */ (root.querySelector(s));
   const hosts = {
+    bar: q('.dk3-bar'),
     chips: q('.dk3-chips'),
     dec: q('.dk3-main'),
     steps: q('.dk3-steps'),
@@ -110,8 +140,18 @@ export function mount(el, ctx) {
         : nothing}
     </h2>`;
 
+  /** Feed after the filters: decisions, steps, cards with no card. */
+  function shownFeed() {
+    const s = splitFeed(feed || []);
+    return {
+      decisions: s.decisions.filter(keep),
+      steps: s.steps.filter(keep),
+      bad: bad.filter(keep)
+    };
+  }
+
   function paintFeed() {
-    const { decisions, steps } = splitFeed(feed || []);
+    const { decisions, steps, bad } = shownFeed();
     const total = decisions.length + bad.length;
     const waiting = feed === null && !failed;
     render(
@@ -144,7 +184,24 @@ export function mount(el, ctx) {
                         )}
                       </div>`
                   : nothing}`
-            : html`<p class="dk3-empty">${t3('u3_desk_empty_dec')}</p>`}`,
+            : filtering() && (feed || []).length
+              ? html`<div
+                  class="u3t-nomatch"
+                  role="status"
+                  data-testid="no-match"
+                >
+                  <h2 class="u3t-nomatch__h">${t3('u3_desk_no_match')}</h2>
+                  ${bar.chips()}
+                  <button
+                    type="button"
+                    class="u3-btn u3-btn--primary"
+                    data-testid="no-match-clear"
+                    @click=${bar.clearAll}
+                  >
+                    ${t3('u3_tk_no_match_btn')}
+                  </button>
+                </div>`
+              : html`<p class="dk3-empty">${t3('u3_desk_empty_dec')}</p>`}`,
       hosts.dec
     );
     render(
@@ -166,9 +223,11 @@ export function mount(el, ctx) {
   }
 
   function paintChips() {
-    const { decisions, steps } = splitFeed(feed || []);
+    const { decisions, steps, bad } = shownFeed();
     const nDec = decisions.length + bad.length;
-    const active = issues.items().filter((i) => i.status === 'in_progress');
+    const active = issues
+      .items()
+      .filter((i) => i.status === 'in_progress' && keep(i));
     render(
       html`${chip({
         label: html`<i class="u3-dot u3-dot--amber"></i>${nDec}
@@ -195,7 +254,7 @@ export function mount(el, ctx) {
       hour: '2-digit',
       minute: '2-digit'
     });
-    const all = todayMoves(issues.items());
+    const all = todayMoves(issues.items().filter(keep));
     const rows = showAll ? all : all.slice(0, MOVES_MAX);
     render(
       html`${head('u3_desk_moves', all.length, 'blue')}
@@ -253,6 +312,22 @@ export function mount(el, ctx) {
     }
   }
 
+  const bar = createFilterBar({
+    host: hosts.bar,
+    filter,
+    dims: DESK_DIMS,
+    ctx: fctx,
+    // the cards the sheet counts: every decision and step on the Desk
+    items: () => (feed || []).concat(bad).map(enrich),
+    projects: () => registeredProjects(ctx.store).map((w) => w.key)
+  });
+  const offF = filter.subscribe(() => {
+    save(filter.get(), DESK_KEY);
+    bar.paint();
+    paintFeed();
+    paintMoves();
+  });
+  bar.paint();
   paintFeed();
   paintMoves();
   void fetchFeed();
@@ -267,6 +342,8 @@ export function mount(el, ctx) {
   return {
     unmount() {
       for (const off of offs) if (typeof off === 'function') off();
+      offF();
+      bar.destroy();
       render(html``, hosts.dec);
       render(html``, hosts.steps);
       render(html``, hosts.moves);

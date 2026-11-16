@@ -231,3 +231,93 @@ describe('new task dialog', () => {
     );
   });
 });
+
+describe('new task dialog project', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem('beads-ui.lang', 'en');
+    document.body.innerHTML = '<div class="u3" id="h"></div>';
+  });
+  const WS = {
+    current: { path: 'E:/w/p' },
+    available: [
+      { path: 'E:/w/p', prefix: 'p' },
+      { path: 'E:/w/q', prefix: 'q' }
+    ]
+  };
+  function openP(opts) {
+    const send = vi.fn(async (t) =>
+      t === 'create-issue'
+        ? { created: true, id: 'q-7', parent: 'q-0', assignee: 'swe' }
+        : t === 'set-workspace'
+          ? { workspace: { root_dir: 'E:/w/q' }, changed: true }
+          : {}
+    );
+    const ctx = {
+      send,
+      store: { getState: () => ({ workspace: WS }) },
+      listSelectors: {
+        selectIssuesFor: () => [
+          { id: 'p-0', title: 'E', issue_type: 'epic', status: 'open' }
+        ]
+      }
+    };
+    openNewTask(document.getElementById('h'), ctx, opts);
+    return { send };
+  }
+  const submit = async () => {
+    document.querySelector('.u3-nt__act button').click();
+    await new Promise((r) => setTimeout(r, 20));
+  };
+
+  test('no project chosen: Create is disabled; the Tasks filter with one project is the default', () => {
+    openP({});
+    expect(document.querySelector('.u3-nt__act button').disabled).toBe(true);
+    expect(document.querySelector('[data-testid=nt-project]').value).toBe('');
+    document.body.innerHTML = '<div class="u3" id="h"></div>';
+    window.localStorage.setItem(
+      'u3.tasks.filters',
+      JSON.stringify({ project: ['q'] })
+    );
+    openP({});
+    expect(document.querySelector('[data-testid=nt-project]').value).toBe('q');
+    expect(document.querySelector('.u3-nt__act button').disabled).toBe(false);
+  });
+
+  test('opened from a task: that task project; last used is the fallback', () => {
+    openP({ parent: 'p-0' });
+    expect(document.querySelector('[data-testid=nt-project]').value).toBe('p');
+    document.body.innerHTML = '<div class="u3" id="h"></div>';
+    window.localStorage.setItem('bdui.newtask.project', 'q');
+    openP({});
+    expect(document.querySelector('[data-testid=nt-project]').value).toBe('q');
+  });
+
+  test('another project: the workspace is switched first, then the task is made there', async () => {
+    window.localStorage.setItem(
+      'u3.tasks.filters',
+      JSON.stringify({ project: ['q'] })
+    );
+    const { send } = openP({ parent: undefined });
+    const set = (sel, v) => {
+      const n = document.querySelector(sel);
+      n.value = v;
+      n.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    set('#u3-nt-title', 'T');
+    set('#u3-nt-asg', 'swe');
+    set('#u3-nt-parent', 'p-0');
+    await submit();
+    expect(document.querySelector('.u3-ed__err').textContent).toMatch(
+      /another project/
+    );
+    expect(send).not.toHaveBeenCalled();
+    set('#u3-nt-parent', 'q-0');
+    await submit();
+    expect(send.mock.calls.map((c) => c[0]).slice(0, 2)).toEqual([
+      'set-workspace',
+      'create-issue'
+    ]);
+    expect(window.localStorage.getItem('bdui.newtask.project')).toBe('q');
+  });
+});

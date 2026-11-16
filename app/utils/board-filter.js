@@ -249,17 +249,22 @@ export function stallHoursFromQuery(search, fallback = 24) {
  * subscribers save the device copy. The search text is never saved.
  *
  * @param {Partial<BoardFilter>} [initial]
+ * @param {{ url?: boolean }} [opts] url:false keeps the filters off the
+ *   address bar (Desk keeps its own set)
  */
-export function createFilterState(initial = {}) {
+export function createFilterState(initial = {}, opts = {}) {
+  const use_url = opts.url !== false;
   /** @type {BoardFilter} */
   let state = { ...emptyFilter(), ...initial, search: '' };
-  try {
-    const from_url = filterFromQuery(window.location.search);
-    if (Object.keys(from_url).length) {
-      state = { ...emptyFilter(), ...from_url };
+  if (use_url) {
+    try {
+      const from_url = filterFromQuery(window.location.search);
+      if (Object.keys(from_url).length) {
+        state = { ...emptyFilter(), ...from_url };
+      }
+    } catch {
+      // no window (tests)
     }
-  } catch {
-    // no window (tests)
   }
   /** @type {Set<() => void>} */
   const subs = new Set();
@@ -279,18 +284,19 @@ export function createFilterState(initial = {}) {
         return;
       }
       state = next;
-      try {
-        const qs = filterToQuery(window.location.search, state);
-        if (qs !== window.location.search) {
-          window.history.replaceState(
-            window.history.state,
-            '',
-            window.location.pathname + qs + window.location.hash
-          );
+      if (use_url)
+        try {
+          const qs = filterToQuery(window.location.search, state);
+          if (qs !== window.location.search) {
+            window.history.replaceState(
+              window.history.state,
+              '',
+              window.location.pathname + qs + window.location.hash
+            );
+          }
+        } catch {
+          // no window (tests)
         }
-      } catch {
-        // no window (tests)
-      }
       subs.forEach((fn) => fn());
     },
     /** @param {() => void} fn */

@@ -92,6 +92,20 @@ export const strings = {
     en: 'Pick a parent: every task has one',
     ar: 'اختار الأب: كل مهمة ليها أب'
   },
+  u3_nt_project: { en: 'Project', ar: 'المشروع' },
+  u3_nt_project_ph: { en: 'Pick a project', ar: 'اختار المشروع' },
+  u3_nt_project_req: {
+    en: 'Pick a project: the task is made there',
+    ar: 'اختار المشروع: المهمة بتتعمل فيه'
+  },
+  u3_nt_project_switch: {
+    en: 'Could not reach that project',
+    ar: 'مقدرتش أوصل للمشروع ده'
+  },
+  u3_nt_parent_other: {
+    en: 'That parent is in another project',
+    ar: 'الأب ده في مشروع تاني'
+  },
   u3_nt_parent_bad: { en: 'That is not a task id', ar: 'ده مش رقم مهمة' },
   u3_nt_parent_unknown: {
     en: 'No task with that id',
