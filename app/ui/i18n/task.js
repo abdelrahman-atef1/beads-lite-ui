@@ -12,6 +12,7 @@ export const strings = {
   u3_ts_parent: { en: 'Parent', ar: 'الأب' },
   u3_ts_created: { en: 'Created', ar: 'اتعملت' },
   u3_ts_updated: { en: 'Updated', ar: 'اتحدثت' },
+  u3_ts_version: { en: 'Reported version', ar: 'النسخة المُبلَّغ عنها' },
   u3_ts_labels: { en: 'Labels', ar: 'التصنيفات' },
   u3_ts_close_reason: { en: 'Close reason', ar: 'سبب الإغلاق' },
   u3_ts_none: { en: 'None', ar: 'مفيش' },

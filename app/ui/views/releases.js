@@ -9,6 +9,7 @@
 import { html, nothing, render } from 'lit-html';
 import { getLang } from '../../utils/i18n.js';
 import { safeHref } from '../../views/outputs-panel.js';
+import { relIfToday } from '../card/common.js';
 import { button } from '../components/button.js';
 import { chip } from '../components/chip.js';
 import { projectLabel } from '../data/project-icons.js';
@@ -47,15 +48,18 @@ const fmt = (at, o) => new Intl.DateTimeFormat(locale(), o).format(at);
  */
 export const shortRef = (c) => (/^[0-9a-f]{12,}$/i.test(c) ? c.slice(0, 7) : c);
 /** @param {number} at */
-export const dayLabel = (at) => fmt(at, { day: 'numeric', month: 'long' });
+export const dayLabel = (at) =>
+  relIfToday(at, getLang(), () => fmt(at, { day: 'numeric', month: 'long' }));
 /** @param {number} at */
 export const dayTime = (at) =>
-  fmt(at, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  relIfToday(at, getLang(), () =>
+    fmt(at, {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  );
 /** @param {number} n */
 const sizeLabel = (n) =>
   n >= 1048576

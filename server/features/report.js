@@ -22,6 +22,7 @@ import path from 'node:path';
 import { runBd } from '../bd.js';
 import { checkBoardPost } from '../guard.js';
 import { getAvailableWorkspaces } from '../registry-watcher.js';
+import { getReleases } from './releases.js';
 
 export const MAX_IMAGE = 4 * 1024 * 1024;
 export const MAX_TEXT = 2000;
@@ -108,6 +109,42 @@ export function reportAssignee(project) {
     ? map[project]
     : process.env.BDUI_REPORT_ASSIGNEE || 'cos';
   return typeof r === 'string' && /^[a-z]{2,12}$/.test(r) ? r : 'cos';
+}
+
+const VER_IN_LABEL =
+  /(?:^|[^A-Za-z0-9.])v?(\d+(?:\.\d+)+(?:[+-]\d+)?)(?![A-Za-z0-9.])/;
+const BUILD_IN_LABEL = /\bbuild \s*#?(\d{1,6})\b/i;
+export const MAX_VERSIONS = 12;
+
+/**
+ * Versions a reporter can pick, from a project's release records (newest
+ * first, as the releases list gives them). The record has no version field,
+ * so it is read from the label ("... 1.1.0+21 ..." or "build 2059"); a record
+ * with none falls back to its short commit. Server deploys are skipped.
+ *
+ * @param {{ label?: string, commit?: string | null, server?: boolean, at?: number, kind?: string }[]} releases
+ * @returns {{ v: string, label: string, at: number }[]}
+ */
+export function versionsFromReleases(releases) {
+  /** @type {Map<string, { v: string, label: string, at: number }>} */
+  const out = new Map();
+  for (const r of releases || []) {
+    if (r.server) continue;
+    const label = String(r.label || '');
+    const m = VER_IN_LABEL.exec(label);
+    const b = BUILD_IN_LABEL.exec(label);
+    const v = m
+      ? m[1]
+      : b
+        ? 'build ' + b[1]
+        : r.commit
+          ? String(r.commit).slice(0, 7)
+          : '';
+    if (!v || !VERSION_RE.test(v) || out.has(v)) continue;
+    out.set(v, { v, label: label.slice(0, 80), at: Number(r.at) || 0 });
+    if (out.size >= MAX_VERSIONS) break;
+  }
+  return [...out.values()];
 }
 
 /** @param {string} p */
@@ -727,9 +764,36 @@ async function handleAtt(req, res) {
   }
 }
 
+/**
+ * GET /api/report-versions?project=<key>: versions to pick in the report form.
+ * Read-only; from the cached release records, nothing runs until asked.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
+async function handleVersions(req, res) {
+  const site = req.headers['sec-fetch-site'];
+  if (site && site !== 'same-origin' && site !== 'none')
+    return fail(res, 404, 'not_found');
+  const project =
+    typeof req.query.project === 'string' ? req.query.project : '';
+  if (!PROJECT_RE.test(project)) return fail(res, 400, 'bad_request');
+  const out = await getReleases().list(
+    { project },
+    { ws: { door: doorOf(req) } }
+  );
+  res.set('Cache-Control', 'private, no-store');
+  res.json({ ok: true, versions: versionsFromReleases(out.releases) });
+}
+
 /** @param {{ registerHandler: Function, registerRoute: Function }} seam */
 export function register(seam) {
   seam.registerRoute((/** @type {import('express').Express} */ app) => {
+    app.get('/api/report-versions', (req, res) => {
+      handleVersions(req, res).catch(() => {
+        if (!res.headersSent) fail(res, 200, 'no_versions');
+      });
+    });
     app.post('/api/report', (req, res) => {
       handleReport(req, res).catch(() => {
         if (!res.headersSent) fail(res, 500, 'not_filed');

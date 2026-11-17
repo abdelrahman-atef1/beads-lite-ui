@@ -1,7 +1,7 @@
 // @ts-nocheck -- fixture-heavy view test
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { fmtDate, mount } from './task.js';
+import { fmtDate, mount, reportedVersion } from './task.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 30));
 const ISSUE = {
@@ -470,5 +470,17 @@ describe('fmtDate', () => {
   test('an older date keeps the full date', () => {
     const y = new Date(2026, 10, 14, 15, 0, 0).getTime();
     expect(fmtDate(y, now)).toMatch(/2026/);
+  });
+});
+
+describe('reportedVersion', () => {
+  test('metadata wins, old reports fall back to the title prefix', () => {
+    expect(
+      reportedVersion({ metadata: { version: '1.1.0' }, title: 'x' })
+    ).toBe('1.1.0');
+    expect(reportedVersion({ title: '[v1.0.2+3] crash on open' })).toBe(
+      '1.0.2+3'
+    );
+    expect(reportedVersion({ title: 'plain', metadata: {} })).toBe('');
   });
 });

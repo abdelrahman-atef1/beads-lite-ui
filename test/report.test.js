@@ -570,3 +570,25 @@ describe('company-1bo5.6.8 QA fixes', () => {
     expect(creates()).toHaveLength(1);
   });
 });
+
+describe('versionsFromReleases (beads-lite-1bo5.13.25)', () => {
+  test('reads versions from labels, skips server deploys, falls back to commit', async () => {
+    const { versionsFromReleases } =
+      await import('../server/features/report.js');
+    const out = versionsFromReleases([
+      { label: 'Rayeh FIELD build - 1.1.0+21 sent to owner 2026-11-06' },
+      { label: 'Rayeh web prod - 1.1.0+20 live since 2026-11-04' },
+      { label: 'Abo Ali rules - two-level areas', server: true },
+      { label: 'Bzoor testers - build 2059: store docs' },
+      { label: 'Board prod - filters', commit: 'f0b86f3aa11' },
+      { label: 'Rayeh again 1.1.0+21' },
+      { label: 'No version at all' }
+    ]);
+    expect(out.map((x) => x.v)).toEqual([
+      '1.1.0+21',
+      '1.1.0+20',
+      'build 2059',
+      'f0b86f3'
+    ]);
+  });
+});

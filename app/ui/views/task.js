@@ -80,12 +80,26 @@ const TONE = /** @type {Record<string, string>} */ ({
   deferred: 'neutral'
 });
 
+const QUEUED_MS = 4000;
+
+/**
+ * Version a board report was filed against: the metadata field, or the
+ * "[v1.2.3]" title prefix of older reports.
+ *
+ * @param {any} i
+ * @returns {string}
+ */
+export function reportedVersion(i) {
+  const m = i?.metadata?.version;
+  if (typeof m === 'string' && m.trim()) return m.trim().slice(0, 40);
+  const t = /^\[v([^\]\s][^\]]{0,39})\]/.exec(String(i?.title || ''));
+  return t ? t[1] : '';
+}
+
 /**
  * @param {HTMLElement} el
  * @param {any} ctx
  */
-const QUEUED_MS = 4000;
-
 export function mount(el, ctx) {
   const stores = ctx.sub_issue_stores;
   const subs = ctx.subscriptions;
@@ -634,6 +648,12 @@ export function mount(el, ctx) {
     )}
     ${row(t3('u3_ts_priority'), priorityVal(i.priority, { size: 18 }))}
     ${row(t3('u3_ts_project'), projectOf(i.id))}
+    ${reportedVersion(i)
+      ? row(
+          t3('u3_ts_version'),
+          html`<span class="u3-mono" dir="ltr">${reportedVersion(i)}</span>`
+        )
+      : nothing}
     ${i.issue_type
       ? row(t3('u3_ts_type'), typeVal(String(i.issue_type), { size: 18 }))
       : nothing}

@@ -9,13 +9,16 @@
 import { html, render } from 'lit-html';
 import { ref } from 'lit-html/directives/ref.js';
 import {
+  OTHER_VERSION,
   createQueue,
   encodeCanvas,
+  fetchVersions,
   flushQueue,
   loadShrunk,
   projectKey,
   submitReport,
-  validVersion
+  validVersion,
+  versionChoice
 } from '../../views/report.js';
 import { openSheet } from '../components/index.js';
 import { PENS, openEditor, paintStrokes } from '../panels/draw.js';
@@ -113,6 +116,9 @@ export function openReportSheet(o) {
     version: String(draft.version || recentVersions()[0] || ''),
     text: String(draft.text || ''),
     projects: /** @type {string[]} */ ([]),
+    /** versions the project released; the dropdown choice (OTHER = typed) */
+    verList: /** @type {string[]} */ ([]),
+    pick: '',
     /** @type {HTMLCanvasElement | null} */
     img: null,
     /** @type {{ c: string, p: number[][] }[]} */
@@ -126,6 +132,18 @@ export function openReportSheet(o) {
     createdId: ''
   };
   const box = document.createElement('div');
+
+  const pickValue = () => st.pick || versionChoice(st.verList, st.version);
+  async function loadVers() {
+    const p = st.project;
+    const list = await fetchVersions(p);
+    if (p !== st.project) return;
+    st.verList = list;
+    const c = versionChoice(list, st.version);
+    st.pick = c;
+    if (c !== OTHER_VERSION) st.version = c;
+    paint();
+  }
 
   const save = () =>
     lsSet(
@@ -228,6 +246,7 @@ export function openReportSheet(o) {
           @change=${(/** @type {any} */ e) => {
             st.project = e.target.value;
             save();
+            loadVers();
           }}
         >
           ${st.projects.length
@@ -242,44 +261,50 @@ export function openReportSheet(o) {
       </label>
       <label class="u3-pn__field">
         <span>${tp('rpt_version')}</span>
-        <input
-          name="version"
-          type="text"
-          dir="ltr"
-          maxlength="40"
-          required
-          autocomplete="off"
-          autocapitalize="off"
-          placeholder=${tp('rpt_version_ph')}
-          .value=${st.version}
-          @input=${(/** @type {any} */ e) => {
-            st.version = e.target.value;
+        <select
+          name="version-pick"
+          .value=${pickValue()}
+          @change=${(/** @type {any} */ e) => {
+            st.pick = e.target.value;
+            if (st.pick !== OTHER_VERSION) st.version = st.pick;
+            else if (st.verList.includes(st.version)) st.version = '';
             save();
+            paint();
           }}
-        />
-      </label>
-      ${recentVersions().length
-        ? html`<div
-            class="u3-pn__chips"
-            role="group"
-            aria-label=${tp('rpt_version_recent')}
+        >
+          ${st.verList.map(
+            (v) =>
+              html`<option value=${v} ?selected=${v === pickValue()}>
+                ${v}
+              </option>`
+          )}
+          <option
+            value=${OTHER_VERSION}
+            ?selected=${pickValue() === OTHER_VERSION}
           >
-            ${recentVersions().map(
-              (v) =>
-                html`<button
-                  type="button"
-                  class="u3-chip u3-pn__vchip"
-                  data-v=${v}
-                  @click=${() => {
-                    st.version = v;
-                    save();
-                    paint();
-                  }}
-                >
-                  ${v}
-                </button>`
-            )}
-          </div>`
+            ${tp('rpt_version_other')}
+          </option>
+        </select>
+      </label>
+      ${pickValue() === OTHER_VERSION
+        ? html`<label class="u3-pn__field">
+            <span>${tp('rpt_version_other')}</span>
+            <input
+              name="version"
+              type="text"
+              dir="ltr"
+              maxlength="40"
+              required
+              autocomplete="off"
+              autocapitalize="off"
+              placeholder=${tp('rpt_version_ph')}
+              .value=${st.version}
+              @input=${(/** @type {any} */ e) => {
+                st.version = e.target.value;
+                save();
+              }}
+            />
+          </label>`
         : ''}
       <div class="u3-pn__media">
         ${st.img
@@ -423,6 +448,7 @@ export function openReportSheet(o) {
     st.projects = keys;
     if (!st.project || !keys.includes(st.project)) st.project = keys[0] || '';
     paint();
+    void loadVers();
   });
   return sheet;
 }
