@@ -12,13 +12,13 @@
  * one file). Past the gate it is a trade: more screens split, fewer bytes,
  * more requests. Measure both before moving a screen.
  */
-import { setTasksReturn } from './tasks/return-scroll.js';
 import { applyLang } from '../utils/i18n.js';
 import { t3 } from './i18n.js';
 import { mountPanels } from './panels/mount.js';
 import { parseRoute } from './routes.js';
 import { attachSearch } from './search.js';
 import { createShell } from './shell.js';
+import { setTasksReturn } from './tasks/return-scroll.js';
 import { mount as desk } from './views/desk.js';
 import { mount as kit } from './views/kit.js';
 import { mount as projects } from './views/projects.js';
@@ -159,6 +159,8 @@ export function bootV3(_legacy_root, base) {
     // Leaving the list for a task: remember the scroll place so Back returns there.
     if (cur.name === 'tasks') {
       setTasksReturn(r.name === 'task' ? window.scrollY : 0);
+    } else if (cur.name === 'task' && r.name !== 'tasks') {
+      setTasksReturn(0); // went elsewhere, not Back: the next list starts at the top
     }
     cur.h?.unmount?.();
     cur = { name: '', h: null };

@@ -546,3 +546,22 @@ describe('blocked card names its blocker (beads-lite-1bo5.13.30)', () => {
     h.unmount();
   });
 });
+
+describe('Back after a page load (beads-lite-1bo5.13.31 QA)', () => {
+  test('a list mounted and dropped before its data arrives does not eat the scroll place', async () => {
+    const spy = vi.fn();
+    window.scrollTo = /** @type {any} */ (spy);
+    setTasksReturn(900);
+    SKIP = Object.keys(IDS);
+    const first = setup(60);
+    SKIP = [];
+    await flush();
+    first.h.unmount(); // e.g. the saved project is restored right after load
+    expect(spy).not.toHaveBeenCalled();
+    const second = setup(60);
+    await flush();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(spy).toHaveBeenCalledWith(0, 900);
+    second.h.unmount();
+  });
+});
