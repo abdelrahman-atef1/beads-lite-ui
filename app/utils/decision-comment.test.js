@@ -113,3 +113,70 @@ describe('type card (one option)', () => {
     ).toBeNull();
   });
 });
+
+describe('a decision with several questions (### Q<k>)', () => {
+  const MULTI = [
+    'ASK: 3 decisions about the thing?',
+    '## Decision',
+    'q: 3 decisions about the thing?',
+    'effect: We build it',
+    'blocks: The build',
+    '### Q1',
+    'q: Which colour?',
+    'effect: We build it',
+    'options:',
+    '1. Red (recommended)',
+    '2. Blue - cool',
+    '### Q2',
+    'q: What should we call it?',
+    'effect: We build it',
+    'show: A name for the new thing',
+    'options:',
+    '1. Name'
+  ].join('\n');
+  test('every question keeps its own options; the card level has none', () => {
+    const d = parseDecisionComment(MULTI);
+    expect(d?.q).toBe('3 decisions about the thing?');
+    expect(d?.opts).toEqual([]);
+    expect(d?.questions).toHaveLength(2);
+    expect(d?.questions?.[0].opts).toEqual([
+      { n: 1, l: 'Red', rec: true, note: '' },
+      { n: 2, l: 'Blue', rec: false, note: 'cool' }
+    ]);
+    expect(d?.questions?.[1]).toMatchObject({
+      n: 2,
+      q: 'What should we call it?',
+      show: 'A name for the new thing'
+    });
+    expect(d?.questions?.[1].opts).toHaveLength(1);
+  });
+  test('one question block, a missing option list or a wrong number is not a decision', () => {
+    expect(parseDecisionComment(MULTI.replace('### Q2', '### Q3'))).toBeNull();
+    expect(
+      parseDecisionComment(MULTI.replace('options:\n1. Name', 'options:'))
+    ).toBeNull();
+    expect(
+      parseDecisionComment(
+        MULTI.split('### Q2')[0] // only Q1
+      )
+    ).toBeNull();
+  });
+  test('the answer of a final record reads as one line per question', () => {
+    const rec = [
+      'OWNER DECISION via board (phone)',
+      'answer 1: option 2 "Blue"',
+      'answer 2 (typed, as one JSON string): "Falak"',
+      're: c-abcdef12'
+    ].join('\n');
+    const st = decisionStates([c(ID1, MULTI), c('x', rec)], {
+      status: 'open'
+    });
+    expect(st.get(0)).toEqual({
+      kind: 'answered',
+      answer: '1: 2 - Blue / 2: "Falak"'
+    });
+  });
+  test('a plain card is read exactly as before', () => {
+    expect(parseDecisionComment(POST)).not.toHaveProperty('questions');
+  });
+});

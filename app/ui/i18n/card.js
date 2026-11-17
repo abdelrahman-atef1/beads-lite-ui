@@ -43,6 +43,23 @@ export const strings = {
     en: 'The card is waiting for the asker to reply.',
     ar: 'الكارت لسه مستني ردك على سؤالك.'
   },
+  u3_card_prog: { en: '{n} of {m} answered', ar: 'تم الرد على {n} من {m}' },
+  u3_card_nq: { en: '{n} questions', ar: '{n} أسئلة' },
+  u3_card_waitq: { en: 'waiting for you', ar: 'مستني ردك' },
+  u3_card_q: { en: 'Question', ar: 'السؤال' },
+  u3_card_stale: {
+    en: 'This question changed after you opened it. Review it and decide again.',
+    ar: 'السؤال ده اتغير بعد ما فتحته. راجعه وخد قرارك من جديد.'
+  },
+  u3_card_err_keep: {
+    en: 'Not sent. Your answer is kept, try again.',
+    ar: 'مبعتش. ردك محفوظ، جرّب تاني.'
+  },
+  u3_card_retry: { en: 'Try again', ar: 'جرّب تاني' },
+  u3_card_wake_all: {
+    en: 'All answers sent. The asker is continuing now.',
+    ar: 'كل الردود اتبعتت. صاحب الطلب هيكمل دلوقتي.'
+  },
   u3_card_answered: { en: 'Answered', ar: 'تم الرد' },
   u3_card_via_phone: { en: 'from the phone', ar: 'من الموبايل' },
   u3_card_via_pc: { en: 'from the PC', ar: 'من الكمبيوتر' },
