@@ -223,3 +223,64 @@ describe('desk project chip after a late feed', () => {
     h.unmount();
   });
 });
+
+describe('desk spans every project (beads-lite-1bo5.13.32)', () => {
+  test('a Project-filtered Desk counts and lists tasks of a project that is not the connection one', async () => {
+    const { createSubscriptionIssueStores } =
+      await import('../../data/subscription-issue-stores.js');
+    const stores = createSubscriptionIssueStores();
+    /** @type {any[]} */
+    const specs = [];
+    const subscriptions = {
+      subscribeList: async (/** @type {string} */ id, /** @type {any} */ s) => {
+        specs.push({ id, s });
+        return async () => {};
+      }
+    };
+    window.localStorage.setItem(
+      'u3.desk.filters',
+      JSON.stringify({ project: ['abo-ali-market'] })
+    );
+    const client = {
+      async send() {
+        return { items: [] };
+      },
+      on() {
+        return () => {};
+      }
+    };
+    setCardClient(client);
+    const el = document.createElement('div');
+    const h = mount(
+      el,
+      /** @type {any} */ ({ client, subscriptions, sub_issue_stores: stores })
+    );
+    await tick();
+    expect(specs[0].s.params).toEqual({ scope: 'all' });
+    const now = Date.now();
+    /** @type {any} */ (stores.getStore(specs[0].id)).applyPush({
+      type: 'snapshot',
+      id: specs[0].id,
+      revision: 1,
+      issues: [
+        {
+          id: 'abo-ali-market-1aq.3.14',
+          title: 'Motion',
+          status: 'in_progress',
+          updated_at: now - 60000
+        },
+        {
+          id: 'other-1',
+          title: 'Other',
+          status: 'in_progress',
+          updated_at: now - 60000
+        }
+      ]
+    });
+    await tick();
+    expect(el.querySelector('.dk3-moves')?.textContent).toContain('Motion');
+    expect(el.querySelector('.dk3-moves')?.textContent).not.toContain('Other');
+    expect(el.querySelector('.dk3-moves .dk3-empty')).toBeNull();
+    h.unmount();
+  });
+});

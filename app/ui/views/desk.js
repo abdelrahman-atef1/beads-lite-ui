@@ -94,7 +94,8 @@ export function mount(el, ctx) {
   let bad = [];
   let failed = false;
   let showAll = false;
-  const issues = allIssues(ctx);
+  // Every project: the Desk filter picks projects, the connection's own one is not the limit.
+  const issues = allIssues(ctx, { allProjects: true });
   // Desk keeps its own saved set and never the address bar, so a Tasks filter
   // (Status above all) never empties the Desk.
   const saved = loadSaved(DESK_KEY);
