@@ -353,6 +353,7 @@ export function partialRecords(comments, id) {
  *   runBdJson?: typeof runBdJson,
  *   exec?: (file: string, args: string[], input: string) => Promise<{ code: number|null, stdout: string }>,
  *   wake?: typeof emitWake,
+ *   now?: () => number,
  *   cardsDir?: string | null
  * }} [opts]
  */

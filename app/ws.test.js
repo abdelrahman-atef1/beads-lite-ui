@@ -187,11 +187,11 @@ describe('app/ws client', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(sockets.length).toBe(2);
     expect(sockets[1].url).toContain('t=new');
-    // after it opened once, a later drop does not refetch
+    // a drop after it opened also re-reads the token (a restart changes it)
     sockets[1].openNow();
     sockets[1].close();
     await new Promise((r) => setTimeout(r, 40));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     client.close();
   });
 
@@ -211,6 +211,27 @@ describe('app/ws client', () => {
     await new Promise((r) => setTimeout(r, 60));
     expect(sockets.length).toBe(2);
     expect(sockets[1].url).toContain('t=new');
+    client.close();
+  });
+
+  test('after a drop of an open socket, retries fast with a fresh token (restart under 2 s)', async () => {
+    const sockets = setupFakeWebSocket();
+    document.head.innerHTML = '<meta name="board-token" content="old">';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        text: async () => '<meta name="board-token" content="new" />'
+      }))
+    );
+    const client = createWsClient();
+    sockets[0].openNow();
+    sockets[0].close(); // server restarted
+    await new Promise((r) => setTimeout(r, 400));
+    expect(sockets.length).toBe(2);
+    expect(sockets[1].url).toContain('t=new');
+    sockets[1].close(); // refused once more: second quick retry, not 2 s
+    await new Promise((r) => setTimeout(r, 800));
+    expect(sockets.length).toBe(3);
     client.close();
   });
 

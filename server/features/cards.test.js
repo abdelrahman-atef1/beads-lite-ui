@@ -440,7 +440,7 @@ describe.skipIf(!have)('card-state cache', () => {
     expect(r.calls.bd).toBe(2); // show + comments, once
     await r.cards.state('tc-1');
     expect(r.calls.bd).toBe(2);
-    await r.cards.answer({ id: 'tc-1', option: 1 });
+    await r.cards.answer({ id: 'tc-1', option: 1 }, undefined);
     await r.cards.state('tc-1');
     expect(r.calls.bd).toBe(4);
     r.tick(9000);

@@ -25,6 +25,9 @@ import { debug } from './utils/logging.js';
  * @typedef {{ url?: string, backoff?: BackoffOptions }} ClientOptions
  */
 
+/** Quick retries after a drop, before the backoff starts. */
+const FAST_MS = [250, 500, 1000];
+
 /**
  * Create a WebSocket client with auto-reconnect and message correlation.
  *
@@ -110,9 +113,14 @@ export function createWsClient(options = {}) {
       (backoff.initialMs || 0) * Math.pow(backoff.factor || 1, attempts)
     );
     const jitter = (backoff.jitterRatio || 0) * base;
+    // first few retries are quick (a server restart is back in about a second);
+    // after that the normal backoff applies
+    const fast = attempts >= 1 && attempts <= FAST_MS.length;
     const delay = immediate
       ? 0
-      : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
+      : fast
+        ? Math.min(FAST_MS[attempts - 1], base)
+        : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
     log('ws retry in %d ms (attempt %d)', delay, attempts + 1);
     reconnect_timer = setTimeout(() => {
       reconnect_timer = null;
@@ -220,10 +228,10 @@ export function createWsClient(options = {}) {
       pending.delete(id);
     }
     attempts += 1;
-    if (never_opened) {
-      // stale token after a restart: fetch the new one and retry at once;
-      // only the first refused attempt is immediate, later ones back off
-      const first = attempts === 1;
+    if (never_opened || attempts <= FAST_MS.length) {
+      // a restart changes the page token: take the new one before retrying
+      // a first connect refused for a stale token retries at once
+      const first = never_opened && attempts === 1;
       void refreshToken().finally(() => scheduleReconnect(first));
     } else {
       scheduleReconnect();
