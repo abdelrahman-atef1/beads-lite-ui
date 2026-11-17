@@ -143,6 +143,10 @@ describe('task page', () => {
       await tick();
       await tick();
       expect(el.querySelectorAll('.u3-cd__ro li').length).toBe(2);
+      // the list numbers itself: no second "1." inside the item (.13.34)
+      expect(el.querySelector('.u3-cd__ro li')?.textContent?.trim()).toMatch(
+        /^Yes/
+      );
       expect(el.querySelector('[data-desk-only]')).not.toBeNull();
       expect(el.querySelector('.u3-cd__opt')).toBeNull();
       expect(send.mock.calls.some((c) => c[0] === 'add-comment')).toBe(false);

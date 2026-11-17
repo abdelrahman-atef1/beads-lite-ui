@@ -545,7 +545,10 @@ export function createCards(opts = {}) {
     const waiting = bead.status === 'owner_decision' && bead.assignee === OWNER;
     /** @type {any} */
     let card = null;
-    if (parsed.ok && !scanBlocked(m.rules, parsed.card, bead)) {
+    // a valid card whose text trips the secret scan (a user path, a link) is
+    // held back from the board; say so, so the screen is not "no card yet"
+    const blocked = parsed.ok && scanBlocked(m.rules, parsed.card, bead);
+    if (parsed.ok && !blocked) {
       const c = parsed.card;
       card = {
         cls: c.cls,
@@ -575,6 +578,7 @@ export function createCards(opts = {}) {
       ...base,
       state: st,
       card: shown,
+      ...(blocked ? { blocked: true } : {}),
       ...(qs || {}),
       sha: waiting && card ? cardSha(m.core, parsed.card) : '',
       round: Number(meta.card_round) || 0,

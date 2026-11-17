@@ -214,12 +214,11 @@ function focusNext(/** @type {HTMLElement} */ el, /** @type {Panel} */ p) {
  *
  * @param {any} c @param {string} lang
  */
-function readOnlyOpts(c, lang) {
+function readOnlyOpts(c, lang, blocked = false) {
   return html`<ol class="u3-cd__ro" dir=${cardDir(lang)}>
       ${c.opts.map(
         (/** @type {any} */ o) =>
           html`<li dir="auto">
-            ${o.n}.
             ${o.l}${o.rec
               ? html` <small>${tc('u3_card_rec', lang)}</small>`
               : nothing}
@@ -227,7 +226,7 @@ function readOnlyOpts(c, lang) {
       )}
     </ol>
     <p class="u3-cd__note" data-desk-only>
-      ${tc('u3_card_answer_desk', lang)}
+      ${tc(blocked ? 'u3_card_held' : 'u3_card_answer_desk', lang)}
     </p>`;
 }
 
@@ -381,7 +380,7 @@ function paint(el, p) {
   const body = html`${cc
     ? cardBody(cc, lang)
     : html`<p class="u3-cd__q" dir="auto">${p.item.title}</p>`}
-  ${use_fb && fb && !fb.answer ? readOnlyOpts(fb.card, lang) : nothing}
+  ${use_fb && fb && !fb.answer ? readOnlyOpts(fb.card, lang, Boolean(d?.blocked)) : nothing}
   ${state === 'waiting' && d && !use_fb ? answerArea(el, p, d, lang) : nothing}
   ${use_fb && fb?.answer
     ? html`<p class="u3-cd__rec" dir="auto" data-answered>${fb.answer}</p>`

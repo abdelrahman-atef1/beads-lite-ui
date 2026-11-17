@@ -13,6 +13,10 @@ export const strings = {
     en: 'This question has no card yet: answer it on Desk.',
     ar: 'السؤال ده ملوش كارت لسه: رد عليه من المكتب.'
   },
+  u3_card_held: {
+    en: 'This card is held back: its text has a private path or a link. Answer it on Desk; the sender must repost it without them.',
+    ar: 'الكارت ده محجوز: نصه فيه مسار خاص أو رابط. رد عليه من المكتب، والمرسل لازم يعيد نشره من غيرهم.'
+  },
   u3_card_note_ph: { en: 'Your note (optional)', ar: 'ملاحظتك (اختياري)' },
   u3_card_note_req_ph: { en: 'Your note (required)', ar: 'ملاحظتك (مطلوبة)' },
   u3_card_confirm: { en: 'Confirm', ar: 'تأكيد' },

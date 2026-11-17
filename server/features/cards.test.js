@@ -200,6 +200,15 @@ describe.skipIf(!have)('card-state', () => {
     const s = await r.cards.state('tc-1');
     expect(s.card).toBe(null);
     expect(s.state).not.toBe('waiting');
+    expect(s.blocked).toBe(true);
+  });
+  test('a user path in the card text is held back and flagged (.13.34)', async () => {
+    const r = rig({
+      bead: { metadata: { ...meta, card_show: 'run C:/Users/me/x.mjs' } }
+    });
+    const s = await r.cards.state('tc-1');
+    expect(s.card).toBe(null);
+    expect(s.blocked).toBe(true);
   });
   test('asked, then answered', async () => {
     const r = rig({
