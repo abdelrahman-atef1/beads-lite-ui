@@ -52,7 +52,7 @@ import {
   buildBoard,
   filterCtx
 } from '../tasks/model.js';
-import { takeTasksReturn } from '../tasks/return-scroll.js';
+import { clearTasksReturn, peekTasksReturn } from '../tasks/return-scroll.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
 import { openNewTask } from './new-task.js';
 
@@ -123,7 +123,7 @@ export function mount(el, ctx) {
   let budget = Infinity;
   let first_paint_done = false;
   /** Scroll place to go back to (Back from a task), applied once the list is whole. */
-  let return_y = takeTasksReturn();
+  let return_y = peekTasksReturn();
   /** Projects the server could not read for the All list (shown as a note). @type {string[]} */
   let skipped = [];
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -1079,9 +1079,12 @@ export function mount(el, ctx) {
     if (!return_y || !loaded || !first_paint_done) return;
     const y = return_y;
     return_y = 0;
-    // Next frame: the router scrolls to the top right after mounting.
+    // Next frame: the router scrolls to the top right after mounting. Cleared
+    // only when this mount is still alive to apply it.
     requestAnimationFrame(() => {
-      if (alive) window.scrollTo(0, y);
+      if (!alive) return;
+      window.scrollTo(0, y);
+      clearTasksReturn();
     });
   }
 
