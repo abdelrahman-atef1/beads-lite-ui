@@ -1,7 +1,8 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { createListSelectors } from '../../data/list-selectors.js';
 import { createSubscriptionIssueStores } from '../../data/subscription-issue-stores.js';
 import { mount as mountTasks } from './tasks.js';
+import { setTasksReturn } from '../tasks/return-scroll.js';
 
 // Same specs as the screen: every list spans all projects.
 const ALL = { scope: 'all' };
@@ -21,6 +22,8 @@ const STATUSES = [
   'deferred'
 ];
 let WEIRD = false;
+/** @type {string[]} lists that have not arrived yet */
+let SKIP = [];
 const flush = () => new Promise((r) => setTimeout(r, 80));
 /**
  * Wait (bounded) until the rest-of-cards paint has landed.
@@ -88,6 +91,7 @@ function setup(n = 200, extra = {}) {
     'tab:board:closed': f.closed
   };
   for (const [id, issues] of Object.entries(lists)) {
+    if (SKIP.includes(id)) continue;
     /** @type {any} */ (stores.getStore(id)).applyPush({
       type: 'snapshot',
       id,
@@ -103,7 +107,7 @@ function setup(n = 200, extra = {}) {
     listSelectors: createListSelectors(/** @type {any} */ (stores)),
     ...extra
   });
-  return { a, h };
+  return { a, h, stores, lists };
 }
 
 /**
@@ -456,6 +460,51 @@ describe('filters as sets (beads-lite-1bo5.13.16.1)', () => {
     await flush();
     expect(search().get('status')).toBe('blocked');
     expect(cols(a).every((id) => id === 'u3t-blocked')).toBe(true);
+    h.unmount();
+  });
+});
+
+
+describe('tasks list: back, race, doubled chips (beads-lite-1bo5.13.31)', () => {
+  test('a Blocked filter before the blocked list arrives shows loading, not "No tasks match"', async () => {
+    SKIP = ['tab:board:blocked'];
+    const { a, h, stores, lists } = setup(60);
+    SKIP = [];
+    await flush();
+    /** @type {HTMLElement} */ (a.querySelector('.u3t-stat__chip--blocked')).click();
+    await flush();
+    expect(a.querySelector('[data-testid="no-match"]')).toBeNull();
+    expect(a.querySelector('.u3t-skel')).not.toBeNull();
+    /** @type {any} */ (stores.getStore('tab:board:blocked')).applyPush({
+      type: 'snapshot',
+      id: 'tab:board:blocked',
+      revision: 1,
+      issues: lists['tab:board:blocked']
+    });
+    await flush();
+    expect(a.querySelector('[data-testid="no-match"]')).toBeNull();
+    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBeGreaterThan(0);
+    h.unmount();
+  });
+
+  test('the active filter chips show once, also in the empty state', async () => {
+    const { a, h } = setup(60);
+    await flush();
+    /** @type {HTMLElement} */ (a.querySelector('[data-quick="u3_tk_mine"]')).click();
+    await flush();
+    expect(a.querySelector('[data-testid="no-match"]')).not.toBeNull();
+    expect(a.querySelectorAll('[data-testid="chips-clear-all"]').length).toBe(1);
+    h.unmount();
+  });
+
+  test('coming back from a task puts the list at the same scroll place', async () => {
+    const spy = vi.fn();
+    window.scrollTo = /** @type {any} */ (spy);
+    setTasksReturn(420);
+    const { h } = setup(60);
+    await flush();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(spy).toHaveBeenCalledWith(0, 420);
     h.unmount();
   });
 });
