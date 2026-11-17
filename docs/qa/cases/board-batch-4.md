@@ -53,3 +53,12 @@ Every UI case runs at 390 px in en and ar unless it says otherwise.
 - D-02 Slow 3G: the Tasks list and Desk stay usable (covered by C31-06).
 - D-03 Cold/empty: a project with no tasks.
 - D-04 Payload: bytes shipped by the batch vs live b9e6cba (report the number).
+
+## Mapping (added after the cases, run 2026-11-17 on aef36e4)
+Scripts: qa/scan.test.mjs, qa/status-react.test.mjs (committed); ui-run.mjs, back*.mjs (.work/out/beads-lite-1bo5.13.31/qa/); vitest.
+- C29-01..04, C29-07: ui-run (Desk en+ar) PASS. C29-05/06: qa/scan.test.mjs and ui-run PASS.
+- C30-01, 02, 03, 05, 06, 07(other author), 08: ui-run PASS. C30-04: ui-run partial (no "unknown"); the "not recorded" text itself NOT COVERED live (needs a rollup row), vitest only. C30-07 older-than-guard comment: NOT COVERED live.
+- C31-01: ui-run + back probes FAIL (first Back after a page load lands at the top). C31-02..06: ui-run PASS (3G: first card at 13.3 s).
+- C32-01..03: ui-run PASS. C32-04 (equal to Tasks screen): NOT COVERED separately (counts compared with seed numbers: 4 active, 92 moved).
+- C17-01/02: ui-run PASS (Description tab on phone). C17-03/04/05/06/07/08: status-react.test PASS. C17-05b DONE comment: FAIL (hook handles close only). C17-09 phone door: NOT COVERED.
+- D-01 PASS (no overflow Desk/Tasks/task), D-02 PASS, D-03 NOT COVERED, D-04 +3.1 KB.
