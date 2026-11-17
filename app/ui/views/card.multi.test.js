@@ -1,5 +1,6 @@
 // @ts-nocheck -- fixture-heavy view test (beads-lite-1bo5.13.12.1.4)
 import { render } from 'lit-html';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { renderCard, setCardClient } from './card.js';
 
@@ -141,6 +142,13 @@ describe('multi-question card', () => {
     await tick();
     expect(spy).toHaveBeenCalled();
     expect(spy.mock.contexts.at(-1).dataset.act).toBe('confirm');
+  });
+
+  test('Confirm leaves room for the tab bar when scrolled into view', () => {
+    const css = readFileSync('app/css/u3-card.css', 'utf8');
+    expect(css).toMatch(
+      /\.u3-cq__go\s*\{[^}]*scroll-margin-block-end:[^;}]*--u3-tabbar-h/
+    );
   });
 
   test('send error keeps the pick and offers Try again', async () => {

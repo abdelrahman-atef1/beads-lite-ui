@@ -600,3 +600,8 @@
 .u3 .u3-cd--multi .u3-btn {
   min-height: 44px;
 }
+
+/* scrollIntoView on Confirm must stop above the phone tab bar (560 px tall) */
+.u3 .u3-cq__go {
+  scroll-margin-block-end: calc(var(--u3-tabbar-h) + var(--u3-sp-5));
+}
