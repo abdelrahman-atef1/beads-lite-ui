@@ -495,6 +495,16 @@ export function mount(el, ctx) {
     </article>`;
   }
 
+  // status emojis on the report itself (REACT: <emoji> re: description): delivered, on it, done
+  function reportChips() {
+    const r = splitReactions(comments || []).byAnchor.get('description') || [];
+    return r.length
+      ? html`<div class="u3-ts__rx" data-reactions data-report-status>
+          ${r.map((x) => html`<span class="u3-ts__rxc" title=${x.who.join(', ')}>${x.emoji}</span>`)}
+        </div>`
+      : nothing;
+  }
+
   function commentsBlock() {
     const { real: list, byAnchor } = splitReactions(comments || []);
     let seen_decision = false;
@@ -682,6 +692,7 @@ export function mount(el, ctx) {
         ? html`${editing
             ? edit.description(i)
             : field('u3_ts_description', 'description', i.description)}
+          ${reportChips()}
           ${field('u3_ts_design', 'design', i.design)}
           ${field('u3_ts_notes', 'notes', i.notes)}
           ${field('u3_ts_acceptance', 'acceptance', acceptance)}
