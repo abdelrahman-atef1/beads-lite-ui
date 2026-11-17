@@ -236,6 +236,23 @@ describe('task page', () => {
     }
   });
 
+  test('status emojis on the report itself show under the description (8ce8.17.13)', async () => {
+    COMMENTS.push(
+      { id: 'g1', author: 'wake', text: 'REACT: 👀 re: description' },
+      { id: 'g2', author: 'status-hook', text: 'REACT: 🛠️ re: description' }
+    );
+    try {
+      const { el } = setup('description.L1');
+      await tick();
+      const chips = el.querySelectorAll('[data-report-status] .u3-ts__rxc');
+      expect([...chips].map((c) => c.textContent.trim())).toEqual(['👀', '🛠️']);
+      expect(el.textContent).not.toContain('REACT:');
+    } finally {
+      COMMENTS.pop();
+      COMMENTS.pop();
+    }
+  });
+
   test('a blocked task lists what blocks it; a release record is a short line (13.17)', async () => {
     const saved = ISSUE.dependencies;
     ISSUE.status = 'blocked';

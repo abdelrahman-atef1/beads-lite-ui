@@ -1,12 +1,12 @@
 /**
  * Emoji reactions on comments (beads-lite-1bo5.13.3). A reaction is a bead
- * comment with exact text `REACT: <emoji> re: c-<8hex>`, written by
+ * comment with exact text `REACT: <emoji> re: c-<8hex>` (or `re: description` = the report itself, company-8ce8.17.13), written by
  * ~/company/scripts/react.mjs. The thread hides these and shows them as chips
  * under the target comment.
  */
 import { commentAnchor } from './anchor.js';
 
-const REACT_RE = /^REACT: (\S{1,16}) re: (c-[0-9a-f]{8})\s*$/;
+const REACT_RE = /^REACT: (\S{1,16}) re: (c-[0-9a-f]{8}|description)\s*$/;
 
 /** @param {{ text?: string }} c */
 export function isReaction(c) {
