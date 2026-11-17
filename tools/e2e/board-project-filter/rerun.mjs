@@ -42,10 +42,10 @@ try {
     const n2 = await stable();
     ok(`B4 ${tag} x removes chip and widens back to the full list`, n2 === n0 && !(await p.$('.u3t-ac')), { n: n2, was: n0 });
     await p.click('[data-testid=filters-btn]'); await sleep(600);
-    await p.click('.u3t-sh__sec[data-dim=project] .u3t-sh__hb'); await sleep(300);
+    if (!(await p.locator(`.u3t-sh__sec[data-dim=project] .u3t-sh__opt[data-v="${target}"]`).isVisible())) { await p.click('.u3t-sh__sec[data-dim=project] .u3t-sh__hb'); await sleep(300); }
     await p.click(`.u3t-sh__sec[data-dim=project] .u3t-sh__opt[data-v="${target}"]`); await sleep(700);
     await p.keyboard.press('Escape'); await sleep(700);
-    await p.click('[data-testid=chips-clear-all]'); await sleep(900);
+    await p.click('[data-quick=u3_tk_p01]'); await sleep(600); await p.click('[data-testid=chips-clear-all]'); await sleep(900);
     const n3 = await stable();
     ok(`B5b ${tag} Clear restores the list`, n3 === n0, { n: n3, was: n0 });
     // tasks: two projects

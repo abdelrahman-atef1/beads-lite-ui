@@ -68,7 +68,9 @@ window.run = async () => {
   const go = el.querySelector('[data-q="1"] [data-act="confirm"]');
   ok('confirm >=44px', go.getBoundingClientRect().height >= 44);
   await wait(900);
-  { const r = go.getBoundingClientRect(); ok('FIX2 Confirm fully in view after a pick (top ' + Math.round(r.top) + ', bottom ' + Math.round(r.bottom) + ', viewport ' + window.innerHeight + ')', r.top >= 0 && r.bottom <= window.innerHeight); }
+  { const r = go.getBoundingClientRect(); ok('FIX2 Confirm fully in view after a pick (top ' + Math.round(r.top) + ', bottom ' + Math.round(r.bottom) + ', viewport ' + window.innerHeight + ')', r.top >= 0 && r.bottom <= window.innerHeight + 1);
+    const tb = document.querySelector('.u3-tabbar'); const tt = tb ? tb.getBoundingClientRect().top : window.innerHeight; const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    ok('FIX2b Confirm not covered by the bottom tab bar (real shell CSS) (bar top ' + Math.round(tt) + ', confirm bottom ' + Math.round(r.bottom) + ', tabbar ' + (tb ? 'present' : 'ABSENT') + ')', !!tb && r.bottom <= tt + 1 && (hit === go || go.contains(hit))); }
   window.shot1 = true;
   if (stop === 'picked') return log;
   go.click(); await wait(250);
@@ -77,6 +79,9 @@ window.run = async () => {
   ok('q2 now current', el.querySelector('.u3-cq--cur').dataset.q === '2');
   if (stop === 'one') return log;
   el.querySelector('[data-q="2"] [data-opt="2"]').click(); await wait(50);
+  await wait(900);
+  { const g2 = el.querySelector('[data-q="2"] [data-act="confirm"]'); const r2 = g2.getBoundingClientRect(); const tb = document.querySelector('.u3-tabbar'); const tt = tb ? tb.getBoundingClientRect().top : window.innerHeight;
+    ok('FIX2c q2 Confirm in view and not under the tab bar (bar top ' + Math.round(tt) + ', confirm top ' + Math.round(r2.top) + ' bottom ' + Math.round(r2.bottom) + ', viewport ' + window.innerHeight + ')', r2.top >= 0 && r2.bottom <= tt + 1); }
   el.querySelector('[data-q="2"] [data-act="confirm"]').click(); await wait(250);
   const ta = el.querySelector('[data-q="3"] [data-type]');
   { const sb = el.querySelector('[data-q="3"] [data-act="send"]'); ok('FIX1 Send disabled while the text is empty', sb.disabled === true);
@@ -118,7 +123,7 @@ const cases = [];
 for (const lang of ['ar', 'en'])
   for (const theme of ['dark', 'light'])
     for (const [surface, w, h] of [
-      ['phone', 390, 844],
+      ['phone', 390, Number(process.env.PH || 844)],
       ['desk', 1100, 1500],
       ['task', 1100, 1500]
     ])
@@ -132,7 +137,7 @@ function pageFor(c) {
       ? '<div class="u3-ts__c u3-ts__c--decision"><div id="slot"></div></div>'
       : c.surface === 'desk'
         ? '<div class="dk3-list"><div id="slot"></div></div>'
-        : '<div id="slot"></div>';
+        : '<div class="u3-main" style="padding:12px"><div id="slot"></div></div><div class="u3-tabbar"><span style="min-height:48px;display:block">tabs</span></div>';
   const f = path.join(tmp, `${c.surface}-${c.lang}-${c.theme}.html`);
   fs.writeFileSync(
     f,
@@ -257,6 +262,7 @@ for (const c of cases) {
   }
   const name = `${c.surface}-${c.lang}-${c.theme}`;
   const bad = log.filter((x) => !x.ok).map((x) => x.name);
+  for (const x of log.filter((y) => /FIX/.test(y.name))) console.log('  ', x.ok ? 'PASS' : 'FAIL', x.name);
   results.push({
     name,
     checks: log.length,

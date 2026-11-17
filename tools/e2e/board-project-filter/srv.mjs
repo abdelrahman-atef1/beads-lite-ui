@@ -37,7 +37,8 @@ export async function start(port) {
     BD_ACTOR: 'qa',
     BDUI_REPORT_ROUTES: '{}',
     BDUI_ATTACH_ROOT: `${R}/attach`,
-    FLOW_HOME: `${R}/flow`
+    FLOW_HOME: `${R}/flow`,
+    OUTPUTS_DIR: 'C:/Users/abduu/company/scripts/outputs'
   };
   const srv = spawn('node', [`${WT}/server/index.js`, '--host', '127.0.0.1', '--port', String(port)], { cwd: `${PROJS}/${first}`, env, stdio: ['ignore', log, log], windowsHide: true });
   fs.writeFileSync(`${R}/node.pid`, String(srv.pid));
