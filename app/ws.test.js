@@ -195,5 +195,24 @@ describe('app/ws client', () => {
     client.close();
   });
 
+  test('first refused connect retries at once with the new token, even with a long backoff', async () => {
+    const sockets = setupFakeWebSocket();
+    document.head.innerHTML = '<meta name="board-token" content="old">';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        text: async () => '<meta name="board-token" content="new" />'
+      }))
+    );
+    const client = createWsClient({
+      backoff: { initialMs: 5000, maxMs: 5000, jitterRatio: 0 }
+    });
+    sockets[0].close();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(sockets.length).toBe(2);
+    expect(sockets[1].url).toContain('t=new');
+    client.close();
+  });
+
   // Removed: subscription ack frames; no warnings to test
 });

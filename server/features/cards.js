@@ -50,6 +50,8 @@ const DECISION_HEAD = 'OWNER DECISION via board';
 const PARTIAL_HEAD = 'OWNER ANSWER via board (partial';
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const CLI_TIMEOUT_MS = 100_000;
+// card-state answers are reused this long (a write to the bead clears it)
+const STATE_TTL_MS = 8000;
 const MAX_COMMENTS = 60;
 const LEASE_STALE_MS = 180_000;
 
@@ -361,6 +363,9 @@ export function createCards(opts = {}) {
   const wake = opts.wake || emitWake;
   /** @type {any} */
   let mods = null;
+  const now = opts.now || Date.now;
+  /** @type {Map<string, { at: number, p: Promise<any> }>} card-state answers, a few seconds each */
+  const stateCache = new Map();
   /** @type {Map<string, Promise<unknown>>} one write at a time per bead */
   const chain = new Map();
 
@@ -530,6 +535,23 @@ export function createCards(opts = {}) {
    */
   async function state(id) {
     assertId(id);
+    const hit = stateCache.get(id);
+    const t = now();
+    if (hit && t - hit.at < STATE_TTL_MS) return hit.p;
+    const p = readState(id);
+    stateCache.set(id, { at: t, p });
+    // a failed read is never kept: the next call tries again
+    p.catch(() => {
+      if (stateCache.get(id)?.p === p) stateCache.delete(id);
+    });
+    return p;
+  }
+
+  /**
+   * @param {string} id
+   * @returns {Promise<any>}
+   */
+  async function readState(id) {
     const m = await load();
     const { bead, comments, proj } = await read(id);
     const meta = bead.metadata || {};
@@ -596,6 +618,8 @@ export function createCards(opts = {}) {
    */
   async function write(cmd, id, req, host) {
     assertId(id);
+    // this bead is about to change: the next card-state reads fresh
+    stateCache.delete(id);
     const m = await load();
     const proj = await locate(id);
     ensureConfig(m);
@@ -617,6 +641,7 @@ export function createCards(opts = {}) {
     // An answer that leaves questions open is only recorded: nobody can act on
     // half an answer, so no wake until the last one (design section 3).
     if (cmd === 'answer' && out.code === 'answered-partial') {
+      stateCache.delete(id);
       return {
         code: out.code,
         round: 0,
@@ -639,6 +664,7 @@ export function createCards(opts = {}) {
     } catch {
       // the record is written; a missing wake is shown as failed
     }
+    stateCache.delete(id);
     return {
       code: out.code,
       round: out.round || 0,

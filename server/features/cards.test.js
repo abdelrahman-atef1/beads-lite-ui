@@ -41,8 +41,10 @@ const meta = {
 function rig(over = {}) {
   const calls = {
     exec: /** @type {any[]} */ ([]),
-    wake: /** @type {any[]} */ ([])
+    wake: /** @type {any[]} */ ([]),
+    bd: 0
   };
+  let clock = 1000;
   let bead = {
     id: 'tc-1',
     status: 'owner_decision',
@@ -56,10 +58,13 @@ function rig(over = {}) {
     listProjects: () => [{ path: '/w/tc' }],
     prefixes: async (ws) => ws.map((w) => ({ ...w, prefix: 'tc' })),
     runBdJson: /** @type {any} */ (
-      async (/** @type {string[]} */ args) => ({
-        code: 0,
-        stdoutJson: args[0] === 'show' ? [bead] : comments
-      })
+      async (/** @type {string[]} */ args) => (
+        calls.bd++,
+        {
+          code: 0,
+          stdoutJson: args[0] === 'show' ? [bead] : comments
+        }
+      )
     ),
     exec: async (_f, args, input) => {
       calls.exec.push({ args, input: JSON.parse(input) });
@@ -74,12 +79,17 @@ function rig(over = {}) {
       calls.wake.push(ev);
       return 'queued';
     },
+    now: () => clock,
     cardsDir: CARDS
   });
   return {
     cards,
     calls,
+    tick: (/** @type {number} */ ms) => {
+      clock += ms;
+    },
     set: (/** @type {any} */ b, /** @type {any} */ c) => {
+      clock += 60000; // a direct change in a test is past any cache
       bead = { ...bead, ...b };
       if (c) comments = c;
     }
@@ -420,5 +430,26 @@ describe.skipIf(!have)('card-answer / card-ask', () => {
       cards.answer({ id: 'tc-1', option: 1 }, undefined)
     ]);
     expect(max).toBe(1);
+  });
+});
+
+describe.skipIf(!have)('card-state cache', () => {
+  test('second read inside the window costs no bd call; a write clears it; it expires', async () => {
+    const r = rig();
+    await r.cards.state('tc-1');
+    expect(r.calls.bd).toBe(2); // show + comments, once
+    await r.cards.state('tc-1');
+    expect(r.calls.bd).toBe(2);
+    await r.cards.answer({ id: 'tc-1', option: 1 });
+    await r.cards.state('tc-1');
+    expect(r.calls.bd).toBe(4);
+    r.tick(9000);
+    await r.cards.state('tc-1');
+    expect(r.calls.bd).toBe(6);
+  });
+  test('concurrent reads share one pair of bd calls', async () => {
+    const r = rig();
+    await Promise.all([r.cards.state('tc-1'), r.cards.state('tc-1')]);
+    expect(r.calls.bd).toBe(2);
   });
 });

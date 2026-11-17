@@ -11,6 +11,7 @@ import { createHashRouter } from './router.js';
 import { createStore } from './state.js';
 import { registerServiceWorker } from './sw-register.js';
 import { bootV3 } from './ui/boot.js';
+import { createConnectionNotice } from './utils/connection-notice.js';
 import { applyLang } from './utils/i18n.js';
 import { setKnownIdFilter } from './utils/linkify-ids.js';
 import { debug } from './utils/logging.js';
@@ -208,22 +209,12 @@ export function bootstrap(root_element) {
     }
   });
 
-  // Show toasts for WebSocket connectivity changes
-  /** @type {boolean} */
-  let had_disconnect = false;
+  // Toasts for WebSocket drops: only after it was open once and stayed down a
+  // few seconds (never at load, never for a blink or a silent token retry)
   if (typeof client.onConnection === 'function') {
-    /** @type {(s: 'connecting'|'open'|'closed'|'reconnecting') => void} */
-    const onConn = (s) => {
-      log('ws state %s', s);
-      if (s === 'reconnecting' || s === 'closed') {
-        had_disconnect = true;
-        showToast('Connection lost. Reconnecting…', 'error', 4000);
-      } else if (s === 'open' && had_disconnect) {
-        had_disconnect = false;
-        showToast('Reconnected', 'success', 2200);
-      }
-    };
-    client.onConnection(onConn);
+    client.onConnection(
+      createConnectionNotice((msg, kind, ms) => showToast(msg, kind, ms))
+    );
   }
   // Handle workspace-changed events from server (e.g., if another client changes workspace)
   client.on('workspace-changed', (payload) => {

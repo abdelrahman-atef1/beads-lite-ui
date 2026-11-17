@@ -123,11 +123,13 @@ afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
 });
 
+let clock = 0;
 describe.skipIf(!have)('real card answer on a copy', () => {
   const cards = () =>
     createCards({
       listProjects: () => [{ path: proj }],
       prefixes: async (ws) => ws.map((w) => ({ ...w, prefix: 'tcard' })),
+      now: () => (clock += 60000), // the test edits beads outside the cache
       cardsDir: CARDS
     });
 

@@ -97,7 +97,8 @@ export function createWsClient(options = {}) {
     }
   }
 
-  function scheduleReconnect() {
+  /** @param {boolean} [immediate] retry now (first refused connect, fresh token) */
+  function scheduleReconnect(immediate = false) {
     if (!should_reconnect || reconnect_timer) {
       return;
     }
@@ -109,10 +110,9 @@ export function createWsClient(options = {}) {
       (backoff.initialMs || 0) * Math.pow(backoff.factor || 1, attempts)
     );
     const jitter = (backoff.jitterRatio || 0) * base;
-    const delay = Math.max(
-      0,
-      Math.round(base + (Math.random() * 2 - 1) * jitter)
-    );
+    const delay = immediate
+      ? 0
+      : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
     log('ws retry in %d ms (attempt %d)', delay, attempts + 1);
     reconnect_timer = setTimeout(() => {
       reconnect_timer = null;
@@ -221,7 +221,10 @@ export function createWsClient(options = {}) {
     }
     attempts += 1;
     if (never_opened) {
-      void refreshToken().finally(scheduleReconnect);
+      // stale token after a restart: fetch the new one and retry at once;
+      // only the first refused attempt is immediate, later ones back off
+      const first = attempts === 1;
+      void refreshToken().finally(() => scheduleReconnect(first));
     } else {
       scheduleReconnect();
     }

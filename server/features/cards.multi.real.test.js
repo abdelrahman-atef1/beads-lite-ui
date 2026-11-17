@@ -150,11 +150,13 @@ afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
 });
 
+let clock = 0;
 describe.skipIf(!have)('a real card with three questions on a copy', () => {
   const cards = () =>
     createCards({
       listProjects: () => [{ path: proj }],
       prefixes: async (ws) => ws.map((w) => ({ ...w, prefix: 'tmulti' })),
+      now: () => (clock += 60000), // the test edits beads outside the cache
       cardsDir: CARDS
     });
   const partials = () =>
