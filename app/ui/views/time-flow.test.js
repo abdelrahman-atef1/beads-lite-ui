@@ -78,7 +78,7 @@ describe('experiment detail', () => {
     const el = document.createElement('div');
     render(expDetail(byslug('qa-checklist')), el);
     expect(text(el.querySelector('.u3-ex__arm--during') || el)).toContain(
-      'unknown'
+      'not recorded'
     );
     expect(text(el)).toContain('too few to tell');
     expect(text(el)).toContain('not enough data');

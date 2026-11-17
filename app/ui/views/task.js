@@ -375,6 +375,12 @@ export function mount(el, ctx) {
           d.dependency_type === 'parent-child') &&
         d.status !== 'closed'
     );
+    // bd also holds a child back while its parent is open: list real blockers first.
+    open.sort(
+      (/** @type {any} */ a, /** @type {any} */ b) =>
+        Number(a.dependency_type !== 'blocks') -
+        Number(b.dependency_type !== 'blocks')
+    );
     if (!open.length && i.status !== 'blocked') return nothing;
     return html`<section class="u3-ts__sec u3-ts__blockers" data-blockers>
       <h3 class="u3-ts__h">${t3('u3_ts_blocked_by')}</h3>

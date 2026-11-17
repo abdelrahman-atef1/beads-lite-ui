@@ -4,7 +4,6 @@
  * plug in through ui/tasks/lanes.js and bulk.js; with the stubs the screen is
  * the plain board (groupBy none).
  */
-import { takeTasksReturn } from '../tasks/return-scroll.js';
 import { html, render } from 'lit-html';
 import { repeat } from 'lit-html/directives/repeat.js';
 import {
@@ -53,6 +52,7 @@ import {
   buildBoard,
   filterCtx
 } from '../tasks/model.js';
+import { takeTasksReturn } from '../tasks/return-scroll.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
 import { openNewTask } from './new-task.js';
 

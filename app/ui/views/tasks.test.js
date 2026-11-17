@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from 'vitest';
 import { createListSelectors } from '../../data/list-selectors.js';
 import { createSubscriptionIssueStores } from '../../data/subscription-issue-stores.js';
-import { mount as mountTasks } from './tasks.js';
 import { setTasksReturn } from '../tasks/return-scroll.js';
+import { mount as mountTasks } from './tasks.js';
 
 // Same specs as the screen: every list spans all projects.
 const ALL = { scope: 'all' };
@@ -464,14 +464,15 @@ describe('filters as sets (beads-lite-1bo5.13.16.1)', () => {
   });
 });
 
-
 describe('tasks list: back, race, doubled chips (beads-lite-1bo5.13.31)', () => {
   test('a Blocked filter before the blocked list arrives shows loading, not "No tasks match"', async () => {
     SKIP = ['tab:board:blocked'];
     const { a, h, stores, lists } = setup(60);
     SKIP = [];
     await flush();
-    /** @type {HTMLElement} */ (a.querySelector('.u3t-stat__chip--blocked')).click();
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-stat__chip--blocked')
+    ).click();
     await flush();
     expect(a.querySelector('[data-testid="no-match"]')).toBeNull();
     expect(a.querySelector('.u3t-skel')).not.toBeNull();
@@ -483,17 +484,23 @@ describe('tasks list: back, race, doubled chips (beads-lite-1bo5.13.31)', () => 
     });
     await flush();
     expect(a.querySelector('[data-testid="no-match"]')).toBeNull();
-    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBeGreaterThan(0);
+    expect(a.querySelectorAll('.u3t-board .u3t-card').length).toBeGreaterThan(
+      0
+    );
     h.unmount();
   });
 
   test('the active filter chips show once, also in the empty state', async () => {
     const { a, h } = setup(60);
     await flush();
-    /** @type {HTMLElement} */ (a.querySelector('[data-quick="u3_tk_mine"]')).click();
+    /** @type {HTMLElement} */ (
+      a.querySelector('[data-quick="u3_tk_mine"]')
+    ).click();
     await flush();
     expect(a.querySelector('[data-testid="no-match"]')).not.toBeNull();
-    expect(a.querySelectorAll('[data-testid="chips-clear-all"]').length).toBe(1);
+    expect(a.querySelectorAll('[data-testid="chips-clear-all"]').length).toBe(
+      1
+    );
     h.unmount();
   });
 
@@ -514,7 +521,9 @@ describe('blocked card names its blocker (beads-lite-1bo5.13.30)', () => {
     const { a, h, stores } = setup(60);
     const all = /** @type {any} */ (stores.getStore('tab:all'));
     await flush();
-    /** @type {HTMLElement} */ (a.querySelector('.u3t-stat__chip--blocked')).click();
+    /** @type {HTMLElement} */ (
+      a.querySelector('.u3t-stat__chip--blocked')
+    ).click();
     await flush();
     const first = a.querySelector('.u3t-col--blocked .u3t-card');
     expect(first).not.toBeNull();
@@ -523,11 +532,13 @@ describe('blocked card names its blocker (beads-lite-1bo5.13.30)', () => {
       type: 'snapshot',
       id: 'tab:all',
       revision: 2,
-      issues: stores.snapshotFor('tab:all').map((/** @type {any} */ it) =>
-        it.id === id
-          ? { ...it, blocked_by_detail: [{ id: 'x-parent', title: 'P' }] }
-          : it
-      )
+      issues: stores
+        .snapshotFor('tab:all')
+        .map((/** @type {any} */ it) =>
+          it.id === id
+            ? { ...it, blocked_by_detail: [{ id: 'x-parent', title: 'P' }] }
+            : it
+        )
     });
     await flush();
     const card = a.querySelector(`[data-issue-id="${id}"]`);
