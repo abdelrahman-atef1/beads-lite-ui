@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createWsClient } from './ws.js';
 
 /**
@@ -74,6 +74,17 @@ function setupFakeWebSocket() {
 }
 
 describe('app/ws client', () => {
+  // every retry fetches the page for a fresh token; by default that works
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ text: async () => '<html></html>' }))
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('correlates replies for concurrent sends', async () => {
     const sockets = setupFakeWebSocket();
     const client = createWsClient({
@@ -235,26 +246,31 @@ describe('app/ws client', () => {
     client.close();
   });
 
-  test('the token is fetched inside each retry, right before connecting', async () => {
+  test('a failed or slow token fetch does not hold back retries; a new token reconnects at once', async () => {
     const sockets = setupFakeWebSocket();
     document.head.innerHTML = '<meta name="board-token" content="old">';
-    let fail = true;
-    const fetchMock = vi.fn(async () => {
-      if (fail) throw new Error('server down');
-      return { text: async () => '<meta name="board-token" content="new" />' };
-    });
+    /** @type {(v: any) => void} */
+    let release = () => {};
+    const fetchMock = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          release = resolve; // the fresh server is slow to answer GET /
+        })
+    );
     vi.stubGlobal('fetch', fetchMock);
     const client = createWsClient();
     sockets[0].openNow();
-    sockets[0].close(); // restart: server down for the first retries
+    sockets[0].close(); // restart
     await new Promise((r) => setTimeout(r, 300));
-    // retry 1 ran: its fetch failed, the socket was still tried (and fails)
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // the retry did not wait for the fetch
     expect(sockets.length).toBe(2);
     expect(sockets[1].url).toContain('t=old');
-    fail = false; // server is back
+    release({ text: async () => '<meta name="board-token" content="new" />' });
+    await new Promise((r) => setTimeout(r, 30));
+    // token changed while the old-token socket was still connecting: its
+    // close retries; after it fails the next socket carries the new token
     sockets[1].close();
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 600));
     expect(sockets.length).toBe(3);
     expect(sockets[2].url).toContain('t=new');
     client.close();

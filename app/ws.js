@@ -26,7 +26,7 @@ import { debug } from './utils/logging.js';
  */
 
 /** Quick retries after a drop, before the backoff starts. */
-const FAST_MS = [250, 500, 1000];
+const FAST_MS = [250, 250, 500, 500, 500, 500, 500, 500];
 
 /**
  * Create a WebSocket client with auto-reconnect and message correlation.
@@ -75,8 +75,6 @@ export function createWsClient(options = {}) {
   let reconnect_timer = null;
   /** @type {boolean} */
   let should_reconnect = true;
-  /** @type {boolean} did the current socket ever reach open */
-  let opened = false;
 
   /** @type {Map<string, { resolve: (v: any) => void, reject: (e: any) => void, type: string }>} */
   const pending = new Map();
@@ -100,8 +98,7 @@ export function createWsClient(options = {}) {
     }
   }
 
-  /** @param {boolean} [immediate] retry now (first refused connect, fresh token) */
-  function scheduleReconnect(immediate = false) {
+  function scheduleReconnect() {
     if (!should_reconnect || reconnect_timer) {
       return;
     }
@@ -121,20 +118,13 @@ export function createWsClient(options = {}) {
     // first few retries are quick (a server restart is back in about a second);
     // after that the normal backoff applies
     const fast = attempts >= 1 && attempts <= FAST_MS.length;
-    const delay = immediate
-      ? 0
-      : fast
-        ? Math.min(FAST_MS[attempts - 1], base)
-        : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
+    const delay = fast
+      ? Math.min(FAST_MS[attempts - 1], base)
+      : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
     log('ws retry in %d ms (attempt %d)', delay, attempts + 1);
     reconnect_timer = setTimeout(() => {
-      // take the token now, not at close time: a restart changes it, and
-      // while the server was down there was none to take. A failed fetch
-      // just means this attempt fails and the next one runs on schedule.
-      void refreshToken().finally(() => {
-        reconnect_timer = null;
-        connect();
-      });
+      reconnect_timer = null;
+      connect();
     }, delay);
   }
 
@@ -148,7 +138,6 @@ export function createWsClient(options = {}) {
   }
 
   function onOpen() {
-    opened = true;
     state = 'open';
     log('ws open');
     notifyConnection(state);
@@ -209,29 +198,60 @@ export function createWsClient(options = {}) {
    * socket never opens. Read the new token from the page and retry.
    * Only used by the default URL; a fixed options.url has no token to refresh.
    */
-  async function refreshToken() {
+  /** @type {Promise<boolean> | null} */
+  let refreshing = null;
+  /**
+   * Fetch the page and take its token. True when the token changed.
+   * One fetch at a time. A first GET / on a fresh server can take about a
+   * second, and a dead port can hang, so this never gates a connect: the
+   * retries run on their own schedule and a changed token reconnects at once.
+   */
+  function refreshToken() {
     if (options.url || typeof fetch !== 'function') {
-      return;
+      return Promise.resolve(false);
     }
-    try {
-      const res = await fetch('/', {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(700)
-      });
-      const m = (await res.text()).match(
-        /<meta[^>]*name="board-token"[^>]*content="([^"]*)"/
-      );
-      const meta = document.querySelector('meta[name="board-token"]');
-      if (m && meta) {
-        meta.setAttribute('content', m[1]);
+    refreshing ??= (async () => {
+      try {
+        const res = await fetch('/', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(2500)
+        });
+        const m = (await res.text()).match(
+          /<meta[^>]*name="board-token"[^>]*content="([^"]*)"/
+        );
+        const meta = document.querySelector('meta[name="board-token"]');
+        if (m && meta && meta.getAttribute('content') !== m[1]) {
+          meta.setAttribute('content', m[1]);
+          return true;
+        }
+      } catch (err) {
+        log('token refresh failed %o', err);
       }
-    } catch (err) {
-      log('token refresh failed %o', err);
-    }
+      return false;
+    })().finally(() => {
+      refreshing = null;
+    });
+    return refreshing;
+  }
+
+  /** After a close: look for a new token; if there is one, connect now. */
+  function freshenToken() {
+    void refreshToken().then((changed) => {
+      if (!changed || !should_reconnect || state === 'open') {
+        return;
+      }
+      if (state === 'connecting') {
+        return; // that socket used the old token; its close retries
+      }
+      if (reconnect_timer) {
+        clearTimeout(reconnect_timer);
+        reconnect_timer = null;
+      }
+      connect();
+    });
   }
 
   function onClose() {
-    const never_opened = !opened;
     state = 'closed';
     log('ws closed');
     notifyConnection(state);
@@ -241,8 +261,9 @@ export function createWsClient(options = {}) {
       pending.delete(id);
     }
     attempts += 1;
-    // a first connect refused for a stale token retries at once
-    scheduleReconnect(never_opened && attempts === 1);
+    scheduleReconnect();
+    // a restart changes the page token: fetch the new one in parallel
+    freshenToken();
   }
 
   function connect() {
@@ -252,7 +273,6 @@ export function createWsClient(options = {}) {
     const url = resolveUrl();
     try {
       ws = new WebSocket(url);
-      opened = false;
       log('ws connecting %s', url);
       state = 'connecting';
       notifyConnection(state);
