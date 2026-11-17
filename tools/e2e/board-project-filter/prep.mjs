@@ -28,7 +28,7 @@ const run = (c, a, o = {}) => {
   return r.status;
 };
 console.log('PREP START', new Date().toISOString());
-run('C:/Program Files/nodejs/npm.cmd', ['ci', '--no-audit', '--no-fund'], { shell: true });
+if (!process.env.SKIP_CI) run('C:/Program Files/nodejs/npm.cmd', ['ci', '--no-audit', '--no-fund'], { shell: true });
 run('node', ['scripts/build-frontend.js']);
 fs.rmSync(S, { recursive: true, force: true });
 for (const [n, p] of Object.entries(REAL)) {
