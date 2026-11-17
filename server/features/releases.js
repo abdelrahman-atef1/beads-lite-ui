@@ -205,6 +205,27 @@ const SERVER_LABEL =
   /\b(rules?|workers?|api|backend|back-end|server|functions?|firestore|database|db|migrations?|cron|index(es)?)\b/i;
 
 /**
+ * True when a link is a provider page, not somewhere to open or install a
+ * version: a console host, or the bare App Distribution address (an install
+ * link has a path). Applies to builds too (beads-lite-1bo5.13.24.1).
+ *
+ * @param {string | null} href
+ */
+export function isProviderPage(href) {
+  if (!href) return false;
+  try {
+    const u = new URL(href);
+    if (CONSOLE_HOST.test(u.hostname)) return true;
+    return (
+      u.hostname.toLowerCase() === 'appdistribution.firebase.google.com' &&
+      u.pathname.replace(/\/+$/, '') === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * True for a record that is a server-side change, not a version the owner can
  * open or install. A build is always a version.
  *
@@ -253,7 +274,7 @@ export function releasesOf(snap, validator, proj) {
         server,
         commit: rec.commit || null,
         ref_type: rec.refType,
-        href: server ? null : url,
+        href: server || isProviderPage(url) ? null : url,
         path: rec.refType === 'path' ? clean(rec.ref, 200) : null,
         by: clean(c.author, 40),
         at: Date.parse(c.created_at) || 0,

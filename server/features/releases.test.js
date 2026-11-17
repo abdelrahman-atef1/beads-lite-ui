@@ -3,6 +3,7 @@ import {
   PAGE,
   beadPart,
   createReleases,
+  isProviderPage,
   isServerDeploy,
   releasesOf
 } from './releases.js';
@@ -297,5 +298,50 @@ describe('releases-get', () => {
     await rl.list({}, {});
     expect(gitCalls.length).toBeGreaterThan(0);
     for (const c of gitCalls) expect(c[1]).toBe('log');
+  });
+});
+
+describe('isProviderPage', () => {
+  test('a build on the bare App Distribution address or a console has no link', () => {
+    expect(isProviderPage('https://appdistribution.firebase.google.com')).toBe(
+      true
+    );
+    expect(isProviderPage('https://appdistribution.firebase.google.com/')).toBe(
+      true
+    );
+    expect(
+      isProviderPage('https://console.firebase.google.com/project/x')
+    ).toBe(true);
+    expect(
+      isProviderPage('https://appdistribution.firebase.google.com/testerapps/1')
+    ).toBe(false);
+    expect(isProviderPage('https://rayeh.example.dev/app')).toBe(false);
+    expect(isProviderPage(null)).toBe(false);
+  });
+  test('a build record with the bare address keeps its kind but gets no href', () => {
+    const snap = {
+      rows: new Map([['p-1', { id: 'p-1' }]]),
+      comments: new Map([
+        [
+          'p-1',
+          [
+            {
+              id: 'c',
+              text:
+                'OUTPUT v1 build\n' +
+                JSON.stringify({
+                  ref: 'https://appdistribution.firebase.google.com',
+                  label: 'Rayeh APK 14'
+                }),
+              created_at: '2026-11-01T00:00:00Z'
+            }
+          ]
+        ]
+      ])
+    };
+    const [r] = releasesOf(snap, validator, { key: 'p', name: 'p' });
+    expect(r.kind).toBe('build');
+    expect(r.server).toBe(false);
+    expect(r.href).toBeNull();
   });
 });
