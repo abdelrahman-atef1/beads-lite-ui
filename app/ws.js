@@ -39,7 +39,7 @@ export function createWsClient(options = {}) {
   /** @type {BackoffOptions} */
   const backoff = {
     initialMs: options.backoff?.initialMs ?? 1000,
-    maxMs: options.backoff?.maxMs ?? 30000,
+    maxMs: options.backoff?.maxMs ?? 5000,
     factor: options.backoff?.factor ?? 2,
     jitterRatio: options.backoff?.jitterRatio ?? 0.2
   };
@@ -110,7 +110,12 @@ export function createWsClient(options = {}) {
     notifyConnection(state);
     const base = Math.min(
       backoff.maxMs || 0,
-      (backoff.initialMs || 0) * Math.pow(backoff.factor || 1, attempts)
+      (backoff.initialMs || 0) *
+        Math.pow(
+          backoff.factor || 1,
+          // the quick retries do not count toward the backoff
+          Math.max(0, attempts - FAST_MS.length)
+        )
     );
     const jitter = (backoff.jitterRatio || 0) * base;
     // first few retries are quick (a server restart is back in about a second);
