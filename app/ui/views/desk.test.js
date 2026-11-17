@@ -182,3 +182,44 @@ describe('desk filters', () => {
     h.unmount();
   });
 });
+
+describe('desk project chip after a late feed', () => {
+  test('the Project menu appears when the feed arrives after the first paint', async () => {
+    window.localStorage.clear();
+    /** @type {Map<string, any>} */
+    const handlers = new Map();
+    const feed = {
+      items: ['p-1', 'q-1'].map((id) => ({
+        id,
+        kind: 'decision',
+        title: id,
+        metadata: {},
+        priority: 1,
+        project: { key: id[0] }
+      }))
+    };
+    const client = {
+      send: () => new Promise(() => {}), // the first fetch never answers
+      on: (/** @type {string} */ t, /** @type {any} */ fn) => {
+        handlers.set(t, fn);
+        return () => {};
+      }
+    };
+    setCardClient(client);
+    const el = /** @type {any} */ (document.createElement('div'));
+    document.body.appendChild(el);
+    const h = mount(el, {
+      client,
+      subscriptions: null,
+      sub_issue_stores: null
+    });
+    await tick();
+    expect(
+      el.querySelector('[data-menu=project], [data-dim=project]')
+    ).toBeNull();
+    handlers.get('decisions-all')(feed);
+    await tick();
+    expect(el.querySelector('.u3t-filters')?.textContent).toContain('Project');
+    h.unmount();
+  });
+});
