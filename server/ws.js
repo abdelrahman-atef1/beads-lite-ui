@@ -15,6 +15,7 @@ import {
 import { getGitUserName, runBd, runBdJson } from './bd.js';
 import { boardData } from './board-data.js';
 import { resolveWorkspaceDatabase } from './db.js';
+import { guardAuthors, markBoardComment } from './features/author-guard.js';
 import { markBoardPosted } from './features/board-posted.js';
 import { getHandler, isFeatureMutating } from './features/index.js';
 import { WS_DEFLATE } from './features/perf.js';
@@ -1856,7 +1857,16 @@ async function handleMessageUnsafe(ws, data) {
     const cache_key = issueDetailCacheKey(id, ctxFor(ws));
     const cached = COMMENTS_CACHE.get(cache_key);
     if (cached !== undefined) {
-      ws.send(JSON.stringify(makeOk(req, cached)));
+      ws.send(
+        JSON.stringify(
+          makeOk(
+            req,
+            await guardAuthors(cached, {
+              owner: () => getGitUserName(bd_options)
+            })
+          )
+        )
+      );
       return;
     }
     const generation = DETAIL_CACHE_GENERATION;
@@ -1872,7 +1882,16 @@ async function handleMessageUnsafe(ws, data) {
       COMMENTS_CACHE.set(cache_key, comments.slice());
       evictOldestCacheEntry(COMMENTS_CACHE, DETAIL_CACHE_LIMIT);
     }
-    ws.send(JSON.stringify(makeOk(req, comments)));
+    ws.send(
+      JSON.stringify(
+        makeOk(
+          req,
+          await guardAuthors(comments, {
+            owner: () => getGitUserName(bd_options)
+          })
+        )
+      )
+    );
     return;
   }
 
@@ -1937,7 +1956,10 @@ async function handleMessageUnsafe(ws, data) {
             c && c.text === text.trim() && (!author || c.author === author)
         )
         .pop();
-      if (mine && typeof mine.id === 'string') markBoardPosted(mine.id);
+      if (mine && typeof mine.id === 'string') {
+        markBoardPosted(mine.id);
+        if (author) markBoardComment(mine.id, author);
+      }
     }
     if (generation === DETAIL_CACHE_GENERATION) {
       COMMENTS_CACHE.set(
@@ -1946,7 +1968,7 @@ async function handleMessageUnsafe(ws, data) {
       );
       evictOldestCacheEntry(COMMENTS_CACHE, DETAIL_CACHE_LIMIT);
     }
-    ws.send(JSON.stringify(makeOk(req, comment_list)));
+    ws.send(JSON.stringify(makeOk(req, await guardAuthors(comment_list))));
     return;
   }
 

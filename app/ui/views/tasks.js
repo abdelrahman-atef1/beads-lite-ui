@@ -52,6 +52,7 @@ import {
   buildBoard,
   filterCtx
 } from '../tasks/model.js';
+import { takeTasksReturn } from '../tasks/return-scroll.js';
 import { loadSaved, save } from '../tasks/saved-filters.js';
 import { openNewTask } from './new-task.js';
 
@@ -121,6 +122,8 @@ export function mount(el, ctx) {
   const collapsed = loadCollapsed();
   let budget = Infinity;
   let first_paint_done = false;
+  /** Scroll place to go back to (Back from a task), applied once the list is whole. */
+  let return_y = takeTasksReturn();
   /** Projects the server could not read for the All list (shown as a note). @type {string[]} */
   let skipped = [];
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -240,7 +243,14 @@ export function mount(el, ctx) {
 
   function refresh() {
     if (!alive) return;
-    loaded = Boolean(stores.isLoaded && stores.isLoaded('tab:all'));
+    // Both lists: the Blocked column is "open + in the blocked list", so with
+    // only tab:all in, blocked cards sit in Ready and a Blocked filter reads
+    // as empty (beads-lite-1bo5.13.31).
+    loaded = Boolean(
+      stores.isLoaded &&
+      stores.isLoaded('tab:all') &&
+      stores.isLoaded('tab:board:blocked')
+    );
     model = buildBoard(
       {
         all: snap('tab:all'),
@@ -355,6 +365,15 @@ export function mount(el, ctx) {
       <span class="u3t-card__title" dir="auto">${primary}</span>
       ${secondary
         ? html`<span class="u3t-card__sub" dir="auto">${secondary}</span>`
+        : ''}
+      ${blockers.length
+        ? html`<span class="u3t-card__sub u3t-card__waits" dir="auto"
+            >${t3('u3_tk_waits').replace(
+              '{id}',
+              blockers[0].id +
+                (blockers.length > 1 ? ' +' + (blockers.length - 1) : '')
+            )}</span
+          >`
         : ''}
       <span class="u3t-card__foot">
         <span class="u3t-card__ics"
@@ -989,7 +1008,6 @@ export function mount(el, ctx) {
   function emptyState() {
     return html`<div class="u3t-nomatch" role="status" data-testid="no-match">
       <h2 class="u3t-nomatch__h">${t3('u3_tk_no_match')}</h2>
-      ${activeChips()}
       <button
         type="button"
         class="u3-btn u3-btn--primary"
@@ -1056,6 +1074,17 @@ export function mount(el, ctx) {
     /** @type {HTMLElement | null} */ (target)?.focus();
   }
 
+  /** After the full list is drawn, go back to where the reader was (once). */
+  function restoreScroll() {
+    if (!return_y || !loaded || !first_paint_done) return;
+    const y = return_y;
+    return_y = 0;
+    // Next frame: the router scrolls to the top right after mounting.
+    requestAnimationFrame(() => {
+      if (alive) window.scrollTo(0, y);
+    });
+  }
+
   function draw() {
     if (!alive) return;
     if (rest_timer) {
@@ -1072,6 +1101,7 @@ export function mount(el, ctx) {
     if (trim && loaded) {
       if (total <= FIRST_PAINT_CARDS) {
         first_paint_done = true;
+        restoreScroll();
       } else {
         // The rest of the cards, once the first screen is on the glass.
         rest_timer = setTimeout(() => {
@@ -1079,6 +1109,7 @@ export function mount(el, ctx) {
           first_paint_done = true;
           budget = Infinity;
           paint();
+          restoreScroll();
         }, 0);
       }
     }
