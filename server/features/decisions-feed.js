@@ -27,7 +27,7 @@
  *
  * Every owner_decision bead is accounted for (the Tasks count must match):
  * one that cannot show as a card goes in `unanswerable` = [{id, project,
- * why:'no_card'|'secret'}] with no text, so the Desk lists it as a link to the
+ * why:'no_card'|'secret'|'not_owner'}] with no text, so the Desk lists it as a link to the
  * task instead of dropping it.
  */
 import { createHash } from 'node:crypto';
@@ -44,6 +44,8 @@ import { watchDb } from '../watcher.js';
 const log = debug('decisions-feed');
 
 export const DEBOUNCE_MS = 1500;
+/** The card core answers only a bead assigned to the owner (core.mjs). */
+const OWNER = 'abdelrahman';
 const BEAD_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[0-9]+)*$/i;
 const MAX_ITEMS = 200;
 const MAX_STEPS_BEADS = 50;
@@ -353,6 +355,9 @@ export function createDecisionsFeed(opts = {}) {
     ) {
       return null;
     }
+    // The card core refuses an answer unless the bead is assigned to the
+    // owner, and card-state shows no card then: an empty shell (1bo5.13.29).
+    if (bead.assignee !== OWNER) return null;
     const parsed = rules.parseCard(bead);
     if (!parsed.ok) return null;
     const card = parsed.card;
@@ -412,7 +417,8 @@ export function createDecisionsFeed(opts = {}) {
     return {
       id: bead.id,
       project: { key: proj.key, name: proj.name },
-      why: parsed.ok ? 'secret' : 'no_card'
+      why:
+        bead.assignee !== OWNER ? 'not_owner' : parsed.ok ? 'secret' : 'no_card'
     };
   }
 

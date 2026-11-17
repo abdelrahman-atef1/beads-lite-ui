@@ -12,7 +12,7 @@ vi.mock('../bd.js', () => ({
     return {
       code: 0,
       stdoutJson: [
-        { id: 'x-1', status: 'owner_decision', metadata: { card_q: 'Q' } },
+        { id: 'x-1', status: 'owner_decision', assignee: 'abdelrahman', metadata: { card_q: 'Q' } },
         { id: 'x-2', status: 'open' }
       ]
     };

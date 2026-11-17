@@ -20,8 +20,8 @@ export const strings = {
     ar: 'لسه مفيش حاجة اتحركت النهارده.'
   },
   u3_desk_nocard: {
-    en: 'These decisions have no readable card. Open the task to answer.',
-    ar: 'القرارات دي مالهاش كارت مقروء. افتح المهمة وجاوب.'
+    en: 'These have no card you can answer here (unreadable, or not assigned to you). Open the task.',
+    ar: 'القرارات دي مفيهاش كارت تقدر تجاوب عليه هنا (مش مقروء أو مش متسجل عليك). افتح المهمة.'
   },
   u3_desk_loading: { en: 'Loading...', ar: 'بيحمّل...' },
   u3_desk_failed: {

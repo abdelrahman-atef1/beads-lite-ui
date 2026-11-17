@@ -220,12 +220,23 @@ describe('decisions-feed', () => {
     r.parked['/w/alpha'].push(
       bead('alpha-3', card({ card_class: 'desk' }), {
         created_by: 'sec',
-        assignee: 'legal',
         labels: ['security']
       })
     );
     const snap = await r.feed.list();
     expect(snap.items.map((i) => i.id)).toContain('alpha-3');
+  });
+
+  test('a card parked on a role, not the owner, is unanswerable (no empty shell, 1bo5.13.29)', async () => {
+    const r = rig();
+    r.parked['/w/alpha'].push(bead('alpha-7', card(), { assignee: 'sre' }));
+    const snap = await r.feed.list();
+    expect(snap.items.map((i) => i.id)).not.toContain('alpha-7');
+    expect(snap.unanswerable).toContainEqual({
+      id: 'alpha-7',
+      project: { key: 'alpha', name: 'alpha' },
+      why: 'not_owner'
+    });
   });
 
   test('only card_* metadata leaves the server', async () => {
