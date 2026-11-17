@@ -27,6 +27,7 @@ import {
   normalizeItem
 } from '../../views/notifications.js';
 import { openSheet } from '../components/index.js';
+import { createLoadState } from '../data/load-state.js';
 import { icon } from '../icons.js';
 import { tp } from '../panels/i18n.js';
 
@@ -75,6 +76,8 @@ export function mountBell(el, opts) {
   let unreadN = 0;
   let muteUntil = '';
   let failed = false;
+  // 'Nothing needs you' only once the list has arrived (13.36)
+  const listState = createLoadState();
   let switchErr = '';
   /** @type {'unsupported'|'denied'|'off'|'on'|'error'|'busy'} */
   let pushState = 'unsupported';
@@ -277,7 +280,7 @@ export function mountBell(el, opts) {
           ${tp('nt_mark_all')}
         </button>
       </div>
-      ${failed
+      ${failed && listState.loaded()
         ? html`<p class="u3-pn__note" role="status">${tp('nt_error')}</p>`
         : ''}
       ${items.length
@@ -310,7 +313,13 @@ export function mountBell(el, opts) {
                 </li>`
             )}
           </ul>`
-        : html`<p class="u3-pn__empty">${tp('nt_empty')}</p>`}
+        : listState.view(0) === 'empty'
+          ? html`<p class="u3-pn__empty">${tp('nt_empty')}</p>`
+          : listState.view(0) === 'error'
+            ? html`<p class="u3-pn__note" role="status">${tp('nt_error')}</p>`
+            : html`<p class="u3-pn__note" role="status">
+                ${tp('pn_loading')}
+              </p>`}
       ${pushBlock()}
       <section class="u3-pn__sec">
         <h3>${tp('nt_projects')}</h3>
@@ -397,10 +406,13 @@ export function mountBell(el, opts) {
 
   async function refresh() {
     try {
+      listState.begin();
       apply(await client.send(T_LIST, {}));
       failed = false;
+      listState.ok();
     } catch {
       failed = true;
+      listState.fail();
     }
     paint();
   }

@@ -15,9 +15,9 @@ import { personLabel } from '../data/people.js';
 import { projectLabel } from '../data/project-icons.js';
 import { PERIODS, loadStats } from '../data/stats.js';
 import { fmtDur } from '../data/time-math.js';
-import { mountAsk } from './ask.js';
 import { t3 } from '../i18n.js';
 import { filterMenu } from '../tasks/filter-menu.js';
+import { mountAsk } from './ask.js';
 
 /** The Project chip's choice, remembered per device. */
 const PROJECT_KEY = 'u3.stats.project';
@@ -135,6 +135,8 @@ const S = {
     'مش متسجلة لسه: النظام مابيسجّلش وقت الاستيقاظ لأي دور.',
     'Not recorded yet: the system does not log wake time for any role.'
   ],
+  load_err: ['مقدرناش نحمّل الأرقام', 'Could not load the numbers'],
+  load_err_d: ['جرّب تاني بعد شوية.', 'Try again in a moment.'],
   empty: ['مفيش أرقام لسه', 'No numbers yet'],
   empty_d: [
     'ملف التدفق (rollup) مش موجود. هيتكوّن لما يشتغل الحساب.',
@@ -613,6 +615,11 @@ function view(s) {
       <div class="u3-skel" aria-busy="true"><i></i><i></i><i></i></div>
     </div>`;
   }
+  if (d.error) {
+    return html`<div class="u3-sh" data-screen="stats" data-error>
+      ${pills}${emptyBox(tr('load_err'), tr('load_err_d'))}
+    </div>`;
+  }
   if (!d.present) {
     return html`<div class="u3-sh" data-screen="stats">
       ${emptyBox(tr('empty'), tr('empty_d'))}
@@ -699,7 +706,8 @@ export function mount(el, ctx) {
     draw();
     const r = await loadStats(ctx.client, days, project);
     if (mine !== seq) return;
-    d = r;
+    // a failed refresh keeps the numbers already on screen
+    if (!(r && r.error && d && d.present)) d = r;
     loading = false;
     draw();
   }

@@ -23,6 +23,7 @@ export async function loadStats(client, days, project = '') {
     );
     return r && r.present === true ? r : { present: false };
   } catch {
-    return { present: false };
+    // a failed load is not "no numbers yet": the screen keeps old data or says so
+    return { present: false, error: true };
   }
 }

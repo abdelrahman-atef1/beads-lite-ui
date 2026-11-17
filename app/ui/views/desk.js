@@ -152,10 +152,29 @@ export function mount(el, ctx) {
     };
   }
 
+  /**
+   * Loading until the feed arrived, and, while a filter is on, until the
+   * shared list that carries labels and type is loaded too: the filter reads
+   * those, so before that every card would be filtered out and the Desk would
+   * say "empty" while it is still loading (13.36).
+   */
+  const needsList = () => {
+    const f = filter.get();
+    return f.type.length > 0 || f.label.length > 0;
+  };
+  let gaveUp = false;
+  // never loading forever: a list that does not come in 8 s stops holding the Desk
+  const giveUpTimer = setTimeout(() => {
+    gaveUp = true;
+    paintFeed();
+  }, 8000);
+  const isWaiting = () =>
+    (feed === null && !failed) || (needsList() && !issues.loaded() && !gaveUp);
+
   function paintFeed() {
     const { decisions, steps, bad } = shownFeed();
     const total = decisions.length + bad.length;
-    const waiting = feed === null && !failed;
+    const waiting = isWaiting();
     render(
       html`${head('u3_desk_dec', total, 'amber')}
       ${failed && feed === null
@@ -208,17 +227,19 @@ export function mount(el, ctx) {
     );
     render(
       html`${head('u3_desk_steps', steps.length, 'teal')}
-      ${feed === null
-        ? nothing
-        : steps.length
-          ? html`<div class="dk3-list">
-              ${repeat(
-                steps,
-                (i) => i.id,
-                (i) => renderCard(i, { client })
-              )}
-            </div>`
-          : html`<p class="dk3-empty">${t3('u3_desk_empty_steps')}</p>`}`,
+      ${waiting
+        ? html`<p class="dk3-empty">${t3('u3_desk_loading')}</p>`
+        : feed === null
+          ? nothing
+          : steps.length
+            ? html`<div class="dk3-list">
+                ${repeat(
+                  steps,
+                  (i) => i.id,
+                  (i) => renderCard(i, { client })
+                )}
+              </div>`
+            : html`<p class="dk3-empty">${t3('u3_desk_empty_steps')}</p>`}`,
       hosts.steps
     );
     paintChips();
@@ -226,7 +247,8 @@ export function mount(el, ctx) {
 
   function paintChips() {
     const { decisions, steps, bad } = shownFeed();
-    const nDec = decisions.length + bad.length;
+    const wait = isWaiting();
+    const nDec = wait ? '-' : decisions.length + bad.length;
     const active = issues
       .items()
       .filter((i) => i.status === 'in_progress' && keep(i));
@@ -237,12 +259,16 @@ export function mount(el, ctx) {
         tone: 'amber'
       })}
       ${chip({
-        label: html`<i class="u3-dot u3-dot--green"></i>${steps.length}
+        label: html`<i class="u3-dot u3-dot--green"></i>${wait
+            ? '-'
+            : steps.length}
           ${t3('u3_desk_chip_steps')}`,
         tone: 'teal'
       })}
       ${chip({
-        label: html`<i class="u3-dot"></i>${active.length}
+        label: html`<i class="u3-dot"></i>${issues.loaded()
+            ? active.length
+            : '-'}
           ${t3('u3_desk_chip_active')}`,
         tone: 'blue'
       })}`,
@@ -340,13 +366,17 @@ export function mount(el, ctx) {
   const offs = [
     client.on?.('decisions-all', applyFeed),
     client.onConnection?.((/** @type {any} */ s) => {
-      if (s === 'open' && feed !== null) void fetchFeed();
+      if (s === 'open' && (feed !== null || failed)) void fetchFeed();
     }),
-    issues.on(paintMoves)
+    issues.on(() => {
+      paintMoves();
+      paintFeed();
+    })
   ];
 
   return {
     unmount() {
+      clearTimeout(giveUpTimer);
       for (const off of offs) if (typeof off === 'function') off();
       offF();
       bar.destroy();

@@ -21,6 +21,7 @@ const OWN = {
   pn_push_busy: { en: 'Working…', ar: 'جارٍ التنفيذ…' },
   pn_attached: { en: 'Screenshot attached', ar: 'تم إرفاق لقطة الشاشة' },
   pn_shot_remove: { en: 'Remove screenshot', ar: 'شيل لقطة الشاشة' },
+  pn_loading: { en: 'Loading…', ar: 'جارٍ التحميل…' },
   pn_unread: { en: 'unread', ar: 'غير مقروء' }
 };
 
