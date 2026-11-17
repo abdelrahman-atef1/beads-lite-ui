@@ -68,7 +68,7 @@ window.run = async () => {
   const go = el.querySelector('[data-q="1"] [data-act="confirm"]');
   ok('confirm >=44px', go.getBoundingClientRect().height >= 44);
   await wait(900);
-  { const r = go.getBoundingClientRect(); ok(`FIX2 Confirm fully in view after a pick (top ${Math.round(r.top)}, bottom ${Math.round(r.bottom)}, viewport ${window.innerHeight})`, r.top >= 0 && r.bottom <= window.innerHeight); }
+  { const r = go.getBoundingClientRect(); ok('FIX2 Confirm fully in view after a pick (top ' + Math.round(r.top) + ', bottom ' + Math.round(r.bottom) + ', viewport ' + window.innerHeight + ')', r.top >= 0 && r.bottom <= window.innerHeight); }
   window.shot1 = true;
   if (stop === 'picked') return log;
   go.click(); await wait(250);
