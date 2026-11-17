@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { MAX_PAGE, mount, shortRef } from './releases.js';
+import { MAX_PAGE, dayLabel, mount, shortRef } from './releases.js';
 
 const rel = (/** @type {number} */ i) => ({
   id: 'p:' + i,
@@ -70,6 +70,14 @@ describe('v3 releases view', () => {
     expect(el.querySelectorAll('.rl3-task').length).toBe(1);
     h.unmount();
     expect(el.querySelector('.rl3')).toBeNull();
+  });
+
+  test('list row date is relative today, a day name otherwise', () => {
+    expect(dayLabel(Date.now() - 15 * 60000)).toMatch(/15/);
+    expect(dayLabel(Date.now() - 15 * 60000)).not.toMatch(
+      /(November|Nov|نوفمبر)/
+    );
+    expect(dayLabel(Date.now() - 3 * 86400000)).toMatch(/[0-9٠-٩]/);
   });
 
   test('shortRef cuts hashes, keeps versions', () => {

@@ -185,7 +185,7 @@ describe('new task dialog', () => {
     await tick();
   };
 
-  test('requires title, parent and assignee (text errors, no call)', async () => {
+  test('requires title and parent (text errors, no call)', async () => {
     const { send } = open({});
     await submit();
     expect(document.querySelector('.u3-ed__err').textContent).toMatch(/Title/);
@@ -197,12 +197,19 @@ describe('new task dialog', () => {
     expect(document.querySelector('.u3-ed__err').textContent).toMatch(
       /No task with that id/
     );
-    val('#u3-nt-parent', 'p-0');
-    await submit();
-    expect(document.querySelector('.u3-ed__err').textContent).toMatch(
-      /assignee/
-    );
     expect(send).not.toHaveBeenCalled();
+  });
+
+  test('Unassigned is allowed on create: no assignee sent', async () => {
+    const { send } = open({ created: true, id: 'p-9' }, { parent: 'p-0' });
+    val('#u3-nt-title', 'No owner');
+    val('#u3-nt-asg', '');
+    await submit();
+    expect(send).toHaveBeenCalledWith(
+      'create-issue',
+      expect.not.objectContaining({ assignee: expect.anything() })
+    );
+    expect(send).not.toHaveBeenCalledWith('update-assignee', expect.anything());
   });
 
   test('sends create-issue with parent, type, assignee, priority', async () => {

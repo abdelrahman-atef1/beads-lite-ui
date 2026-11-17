@@ -1,13 +1,16 @@
 import { describe, expect, test, vi } from 'vitest';
 import { strings } from '../i18n/report.js';
 import {
+  OTHER_VERSION,
   buildFrame,
   createQueue,
   downscaleSize,
+  fetchVersions,
   flushQueue,
   projectKey,
   submitReport,
-  validVersion
+  validVersion,
+  versionChoice
 } from './report.js';
 
 describe('report client', () => {
@@ -27,6 +30,31 @@ describe('report client', () => {
     expect(meta).toEqual({ project: 'p', text: 'x', version: '1' });
     expect([...f.slice(4 + n)]).toEqual([9, 8]);
     expect(f.length).toBe(4 + n + 2);
+  });
+
+  test('dropdown choice: released, other, or the newest', () => {
+    expect(versionChoice(['1.2', '1.1'], '1.1')).toBe('1.1');
+    expect(versionChoice(['1.2', '1.1'], '0.9')).toBe(OTHER_VERSION);
+    expect(versionChoice(['1.2', '1.1'], '')).toBe('1.2');
+    expect(versionChoice([], '')).toBe(OTHER_VERSION);
+  });
+
+  test('fetchVersions reads the list and never throws', async () => {
+    const ok = async () => ({
+      ok: true,
+      json: async () => ({
+        versions: [{ v: '1.2' }, { v: '<b>' }, { v: 'build 5' }]
+      })
+    });
+    expect(await fetchVersions('p', /** @type {any} */ (ok))).toEqual([
+      '1.2',
+      'build 5'
+    ]);
+    const boom = async () => {
+      throw new Error('offline');
+    };
+    expect(await fetchVersions('p', /** @type {any} */ (boom))).toEqual([]);
+    expect(await fetchVersions('', /** @type {any} */ (ok))).toEqual([]);
   });
 
   test('version rules match the server', () => {

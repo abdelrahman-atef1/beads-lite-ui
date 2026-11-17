@@ -19,6 +19,7 @@ import {
   matchesFilter
 } from '../../utils/board-filter.js';
 import { getLang } from '../../utils/i18n.js';
+import { relIfToday } from '../card/common.js';
 import { chip } from '../components/chip.js';
 import { listRow } from '../components/list-row.js';
 import { allIssues } from '../data/all.js';
@@ -271,7 +272,9 @@ export function mount(el, ctx) {
                     label: projectLabel(projectOf(it.id)),
                     tone: 'neutral'
                   })}`,
-                  end: fmt.format(Number(it.updated_at))
+                  end: relIfToday(Number(it.updated_at), getLang(), () =>
+                    fmt.format(Number(it.updated_at))
+                  )
                 })
               )}
             </div>
