@@ -42,7 +42,7 @@ function setup(hash, search = '') {
 }
 
 describe('v3 boot', () => {
-  test('deep link to a bead of another project switches the workspace and reloads, never sits on loading (59.23)', async () => {
+  test('deep link to a bead of another project switches the workspace in place (no page reload) and shows the task (59.23)', async () => {
     replies['list-workspaces'] = {
       workspaces: [
         { path: 'E:/p/beads-lite', prefix: 'beads-lite' },
@@ -59,10 +59,11 @@ describe('v3 boot', () => {
     const reload = (gate.reload = vi.fn());
     const root = setup('#/issues?issue=rayeh-3.1');
     void bootstrap(root).ready;
-    await vi.waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-view="task"]')).not.toBeNull()
+    );
     expect(sent).toContain('set-workspace');
-    // the task screen never mounted against the wrong project
-    expect(document.querySelector('[data-view="task"]')).toBeNull();
+    expect(reload).not.toHaveBeenCalled();
     delete replies['list-workspaces'];
     delete replies['set-workspace'];
     document.getElementById('u3')?.remove();

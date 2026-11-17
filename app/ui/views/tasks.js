@@ -225,20 +225,14 @@ export function mount(el, ctx) {
    * A task of another project opens in that project's workspace (its detail
    * is read there): switch like the Projects screen, then show the task.
    */
-  async function openInWorkspace(
-    /** @type {string} */ path,
+  function openInWorkspace(
+    /** @type {string} */ _path,
     /** @type {string} */ id
   ) {
-    try {
-      const r = await ctx.client.send('set-workspace', { path });
-      if (r && r.workspace) {
-        window.localStorage.setItem('beads-ui.workspace', path);
-        window.location.hash = '#/issues?issue=' + encodeURIComponent(id);
-        if (r.changed) window.location.reload();
-      }
-    } catch {
-      // stays on this project
-    }
+    // The router switches the project in place before the task mounts
+    // (workspace-gate.js): no switch and no page reload here.
+    window.location.hash = '#/issues?issue=' + encodeURIComponent(id);
+    return Promise.resolve();
   }
 
   function refresh() {

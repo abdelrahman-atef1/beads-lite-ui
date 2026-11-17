@@ -127,3 +127,38 @@ describe('moved ids (59.24)', () => {
     spy.mockRestore();
   });
 });
+
+describe('switch without a page reload (beads-lite-1bo5.13.31)', () => {
+  test('lists are re-subscribed in place and the task mounts: no reload', async () => {
+    const c = client({ 'list-workspaces': LIST, 'set-workspace': SWITCHED });
+    const resubscribeAll = vi.fn(async () => {});
+    const setState = vi.fn();
+    const base = {
+      client: c,
+      subscriptions: { resubscribeAll },
+      store: { setState }
+    };
+    expect(await switchForIssue(base, 'rayeh-1.2')).toBe(false);
+    expect(resubscribeAll).toHaveBeenCalledTimes(1);
+    expect(setState).toHaveBeenCalledWith({
+      workspace: { current: { path: 'E:/p/rayeh', database: undefined } }
+    });
+    expect(window.localStorage.getItem('beads-ui.workspace')).toBe(
+      'E:/p/rayeh'
+    );
+    expect(reload).not.toHaveBeenCalled();
+  });
+  test('if re-subscribing fails the old reload still runs', async () => {
+    const c = client({ 'list-workspaces': LIST, 'set-workspace': SWITCHED });
+    const base = {
+      client: c,
+      subscriptions: {
+        resubscribeAll: async () => {
+          throw new Error('x');
+        }
+      }
+    };
+    expect(await switchForIssue(base, 'rayeh-1')).toBe(true);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});

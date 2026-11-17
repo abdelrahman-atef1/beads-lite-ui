@@ -100,6 +100,38 @@ export function createSubscriptionStore(send) {
     }
   }
 
+  /** Specs of the subscriptions the client holds now, to ask the server again. @type {Map<string, SubscriptionSpec>} */
+  const active = new Map();
+
+  /**
+   * Ask the server again for every list this client holds. The server drops
+   * all of a connection's subscriptions on set-workspace; the snapshots that
+   * answer refill the stores in place, so no page reload is needed
+   * (beads-lite-1bo5.13.31). Failures of one list never stop the others.
+   *
+   * @returns {Promise<void>}
+   */
+  async function resubscribeAll() {
+    await Promise.all(
+      [...active].map(async ([client_id, spec]) => {
+        try {
+          for (let tries = 0; tries < 3; tries++) {
+            const reply = /** @type {any} */ (
+              await send('subscribe-list', {
+                id: client_id,
+                type: spec.type,
+                params: spec.params
+              })
+            );
+            if (!reply || !reply.stale) break;
+          }
+        } catch {
+          // that list stays as it was; the screen shows its normal states
+        }
+      })
+    );
+  }
+
   /**
    * Subscribe to a list spec with a client-provided id.
    * Returns an unsubscribe function.
@@ -111,6 +143,7 @@ export function createSubscriptionStore(send) {
    */
   async function subscribeList(client_id, spec) {
     const key = subKeyOf(spec);
+    active.set(client_id, spec);
     log('subscribe %s key=%s', client_id, key);
     // Initialize local entry immediately to capture early deltas
     if (!subs_by_id.has(client_id)) {
@@ -164,6 +197,7 @@ export function createSubscriptionStore(send) {
         }
       }
       subs_by_id.delete(client_id);
+      active.delete(client_id);
       throw err;
     }
 
@@ -186,6 +220,7 @@ export function createSubscriptionStore(send) {
         }
       }
       subs_by_id.delete(client_id);
+      active.delete(client_id);
     };
     // Projects an "All projects" list could not read (a note for the screen).
     return Object.assign(unsubscribe, {
@@ -256,6 +291,7 @@ export function createSubscriptionStore(send) {
 
   return {
     subscribeList,
+    resubscribeAll,
     // test/diagnostics helpers
     _applyDelta: applyDelta,
     _subKeyOf: subKeyOf,

@@ -5,9 +5,9 @@
  * so a link to a bead of another project sat on "loading" (the legacy board
  * holds the detail until the workspace is right). Before the task screen
  * mounts, this asks the server for the workspace list, and if the id belongs
- * to another one, switches and reloads, exactly as the Projects screen does
- * (same `set-workspace` call, same saved key). The hash survives the reload,
- * so the link opens on the second load. It never throws: any failure lets the
+ * to another one, switches and re-subscribes the lists in place (no reload),
+ * with the old reload only as a fallback (same `set-workspace` call, same
+ * saved key). It never throws: any failure lets the
  * task screen mount, which then shows its normal states.
  */
 import { resolveIssueWorkspace } from '../issue-workspace.js';
@@ -27,7 +27,7 @@ export function resetGate() {
 }
 
 /**
- * @param {{ client: any }} base
+ * @param {{ client: any, subscriptions?: any, store?: any }} base
  * @param {string} id
  * @returns {Promise<boolean>} true when the page is reloading into the right project
  */
@@ -46,6 +46,30 @@ export async function switchForIssue(base, id) {
     const out = await base.client.send('set-workspace', { path: r.path });
     if (!out || !out.workspace) return false;
     window.localStorage.setItem(WS_KEY, r.path);
+    // No page reload: the server dropped this connection's list subscriptions
+    // on the switch, so ask for them again; the stores refill in place and the
+    // task screen mounts at once (beads-lite-1bo5.13.31).
+    if (
+      base.subscriptions &&
+      typeof base.subscriptions.resubscribeAll === 'function'
+    ) {
+      try {
+        if (base.store && typeof base.store.setState === 'function') {
+          base.store.setState({
+            workspace: {
+              current: {
+                path: out.workspace.root_dir,
+                database: out.workspace.db_path
+              }
+            }
+          });
+        }
+        await base.subscriptions.resubscribeAll();
+        return false;
+      } catch {
+        // fall through to the reload below
+      }
+    }
     // Reload even when the server says "unchanged": the main script's own
     // load-time switch may have got there first and then cleared this page's
     // subscriptions, which is what left the screen on loading. One reload per

@@ -96,3 +96,29 @@ describe('client subscription store', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('resubscribeAll (beads-lite-1bo5.13.31)', () => {
+  test('sends every held spec again, and not the unsubscribed ones', async () => {
+    const sent = /** @type {any[]} */ ([]);
+    const store = createSubscriptionStore(
+      async (/** @type {string} */ t, /** @type {any} */ p) => {
+        sent.push([t, p]);
+        return {};
+      }
+    );
+    await store.subscribeList('a', {
+      type: 'all-issues',
+      params: { scope: 'all' }
+    });
+    const off = await store.subscribeList('b', { type: 'blocked-issues' });
+    await off();
+    sent.length = 0;
+    await store.resubscribeAll();
+    expect(sent).toEqual([
+      [
+        'subscribe-list',
+        { id: 'a', type: 'all-issues', params: { scope: 'all' } }
+      ]
+    ]);
+  });
+});
