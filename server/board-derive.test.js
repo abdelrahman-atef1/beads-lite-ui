@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import { createBoardData } from './board-data.js';
-import { buildIndex, deriveItems, isStalled } from './board-derive.js';
+import {
+  buildIndex,
+  deriveItems,
+  dropContainerBlockers,
+  isStalled
+} from './board-derive.js';
 
 const NOW = Date.parse('2026-10-28T12:00:00Z');
 const H = 3_600_000;
@@ -82,5 +87,38 @@ describe('board-derive', () => {
       ['a', true, 2],
       ['b', false, 0]
     ]);
+  });
+});
+
+describe('dropContainerBlockers: a parent is a container, not a blocker (beads-lite-1bo5.13.30)', () => {
+  const open = [
+    { id: 'p-1', title: 'Epic' },
+    { id: 'p-1.1', title: 'Child', parent: 'p-1' },
+    { id: 'p-1.2', title: 'Child with a real blocker', parent: 'p-1' },
+    { id: 'p-9', title: 'Real blocker' },
+    { id: 'p-1.3', title: 'Moved child', parent: 'p-1' }
+  ];
+  test('a child of an open epic with no other dependency is not blocked', () => {
+    const out = dropContainerBlockers(
+      [{ id: 'p-1.1', blocked_by: ['p-1'], blocked_by_count: 1 }],
+      open
+    );
+    expect(out).toEqual([]);
+  });
+  test('a task with a real blocker stays, and only the real blocker is named', () => {
+    const out = dropContainerBlockers(
+      [{ id: 'p-1.2', blocked_by: ['p-1', 'p-9'], blocked_by_count: 2 }],
+      open
+    );
+    expect(out).toEqual([
+      { id: 'p-1.2', blocked_by: ['p-9'], blocked_by_count: 1 }
+    ]);
+  });
+  test('the dotted id counts as parent when the parent field is missing', () => {
+    const out = dropContainerBlockers(
+      [{ id: 'p-1.5', blocked_by: ['p-1'] }],
+      []
+    );
+    expect(out).toEqual([]);
   });
 });

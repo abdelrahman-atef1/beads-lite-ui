@@ -1,5 +1,10 @@
 import { runBdJson } from './bd.js';
-import { buildIndex, deriveItems, stallHours } from './board-derive.js';
+import {
+  buildIndex,
+  deriveItems,
+  dropContainerBlockers,
+  stallHours
+} from './board-derive.js';
 import { debug } from './logging.js';
 
 const log = debug('board-data');
@@ -131,6 +136,14 @@ async function loadSnapshot(cwd, priority, first_paint) {
     first_paint ? LAZY : runPart(partArgs('closed'), cwd, priority),
     first_paint ? LAZY : runPart(partArgs('ready'), cwd, priority)
   ]);
+  if (
+    open.ok &&
+    blocked.ok &&
+    Array.isArray(open.value) &&
+    Array.isArray(blocked.value)
+  ) {
+    blocked.value = dropContainerBlockers(blocked.value, open.value);
+  }
   return { open, closed, ready, blocked };
 }
 

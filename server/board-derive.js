@@ -88,3 +88,40 @@ export function deriveItems(items, index, now, hours) {
     };
   });
 }
+
+/**
+ * bd's blocked list also holds a child back while its parent is open. A parent
+ * (epic/story) is only the container, so such a link is not a blocker: drop it,
+ * and drop the item when nothing else blocks it (beads-lite-1bo5.13.30). The
+ * parent is the `parent` field of the open list, else the dotted-id prefix.
+ *
+ * @param {any[]} blocked - `bd blocked` items (carry `blocked_by` ids)
+ * @param {any[]} open - `bd list` items
+ * @returns {any[]}
+ */
+export function dropContainerBlockers(blocked, open) {
+  const parent_of = new Map();
+  for (const it of open || []) {
+    if (it && it.id && it.parent)
+      parent_of.set(String(it.id), String(it.parent));
+  }
+  const out = [];
+  for (const b of blocked || []) {
+    const id = String(b?.id || '');
+    const ids = Array.isArray(b?.blocked_by) ? b.blocked_by.map(String) : null;
+    if (!id || !ids) {
+      out.push(b);
+      continue;
+    }
+    const dot = id.lastIndexOf('.');
+    const parent = parent_of.get(id) || (dot > 0 ? id.slice(0, dot) : '');
+    const real = ids.filter((x) => x !== parent);
+    if (!real.length) continue;
+    out.push(
+      real.length === ids.length
+        ? b
+        : { ...b, blocked_by: real, blocked_by_count: real.length }
+    );
+  }
+  return out;
+}

@@ -371,15 +371,7 @@ export function mount(el, ctx) {
     const deps = Array.isArray(i.dependencies) ? i.dependencies : [];
     const open = deps.filter(
       (/** @type {any} */ d) =>
-        (d.dependency_type === 'blocks' ||
-          d.dependency_type === 'parent-child') &&
-        d.status !== 'closed'
-    );
-    // bd also holds a child back while its parent is open: list real blockers first.
-    open.sort(
-      (/** @type {any} */ a, /** @type {any} */ b) =>
-        Number(a.dependency_type !== 'blocks') -
-        Number(b.dependency_type !== 'blocks')
+        d.dependency_type === 'blocks' && d.status !== 'closed'
     );
     if (!open.length && i.status !== 'blocked') return nothing;
     return html`<section class="u3-ts__sec u3-ts__blockers" data-blockers>
