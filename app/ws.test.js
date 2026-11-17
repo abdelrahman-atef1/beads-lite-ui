@@ -235,5 +235,30 @@ describe('app/ws client', () => {
     client.close();
   });
 
+  test('the token is fetched inside each retry, right before connecting', async () => {
+    const sockets = setupFakeWebSocket();
+    document.head.innerHTML = '<meta name="board-token" content="old">';
+    let fail = true;
+    const fetchMock = vi.fn(async () => {
+      if (fail) throw new Error('server down');
+      return { text: async () => '<meta name="board-token" content="new" />' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createWsClient();
+    sockets[0].openNow();
+    sockets[0].close(); // restart: server down for the first retries
+    await new Promise((r) => setTimeout(r, 300));
+    // retry 1 ran: its fetch failed, the socket was still tried (and fails)
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sockets.length).toBe(2);
+    expect(sockets[1].url).toContain('t=old');
+    fail = false; // server is back
+    sockets[1].close();
+    await new Promise((r) => setTimeout(r, 700));
+    expect(sockets.length).toBe(3);
+    expect(sockets[2].url).toContain('t=new');
+    client.close();
+  });
+
   // Removed: subscription ack frames; no warnings to test
 });

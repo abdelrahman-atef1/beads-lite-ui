@@ -39,7 +39,7 @@ export function createWsClient(options = {}) {
   /** @type {BackoffOptions} */
   const backoff = {
     initialMs: options.backoff?.initialMs ?? 1000,
-    maxMs: options.backoff?.maxMs ?? 5000,
+    maxMs: options.backoff?.maxMs ?? 1500,
     factor: options.backoff?.factor ?? 2,
     jitterRatio: options.backoff?.jitterRatio ?? 0.2
   };
@@ -114,7 +114,7 @@ export function createWsClient(options = {}) {
         Math.pow(
           backoff.factor || 1,
           // the quick retries do not count toward the backoff
-          Math.max(0, attempts - FAST_MS.length)
+          Math.max(0, attempts - FAST_MS.length - 1)
         )
     );
     const jitter = (backoff.jitterRatio || 0) * base;
@@ -128,8 +128,13 @@ export function createWsClient(options = {}) {
         : Math.max(0, Math.round(base + (Math.random() * 2 - 1) * jitter));
     log('ws retry in %d ms (attempt %d)', delay, attempts + 1);
     reconnect_timer = setTimeout(() => {
-      reconnect_timer = null;
-      connect();
+      // take the token now, not at close time: a restart changes it, and
+      // while the server was down there was none to take. A failed fetch
+      // just means this attempt fails and the next one runs on schedule.
+      void refreshToken().finally(() => {
+        reconnect_timer = null;
+        connect();
+      });
     }, delay);
   }
 
@@ -209,7 +214,10 @@ export function createWsClient(options = {}) {
       return;
     }
     try {
-      const res = await fetch('/', { cache: 'no-store' });
+      const res = await fetch('/', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(700)
+      });
       const m = (await res.text()).match(
         /<meta[^>]*name="board-token"[^>]*content="([^"]*)"/
       );
@@ -233,14 +241,8 @@ export function createWsClient(options = {}) {
       pending.delete(id);
     }
     attempts += 1;
-    if (never_opened || attempts <= FAST_MS.length) {
-      // a restart changes the page token: take the new one before retrying
-      // a first connect refused for a stale token retries at once
-      const first = never_opened && attempts === 1;
-      void refreshToken().finally(() => scheduleReconnect(first));
-    } else {
-      scheduleReconnect();
-    }
+    // a first connect refused for a stale token retries at once
+    scheduleReconnect(never_opened && attempts === 1);
   }
 
   function connect() {
