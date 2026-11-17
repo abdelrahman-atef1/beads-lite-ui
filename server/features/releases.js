@@ -196,6 +196,54 @@ async function pool(items, n, fn) {
   await Promise.all(workers);
 }
 
+// A provider console is a dashboard for us, never somewhere the owner opens a
+// version (beads-lite-1bo5.13.26).
+const CONSOLE_HOST =
+  /^(console|dash|dashboard)\.|(^|\.)console\.(aws\.amazon|cloud\.google|firebase\.google)\.com$|^(dash\.cloudflare|vercel|supabase)\.com$/i;
+// back-end changes: rules, workers, APIs, functions, database
+const SERVER_LABEL =
+  /\b(rules?|workers?|api|backend|back-end|server|functions?|firestore|database|db|migrations?|cron|index(es)?)\b/i;
+
+/**
+ * True when a link is a provider page, not somewhere to open or install a
+ * version: a console host, or the bare App Distribution address (an install
+ * link has a path). Applies to builds too (beads-lite-1bo5.13.24.1).
+ *
+ * @param {string | null} href
+ */
+export function isProviderPage(href) {
+  if (!href) return false;
+  try {
+    const u = new URL(href);
+    if (CONSOLE_HOST.test(u.hostname)) return true;
+    return (
+      u.hostname.toLowerCase() === 'appdistribution.firebase.google.com' &&
+      u.pathname.replace(/\/+$/, '') === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True for a record that is a server-side change, not a version the owner can
+ * open or install. A build is always a version.
+ *
+ * @param {string} kind
+ * @param {string} label
+ * @param {string | null} href
+ */
+export function isServerDeploy(kind, label, href) {
+  if (kind === 'build') return false;
+  if (SERVER_LABEL.test(label)) return true;
+  if (!href) return false;
+  try {
+    return CONSOLE_HOST.test(new URL(href).hostname);
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Release records of one parsed export, newest first. Pure.
  *
@@ -213,16 +261,20 @@ export function releasesOf(snap, validator, proj) {
     list.forEach((c, i) => {
       const rec = validator.parseOutputComment(String(c?.text ?? ''));
       if (!rec || !KINDS.has(rec.kind)) return;
+      const label = clean(rec.label, 80);
+      const url = rec.refType === 'url' ? rec.ref : null;
+      const server = isServerDeploy(rec.kind, label, url);
       out.push({
         id: `${bead}~${clean(c.id || i, 40)}`,
         project: proj.key,
         name: proj.name,
         bead,
         kind: rec.kind,
-        label: clean(rec.label, 80),
+        label,
+        server,
         commit: rec.commit || null,
         ref_type: rec.refType,
-        href: rec.refType === 'url' ? rec.ref : null,
+        href: server || isProviderPage(url) ? null : url,
         path: rec.refType === 'path' ? clean(rec.ref, 200) : null,
         by: clean(c.author, 40),
         at: Date.parse(c.created_at) || 0,

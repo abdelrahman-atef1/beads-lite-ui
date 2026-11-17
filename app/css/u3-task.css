@@ -302,15 +302,15 @@ html[dir='rtl'] .u3 .u3-ts__back {
   outline: 2px solid var(--u3-blue);
   outline-offset: 2px;
   border-radius: var(--u3-radius-s);
-  animation: u3-ts-hit 2.4s ease-out;
+  animation: u3-ts-hit 2.4s ease-out forwards;
 }
-/* the colour only flashes, then fades away; the border stays */
+/* border only: the outline colour fades away, the background never changes */
 @keyframes u3-ts-hit {
   from {
-    background: var(--u3-blue-soft);
+    outline-color: var(--u3-blue);
   }
   to {
-    background: transparent;
+    outline-color: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {

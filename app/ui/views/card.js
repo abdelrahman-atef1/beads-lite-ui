@@ -14,6 +14,7 @@ import { cardDir, cardLang, detectLang } from '../../utils/card-dir.js';
 import { errorText } from '../../utils/card-text.js';
 import { showToast } from '../../utils/toast.js';
 import { ageText, clientOf, stepsHref, taskHref, tc } from '../card/common.js';
+import { currentQ, isMulti, multiBody, qstate } from '../card/multi.js';
 import { renderStepsComment } from '../card/steps.js';
 import { button } from '../components/button.js';
 import { card as frame } from '../components/card.js';
@@ -47,6 +48,9 @@ const NOTE_OPT =
  * @property {string} error
  * @property {string} wake  wake result of the last write here
  * @property {string} failed
+ * @property {Record<number, any>} [qs]  per-question state of a multi card
+ * @property {number} [askq]  question the ask form is open for (0 = none)
+ * @property {number} [pulse]  question whose border pulses once
  */
 /** @type {WeakMap<HTMLElement, Panel>} */
 const panels = new WeakMap();
@@ -122,18 +126,22 @@ async function load(el, p) {
  * @param {Panel} p
  * @param {'card-answer'|'card-ask'} type
  * @param {Record<string, unknown>} payload
+ * @param {number} [qn] question of a multi card this write is for
  */
-async function write(el, p, type, payload) {
+async function write(el, p, type, payload, qn = 0) {
   if (p.busy) return;
   p.busy = true;
   p.error = '';
+  if (qn) qstate(p, qn).error = '';
   paint(el, p);
   const lang = langOf(p);
+  let nextPulse = false;
   // The socket queues a send while offline and delivers once on reconnect (no
   // loss), so nothing fails for a long time: say so after 3 s, keep the pick.
   const slow = setTimeout(() => {
     if (!p.busy) return;
-    p.error = tc('u3_card_offline', lang);
+    if (qn) qstate(p, qn).error = tc('u3_card_offline', lang);
+    else p.error = tc('u3_card_offline', lang);
     paint(el, p);
   }, WAIT_MS);
   try {
@@ -143,8 +151,19 @@ async function write(el, p, type, payload) {
     if (type === 'card-answer') {
       p.pick = null;
       p.typed = '';
+      if (qn) {
+        qstate(p, qn);
+        /** @type {any} */ (p.qs)[qn] = {
+          pick: null,
+          typed: '',
+          error: '',
+          stale: false
+        };
+        nextPulse = true;
+      }
     } else {
       p.asking = false;
+      p.askq = 0;
       p.question = '';
       p.quote = '';
       p.scope = 'question';
@@ -156,13 +175,37 @@ async function write(el, p, type, payload) {
     );
   } catch (err) {
     const code = String(/** @type {any} */ (err)?.message || '');
-    p.error = errorText(code);
+    if (qn) {
+      const st = qstate(p, qn);
+      if (code === 'changed') {
+        st.stale = true;
+        st.pick = null;
+        st.error = '';
+      } else st.error = tc('u3_card_err_keep', lang);
+    } else p.error = errorText(code);
     if (code === 'changed') p.pick = null;
   } finally {
     clearTimeout(slow);
     p.busy = false;
   }
   await load(el, p);
+  if (nextPulse) focusNext(el, p);
+}
+
+/** After an answer: the next open question scrolls in and its border pulses once. */
+function focusNext(/** @type {HTMLElement} */ el, /** @type {Panel} */ p) {
+  const n = p.data ? currentQ(p.data) : 0;
+  if (!n) return;
+  p.pulse = n;
+  paint(el, p);
+  const b = el.querySelector(`[data-q="${n}"]`);
+  if (b && typeof b.scrollIntoView === 'function') {
+    b.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  setTimeout(() => {
+    p.pulse = 0;
+    b?.classList.remove('u3-cq--pulse');
+  }, 1600);
 }
 
 /**
@@ -213,6 +256,14 @@ function headRow(p, lang) {
       ? chip({ label: projectLabel(it.project.name), tone: 'neutral' })
       : nothing}
     <span class="u3-cd__id u3-mono" dir="ltr">${it.id}</span>
+    ${isMulti(p.data) || Number(it.questions) > 1
+      ? chip({
+          label: tc('u3_card_nq', lang, {
+            n: isMulti(p.data) ? p.data.total : Number(it.questions)
+          }),
+          tone: 'neutral'
+        })
+      : nothing}
     <span class="u3-cd__age">${ageText(it.updated_at, lang, p.ctx.now)}</span>
   </div>`;
 }
@@ -279,14 +330,54 @@ function paint(el, p) {
     render(html`<p class="u3-cd__err" role="alert">${p.failed}</p>`, el);
     return;
   }
+  const multi = !use_fb && isMulti(d);
   const foot = html`<div class="u3-cd__foot">
-    ${state === 'waiting' && d && !use_fb && !p.asking
+    ${state === 'waiting' && d && !use_fb && !p.asking && !multi
       ? askArea(el, p, d, lang)
       : nothing}
     <a class="u3-cd__link" href=${taskHref(p.item.id)}
       >${tc('u3_card_open_task', lang)}</a
     >
   </div>`;
+  if (multi) {
+    render(
+      html`<div class="u3-cd u3-cd--multi" data-state=${state} lang=${lang}>
+        ${frame({
+          accent: state === 'answered' ? 'none' : 'amber',
+          label: tc('u3_card_decision', lang),
+          head: headRow(p, lang),
+          body: html`${multiBody({
+            el,
+            p,
+            d,
+            lang,
+            now: p.ctx.now,
+            field,
+            write,
+            paint,
+            askForm,
+            roundsLeft
+          })}
+          ${state === 'asked'
+            ? html`<p class="u3-cd__note" data-asked>
+                ${tc('u3_card_waiting', lang)}
+              </p>`
+            : nothing}
+          ${d?.thread?.length ? threadView(d.thread, lang) : nothing}
+          ${p.error
+            ? html`<p class="u3-cd__err" role="alert">${p.error}</p>`
+            : nothing}`,
+          foot: html`<div class="u3-cd__foot">
+            <a class="u3-cd__link" href=${taskHref(p.item.id)}
+              >${tc('u3_card_open_task', lang)}</a
+            >
+          </div>`
+        })}
+      </div>`,
+      el
+    );
+    return;
+  }
   const body = html`${cc
     ? cardBody(cc, lang)
     : html`<p class="u3-cd__q" dir="auto">${p.item.title}</p>`}
@@ -501,8 +592,8 @@ function askArea(el, p, d, lang) {
   </button>`;
 }
 
-/** @param {HTMLElement} el @param {Panel} p @param {any} d @param {string} lang */
-function askForm(el, p, d, lang) {
+/** @param {HTMLElement} el @param {Panel} p @param {any} d @param {string} lang @param {any} [q] question of a multi card */
+function askForm(el, p, d, lang, q) {
   const max = d.max_rounds || 3;
   const left = roundsLeft(d);
   const isPart = p.scope === 'part';
@@ -518,7 +609,10 @@ function askForm(el, p, d, lang) {
         return;
       }
       /** @type {Record<string, unknown>} */
-      const body = { scope: p.scope, question };
+      const body = {
+        scope: q ? `q${q.n}:${p.scope}` : p.scope,
+        question
+      };
       if (isPart) body.quote = p.quote.trim();
       void write(el, p, 'card-ask', body);
     }}
@@ -543,7 +637,7 @@ function askForm(el, p, d, lang) {
         <option value="part" ?selected=${isPart}>
           ${tc('u3_card_scope_part', lang)}
         </option>
-        ${d.card.opts.map(
+        ${(q ? q.opts : d.card.opts).map(
           (/** @type {any} */ o) =>
             html`<option
               value=${'option:' + o.n}
@@ -594,6 +688,7 @@ function askForm(el, p, d, lang) {
         ?disabled=${p.busy}
         @click=${() => {
           p.asking = false;
+          p.askq = 0;
           paint(el, p);
         }}
       >

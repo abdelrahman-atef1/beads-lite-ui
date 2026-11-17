@@ -301,6 +301,8 @@ export function mount(el, ctx) {
     feed = snap.items;
     bad = Array.isArray(snap.unanswerable) ? snap.unanswerable : [];
     failed = false;
+    // the Project menu is built from these cards, so the bar repaints too
+    bar.paint();
     paintFeed();
   }
   async function fetchFeed() {
