@@ -413,6 +413,88 @@ ${r.stdout}`)
   return r;
 }
 
+export const INBOX_TITLE = 'Owner reports from the board (inbox)';
+/** @type {Map<string, Promise<string>>} store path -> inbox epic id */
+const inboxCache = new Map();
+
+/**
+ * The inbox epic of a store with no configured route: the open epic titled
+ * INBOX_TITLE, created once (assigned to cos) when missing, then reused. Every
+ * owner report has a parent (company-8ce8.17.5). Resolves '' when the store
+ * cannot be read, so the caller refuses the report instead of filing an orphan.
+ *
+ * @param {string} root store path
+ * @returns {Promise<string>}
+ */
+export function inboxParent(root) {
+  let p = inboxCache.get(root);
+  if (!p) {
+    p = findOrCreateInbox(root).then((id) => {
+      if (!id) inboxCache.delete(root);
+      return id;
+    });
+    inboxCache.set(root, p);
+  }
+  return p;
+}
+
+/** Test hook: forget remembered inbox epics. */
+export function resetInboxCache() {
+  inboxCache.clear();
+}
+
+/** @param {string} root */
+async function findOrCreateInbox(root) {
+  const found = await runBd(
+    [
+      'list',
+      '--type',
+      'epic',
+      '--title',
+      INBOX_TITLE,
+      '--status',
+      'open,in_progress',
+      '--json',
+      '--limit',
+      '0'
+    ],
+    { cwd: root }
+  );
+  if (found.code !== 0) return '';
+  try {
+    const rows = JSON.parse(found.stdout || '[]');
+    const hit = Array.isArray(rows)
+      ? rows.find(
+          (/** @type {any} */ r) => r && r.title === INBOX_TITLE && r.id
+        )
+      : null;
+    if (hit) return String(hit.id);
+  } catch {
+    return '';
+  }
+  const made = await createWithRetry(
+    [
+      'create',
+      INBOX_TITLE,
+      '-t',
+      'epic',
+      '-p',
+      '1',
+      '-l',
+      'owner-inbox',
+      '-a',
+      'cos',
+      '-d',
+      'Standing inbox: every report the owner sends from the board lands here as a child, label owner-report. Never close. (company-8ce8.17.5)',
+      '--actor',
+      'owner-board',
+      '--silent'
+    ],
+    { cwd: root }
+  );
+  return made.code === 0 ? made.stdout.trim().split(/\s+/)[0] : '';
+}
+
 /**
  * @param {import('express').Response} res
  * @param {number} status
@@ -518,6 +600,10 @@ async function fileReport(req, res, host) {
     if (!img) return fail(res, 415, 'bad_image');
   }
 
+  // Every report has a parent: the configured route, else the store's inbox epic.
+  const parent = route ? route.parent : await inboxParent(root);
+  if (!parent) return fail(res, 500, 'not_filed');
+
   // Store the image (content-addressed; remember whether this call created it).
   let rel = '';
   let created = false;
@@ -571,7 +657,8 @@ async function fileReport(req, res, host) {
       desc,
       '--metadata',
       JSON.stringify(metadata),
-      ...(route ? ['--parent', route.parent] : []),
+      '--parent',
+      parent,
       ...(assignee ? ['--assignee', assignee] : []),
       '--actor',
       'owner-board',
