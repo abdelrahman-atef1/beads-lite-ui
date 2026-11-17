@@ -71,9 +71,7 @@ export function qualityChips(q) {
 }
 
 const unknownNote = (/** @type {string} */ key) =>
-  html`<p class="u3-tm__unk">
-    ${chip({ label: t3('u3_tm_unknown') })} ${t3(key)}
-  </p>`;
+  html`<p class="u3-tm__unk">${t3(key)}</p>`;
 
 /** @param {any} tokens */
 function tokensBlock(tokens) {

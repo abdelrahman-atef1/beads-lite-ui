@@ -37,6 +37,7 @@ export const strings = {
   u3_tk_hide: { en: 'Hide', ar: 'إخفاء' },
   u3_tk_more: { en: 'Show more', ar: 'اعرض أكتر' },
   u3_tk_stalled: { en: 'Stalled', ar: 'واقفة' },
+  u3_tk_waits: { en: 'Waiting on {id}', ar: 'مستني {id}' },
   u3_tk_blocked_tag: { en: 'Blocked', ar: 'معطّلة' },
   u3_tk_total: { en: 'Total', ar: 'المجموع' },
   u3_tk_clear: { en: 'Clear filters', ar: 'امسح الفلاتر' },

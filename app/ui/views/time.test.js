@@ -69,7 +69,7 @@ describe('task Time section', () => {
   });
   test('stages that never happened say unknown; tokens without a tie say unknown', () => {
     const t = text(show(fx1));
-    expect(t).toContain('unknown');
+    expect(t).toContain('not recorded');
     expect(t).toContain('No token data recorded for this task yet');
   });
   test('a running bead shows "running" and counts up to now', () => {
@@ -93,11 +93,12 @@ describe('task Time section', () => {
       quality: zeroQ,
       tokens: null
     });
-    expect(text(el)).toContain('unknown');
+    expect(text(el)).toContain('not recorded');
     expect(el.querySelector('.u3-tm__total .u3-tm__num')).toBeNull();
   });
   test('no row for the task: unknown', () => {
-    expect(text(show(null))).toContain('unknown');
+    expect(text(show(null))).toContain('No time has been recorded')
+    expect(text(show(null))).not.toContain('unknown');
   });
   test('no timer, hours field or log-work button', () => {
     expect(show(fx1).querySelector('input, button, [type=number]')).toBeNull();

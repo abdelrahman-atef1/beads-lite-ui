@@ -508,3 +508,30 @@ describe('tasks list: back, race, doubled chips (beads-lite-1bo5.13.31)', () => 
     h.unmount();
   });
 });
+
+describe('blocked card names its blocker (beads-lite-1bo5.13.30)', () => {
+  test('a blocked card says what it waits on', async () => {
+    const { a, h, stores } = setup(60);
+    const all = /** @type {any} */ (stores.getStore('tab:all'));
+    await flush();
+    /** @type {HTMLElement} */ (a.querySelector('.u3t-stat__chip--blocked')).click();
+    await flush();
+    const first = a.querySelector('.u3t-col--blocked .u3t-card');
+    expect(first).not.toBeNull();
+    const id = /** @type {HTMLElement} */ (first).dataset.issueId;
+    all.applyPush({
+      type: 'snapshot',
+      id: 'tab:all',
+      revision: 2,
+      issues: stores.snapshotFor('tab:all').map((/** @type {any} */ it) =>
+        it.id === id
+          ? { ...it, blocked_by_detail: [{ id: 'x-parent', title: 'P' }] }
+          : it
+      )
+    });
+    await flush();
+    const card = a.querySelector(`[data-issue-id="${id}"]`);
+    expect(card?.textContent).toContain('Waiting on x-parent');
+    h.unmount();
+  });
+});

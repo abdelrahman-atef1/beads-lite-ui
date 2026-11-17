@@ -8,10 +8,10 @@ export const strings = {
     en: 'No time data yet. It appears after the flow rollup runs; the board works without it.',
     ar: 'مفيش بيانات وقت لسه. بتظهر بعد ما تتشغل حسبة الوقت؛ اللوحة بتشتغل من غيرها.'
   },
-  u3_tm_unknown: { en: 'unknown', ar: 'غير معروف' },
+  u3_tm_unknown: { en: 'not recorded', ar: 'مش متسجّل' },
   u3_tm_unknown_note: {
-    en: 'This task has no status history, so its time is unknown (not zero).',
-    ar: 'المهمة دي مالهاش سجل حالات، فوقتها غير معروف (مش صفر).'
+    en: 'No time has been recorded for this task yet (it is not zero).',
+    ar: 'مفيش وقت متسجّل للمهمة دي لسه (مش صفر).'
   },
   u3_tm_running: { en: 'running', ar: 'شغّال دلوقتي' },
   u3_tm_stages: { en: 'Time by stage', ar: 'توزيع الوقت حسب المرحلة' },

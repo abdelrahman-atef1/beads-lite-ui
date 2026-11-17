@@ -366,6 +366,15 @@ export function mount(el, ctx) {
       ${secondary
         ? html`<span class="u3t-card__sub" dir="auto">${secondary}</span>`
         : ''}
+      ${blockers.length
+        ? html`<span class="u3t-card__sub u3t-card__waits" dir="auto"
+            >${t3('u3_tk_waits').replace(
+              '{id}',
+              blockers[0].id +
+                (blockers.length > 1 ? ' +' + (blockers.length - 1) : '')
+            )}</span
+          >`
+        : ''}
       <span class="u3t-card__foot">
         <span class="u3t-card__ics"
           >${it.issue_type
